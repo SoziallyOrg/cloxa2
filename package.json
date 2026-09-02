@@ -23,8 +23,11 @@
     "supabase:start": "supabase start",
     "supabase:status": "supabase status",
     "supabase:env": "supabase status --output env",
+    "supabase:lint": "supabase db lint --local --schema public,private --level warning --fail-on warning",
     "supabase:stop": "supabase stop",
     "supabase:reset": "supabase db reset --local",
+    "supabase:types": "node scripts/database-types.mjs --write",
+    "supabase:types:check": "node scripts/database-types.mjs --check",
     "test:db": "supabase test db --local"
   },
   "devDependencies": {

@@ -1,18 +1,19 @@
 # Cloxa
 
-Cloxa is a greenfield, Dutch-language web application for one Flemish organization with
-one worksite and 5–20 employees. This repository currently contains technical foundation
-only: route shells, tooling, Supabase client boundaries, and local configuration. It
-contains no database schema and no working time-registration workflow.
+Cloxa is a Dutch-language web application for one Flemish organization with one worksite
+and 5–20 employees. This repository contains route shells, tooling, Supabase client
+boundaries, and the local tenant-authorization database foundation. It does not yet
+contain authentication forms, invitation acceptance, or a working time-registration
+workflow.
 
 ## Workspace
 
 ```text
 apps/web             Next.js App Router application
 packages/domain      Framework-independent business rules (empty boundary)
-packages/database    Generated database types/helpers (empty boundary)
-supabase/migrations  Database migrations (none yet)
-supabase/tests       pgTAP tests (none yet)
+packages/database    Generated Supabase database types
+supabase/migrations  Versioned local database migrations
+supabase/tests       Transactional pgTAP authorization tests
 ```
 
 ## Requirements
@@ -78,12 +79,49 @@ Useful local commands:
 pnpm supabase:status
 pnpm supabase:reset
 pnpm test:db
+pnpm supabase:lint
+pnpm supabase:types
+pnpm supabase:types:check
 ```
 
-Database reset and pgTAP commands become meaningful after next schema task. Public
-signup is disabled globally and for email in `supabase/config.toml`; app also exposes no
-signup action. Before any future hosted deployment, disable “Allow new users to sign up”
-in hosted Supabase Auth settings too. Local config does not change hosted settings.
+Create every migration through the CLI before editing its generated SQL file:
+
+```bash
+pnpm exec supabase migration new <descriptive_name>
+pnpm exec supabase migration list --local
+```
+
+`pnpm supabase:reset` rebuilds the local database from versioned migrations.
+`pnpm test:db` runs the pgTAP files in `supabase/tests`. `pnpm supabase:lint` checks the
+`public` and `private` schemas and fails on warnings. After a successful reset, run
+`pnpm supabase:types` to regenerate and format the public TypeScript database types.
+`pnpm supabase:types:check` regenerates them in memory and fails when the stored file is
+missing or stale.
+
+Public signup is disabled globally and for email in `supabase/config.toml`; the app also
+exposes no signup action. Before any future hosted deployment, disable “Allow new users
+to sign up” in hosted Supabase Auth settings too. Local config does not change hosted
+settings.
+
+## Authorization model
+
+`public.memberships` is the authoritative source for tenant membership and application
+roles. Policies derive the current identity from `auth.uid()` and do not trust user
+metadata, route names, browser state, or email addresses as proof of authorization.
+Authenticated users can read their own profile and update its `display_name` and
+`locale`. Active employees can read their active membership, organization, and worksite
+but cannot list coworkers. Active managers can read memberships, member profiles,
+invitations, and audit events inside their own organization. Browser roles cannot
+directly manage organizations, worksites, memberships, invitations, or audit events.
+
+Invited and inactive memberships grant no organization-scoped access. Suspension removes
+access to organization-scoped rows, including users' own memberships; users retain
+access to their own profile. Audit events are append-only. Later trusted database
+functions will own sensitive writes and audit insertion. See the complete access matrix
+and schema decisions in [packages/database/README.md](packages/database/README.md).
+
+Secret-key and service-role clients can bypass row-level security. They must remain
+server-only and be limited to controlled operations; never import one into browser code.
 
 ## Quality commands
 
@@ -110,7 +148,7 @@ pnpm exec playwright install chromium
 - No offline mode or service worker. Manifest only.
 - No claim that Cloxa calculates payroll, satisfies Belgian employment rules, or is
   production-ready.
-- No remote Supabase connection, deployment, or real employee data in this foundation.
+- No remote Supabase connection, hosted deployment, or real employee data. Development
+  and tests remain local and synthetic.
 
-Next task: define Supabase schema and row-level security policies, then add pgTAP tests
-for tenant isolation and role permissions.
+Next task: invitation-based authentication and controlled local test-user creation.
