@@ -1,0 +1,483 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-01T22:21:29.612Z",
+  "title": "Design System: Cloxa",
+  "extensions": {
+    "colorMeta": {
+      "background": {
+        "role": "neutral",
+        "displayName": "Daylight Board",
+        "tonalRamp": [
+          "oklch(15% 0.015 90.2)",
+          "oklch(27% 0.015 90.2)",
+          "oklch(39% 0.015 90.2)",
+          "oklch(51% 0.015 90.2)",
+          "oklch(63% 0.015 90.2)",
+          "oklch(75% 0.015 90.2)",
+          "oklch(87% 0.015 90.2)",
+          "oklch(95% 0.015 90.2)"
+        ]
+      },
+      "paper": {
+        "role": "neutral",
+        "displayName": "Traveler Paper",
+        "tonalRamp": [
+          "oklch(15% 0.011 95.2)",
+          "oklch(27% 0.011 95.2)",
+          "oklch(39% 0.011 95.2)",
+          "oklch(51% 0.011 95.2)",
+          "oklch(63% 0.011 95.2)",
+          "oklch(75% 0.011 95.2)",
+          "oklch(87% 0.011 95.2)",
+          "oklch(95% 0.011 95.2)"
+        ]
+      },
+      "paper-strong": {
+        "role": "neutral",
+        "displayName": "Pressed Paper",
+        "tonalRamp": [
+          "oklch(15% 0.015 90.2)",
+          "oklch(27% 0.015 90.2)",
+          "oklch(39% 0.015 90.2)",
+          "oklch(51% 0.015 90.2)",
+          "oklch(63% 0.015 90.2)",
+          "oklch(75% 0.015 90.2)",
+          "oklch(87% 0.015 90.2)",
+          "oklch(95% 0.015 90.2)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Deep Docket Ink",
+        "tonalRamp": [
+          "oklch(15% 0.024 241.4)",
+          "oklch(27% 0.024 241.4)",
+          "oklch(39% 0.024 241.4)",
+          "oklch(51% 0.024 241.4)",
+          "oklch(63% 0.024 241.4)",
+          "oklch(75% 0.024 241.4)",
+          "oklch(87% 0.024 241.4)",
+          "oklch(95% 0.024 241.4)"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Steel Pencil",
+        "tonalRamp": [
+          "oklch(15% 0.022 227.7)",
+          "oklch(27% 0.022 227.7)",
+          "oklch(39% 0.022 227.7)",
+          "oklch(51% 0.022 227.7)",
+          "oklch(63% 0.022 227.7)",
+          "oklch(75% 0.022 227.7)",
+          "oklch(87% 0.022 227.7)",
+          "oklch(95% 0.022 227.7)"
+        ]
+      },
+      "rule": {
+        "role": "neutral",
+        "displayName": "Hairline Rule",
+        "tonalRamp": [
+          "oklch(15% 0.022 88.7)",
+          "oklch(27% 0.022 88.7)",
+          "oklch(39% 0.022 88.7)",
+          "oklch(51% 0.022 88.7)",
+          "oklch(63% 0.022 88.7)",
+          "oklch(75% 0.022 88.7)",
+          "oklch(87% 0.022 88.7)",
+          "oklch(95% 0.022 88.7)"
+        ]
+      },
+      "rule-strong": {
+        "role": "neutral",
+        "displayName": "Inspector Rule",
+        "tonalRamp": [
+          "oklch(15% 0.021 87.5)",
+          "oklch(27% 0.021 87.5)",
+          "oklch(39% 0.021 87.5)",
+          "oklch(51% 0.021 87.5)",
+          "oklch(63% 0.021 87.5)",
+          "oklch(75% 0.021 87.5)",
+          "oklch(87% 0.021 87.5)",
+          "oklch(95% 0.021 87.5)"
+        ]
+      },
+      "primary": {
+        "role": "primary",
+        "displayName": "Worksite Cobalt",
+        "tonalRamp": [
+          "oklch(15% 0.076 235.5)",
+          "oklch(27% 0.076 235.5)",
+          "oklch(39% 0.076 235.5)",
+          "oklch(51% 0.076 235.5)",
+          "oklch(63% 0.076 235.5)",
+          "oklch(75% 0.076 235.5)",
+          "oklch(87% 0.076 235.5)",
+          "oklch(95% 0.076 235.5)"
+        ]
+      },
+      "primary-strong": {
+        "role": "primary",
+        "displayName": "Deep Cobalt",
+        "tonalRamp": [
+          "oklch(15% 0.062 233.7)",
+          "oklch(27% 0.062 233.7)",
+          "oklch(39% 0.062 233.7)",
+          "oklch(51% 0.062 233.7)",
+          "oklch(63% 0.062 233.7)",
+          "oklch(75% 0.062 233.7)",
+          "oklch(87% 0.062 233.7)",
+          "oklch(95% 0.062 233.7)"
+        ]
+      },
+      "primary-soft": {
+        "role": "primary",
+        "displayName": "Pale Cobalt Wash",
+        "tonalRamp": [
+          "oklch(15% 0.017 219.7)",
+          "oklch(27% 0.017 219.7)",
+          "oklch(39% 0.017 219.7)",
+          "oklch(51% 0.017 219.7)",
+          "oklch(63% 0.017 219.7)",
+          "oklch(75% 0.017 219.7)",
+          "oklch(87% 0.017 219.7)",
+          "oklch(95% 0.017 219.7)"
+        ]
+      },
+      "primary-foreground": {
+        "role": "primary",
+        "displayName": "Docket White",
+        "tonalRamp": [
+          "oklch(15% 0.009 93.6)",
+          "oklch(27% 0.009 93.6)",
+          "oklch(39% 0.009 93.6)",
+          "oklch(51% 0.009 93.6)",
+          "oklch(63% 0.009 93.6)",
+          "oklch(75% 0.009 93.6)",
+          "oklch(87% 0.009 93.6)",
+          "oklch(95% 0.009 93.6)"
+        ]
+      },
+      "primary-foreground-muted": {
+        "role": "primary",
+        "displayName": "Mist Cobalt",
+        "tonalRamp": [
+          "oklch(15% 0.018 214.4)",
+          "oklch(27% 0.018 214.4)",
+          "oklch(39% 0.018 214.4)",
+          "oklch(51% 0.018 214.4)",
+          "oklch(63% 0.018 214.4)",
+          "oklch(75% 0.018 214.4)",
+          "oklch(87% 0.018 214.4)",
+          "oklch(95% 0.018 214.4)"
+        ]
+      },
+      "signal": {
+        "role": "secondary",
+        "displayName": "Inspection Amber",
+        "tonalRamp": [
+          "oklch(15% 0.151 68.7)",
+          "oklch(27% 0.151 68.7)",
+          "oklch(39% 0.151 68.7)",
+          "oklch(51% 0.151 68.7)",
+          "oklch(63% 0.151 68.7)",
+          "oklch(75% 0.151 68.7)",
+          "oklch(87% 0.151 68.7)",
+          "oklch(95% 0.151 68.7)"
+        ]
+      },
+      "signal-soft": {
+        "role": "secondary",
+        "displayName": "Carbon-Copy Amber",
+        "tonalRamp": [
+          "oklch(15% 0.057 86.1)",
+          "oklch(27% 0.057 86.1)",
+          "oklch(39% 0.057 86.1)",
+          "oklch(51% 0.057 86.1)",
+          "oklch(63% 0.057 86.1)",
+          "oklch(75% 0.057 86.1)",
+          "oklch(87% 0.057 86.1)",
+          "oklch(95% 0.057 86.1)"
+        ]
+      },
+      "signal-ink": {
+        "role": "secondary",
+        "displayName": "Amber Ink",
+        "tonalRamp": [
+          "oklch(15% 0.083 65.3)",
+          "oklch(27% 0.083 65.3)",
+          "oklch(39% 0.083 65.3)",
+          "oklch(51% 0.083 65.3)",
+          "oklch(63% 0.083 65.3)",
+          "oklch(75% 0.083 65.3)",
+          "oklch(87% 0.083 65.3)",
+          "oklch(95% 0.083 65.3)"
+        ]
+      },
+      "danger": {
+        "role": "tertiary",
+        "displayName": "Correction Red",
+        "tonalRamp": [
+          "oklch(15% 0.136 27.6)",
+          "oklch(27% 0.136 27.6)",
+          "oklch(39% 0.136 27.6)",
+          "oklch(51% 0.136 27.6)",
+          "oklch(63% 0.136 27.6)",
+          "oklch(75% 0.136 27.6)",
+          "oklch(87% 0.136 27.6)",
+          "oklch(95% 0.136 27.6)"
+        ]
+      },
+      "focus": {
+        "role": "primary",
+        "displayName": "Focus Cobalt",
+        "tonalRamp": [
+          "oklch(15% 0.076 235.5)",
+          "oklch(27% 0.076 235.5)",
+          "oklch(39% 0.076 235.5)",
+          "oklch(51% 0.076 235.5)",
+          "oklch(63% 0.076 235.5)",
+          "oklch(75% 0.076 235.5)",
+          "oklch(87% 0.076 235.5)",
+          "oklch(95% 0.076 235.5)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display · compact",
+        "purpose": "Base home-page claim at mobile width."
+      },
+      "display-sm": {
+        "displayName": "Display · medium",
+        "purpose": "Home-page claim from the 640px breakpoint."
+      },
+      "display-lg": {
+        "displayName": "Display · wide",
+        "purpose": "Home-page claim inside the desktop dossier."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Section and status-state landmarks."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Workflow, role, and compact shell headings."
+      },
+      "brand": {
+        "displayName": "Brand",
+        "purpose": "Cloxa wordmark beside the docket mark."
+      },
+      "body-large": {
+        "displayName": "Body · large",
+        "purpose": "Introductory and first-order guidance."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Ordinary explanatory copy."
+      },
+      "control": {
+        "displayName": "Control",
+        "purpose": "Large button labels."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Default controls, navigation, and workflow labels."
+      },
+      "status": {
+        "displayName": "Status",
+        "purpose": "Status pills and workflow marker numerals."
+      }
+    },
+    "shadows": [
+      {
+        "name": "primary-action-lift",
+        "value": "0 8px 20px -14px var(--color-ink)",
+        "purpose": "Restrained depth under the filled primary button only."
+      }
+    ],
+    "motion": [
+      {
+        "name": "button-state",
+        "value": "200ms ease-out",
+        "purpose": "Background, color, border, shadow, and transform state changes on buttons."
+      },
+      {
+        "name": "trace-arrival",
+        "value": "620ms cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Draws workflow connectors from their origin when motion is allowed."
+      },
+      {
+        "name": "active-nudge",
+        "value": "translateY(1px)",
+        "purpose": "Motion-safe pressed feedback for buttons."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "0.01ms; one iteration",
+        "purpose": "Collapses animations and transitions when reduced motion is requested."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "sm",
+        "value": "640px"
+      },
+      {
+        "name": "lg",
+        "value": "1024px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button · large",
+      "kind": "button",
+      "refersTo": "button-primary-large",
+      "description": "Filled cobalt route for the page's primary action.",
+      "html": "<a class=\"ds-btn-primary\" href=\"#\">Naar aanmelden <svg aria-hidden=\"true\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M5 12h14\"></path><path d=\"m12 5 7 7-7 7\"></path></svg></a>",
+      "css": ".ds-btn-primary { display: inline-flex; min-height: 3rem; height: 3rem; align-items: center; justify-content: center; gap: 0.5rem; white-space: nowrap; border: 1px solid var(--color-primary); border-radius: 0.75rem; background: var(--color-primary); color: var(--color-primary-foreground); padding: 0 1.5rem; font-family: var(--font-body); font-size: 1rem; font-weight: 600; line-height: 1.5rem; text-decoration: none; box-shadow: 0 8px 20px -14px var(--color-ink); transition: background-color 200ms ease-out, color 200ms ease-out, border-color 200ms ease-out, box-shadow 200ms ease-out, transform 200ms ease-out; } .ds-btn-primary svg { width: 1rem; height: 1rem; flex: none; } .ds-btn-primary:hover { border-color: var(--color-primary-strong); background: var(--color-primary-strong); } .ds-btn-primary:focus-visible { outline: none; box-shadow: 0 8px 20px -14px var(--color-ink), 0 0 0 3px var(--color-focus); } .ds-btn-primary[aria-disabled=\"true\"], .ds-btn-primary:disabled { pointer-events: none; opacity: 0.55; } @media (prefers-reduced-motion: no-preference) { .ds-btn-primary:active { transform: translateY(1px); } } @media (prefers-reduced-motion: reduce) { .ds-btn-primary { transition-duration: 0.01ms; } }"
+    },
+    {
+      "name": "Secondary Button · large",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Paper action for invitation and lower-priority routes.",
+      "html": "<a class=\"ds-btn-secondary\" href=\"#\">Registreren via uitnodiging</a>",
+      "css": ".ds-btn-secondary { display: inline-flex; min-height: 3rem; height: 3rem; align-items: center; justify-content: center; gap: 0.5rem; white-space: nowrap; border: 1px solid var(--color-rule-strong); border-radius: 0.75rem; background: var(--color-paper); color: var(--color-ink); padding: 0 1.5rem; font-family: var(--font-body); font-size: 1rem; font-weight: 600; line-height: 1.5rem; text-decoration: none; transition: background-color 200ms ease-out, color 200ms ease-out, border-color 200ms ease-out, box-shadow 200ms ease-out, transform 200ms ease-out; } .ds-btn-secondary:hover { border-color: var(--color-ink); background: var(--color-paper-strong); } .ds-btn-secondary:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--color-focus); } .ds-btn-secondary[aria-disabled=\"true\"], .ds-btn-secondary:disabled { pointer-events: none; opacity: 0.55; } @media (prefers-reduced-motion: no-preference) { .ds-btn-secondary:active { transform: translateY(1px); } } @media (prefers-reduced-motion: reduce) { .ds-btn-secondary { transition-duration: 0.01ms; } }"
+    },
+    {
+      "name": "Quiet Button",
+      "kind": "button",
+      "refersTo": "button-quiet",
+      "description": "Low-emphasis navigation action with a cobalt wash on hover.",
+      "html": "<a class=\"ds-btn-quiet\" href=\"#\">Aanmelden <svg aria-hidden=\"true\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M5 12h14\"></path><path d=\"m12 5 7 7-7 7\"></path></svg></a>",
+      "css": ".ds-btn-quiet { display: inline-flex; min-height: 2.75rem; height: 2.75rem; align-items: center; justify-content: center; gap: 0.5rem; white-space: nowrap; border: 1px solid transparent; border-radius: 0.75rem; background: transparent; color: var(--color-primary); padding: 0 0.75rem; font-family: var(--font-body); font-size: 0.875rem; font-weight: 600; line-height: 1.25rem; text-decoration: none; transition: background-color 200ms ease-out, color 200ms ease-out, border-color 200ms ease-out, box-shadow 200ms ease-out, transform 200ms ease-out; } .ds-btn-quiet svg { width: 1rem; height: 1rem; flex: none; } .ds-btn-quiet:hover { background: var(--color-primary-soft); color: var(--color-primary-strong); } .ds-btn-quiet:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--color-focus); } .ds-btn-quiet[aria-disabled=\"true\"], .ds-btn-quiet:disabled { pointer-events: none; opacity: 0.55; } @media (prefers-reduced-motion: no-preference) { .ds-btn-quiet:active { transform: translateY(1px); } } @media (prefers-reduced-motion: reduce) { .ds-btn-quiet { transition-duration: 0.01ms; } }"
+    },
+    {
+      "name": "Site Navigation",
+      "kind": "nav",
+      "refersTo": "site-navigation",
+      "description": "Compact paper header with docket mark, wordmark, and one quiet route.",
+      "html": "<header class=\"ds-site-header\"><div class=\"ds-site-header-inner\"><a class=\"ds-brand\" href=\"#\"><svg aria-hidden=\"true\" viewBox=\"0 0 32 32\" fill=\"none\"><rect fill=\"currentColor\" height=\"30\" rx=\"7\" width=\"30\" x=\"1\" y=\"1\"></rect><path d=\"M9 10.5h14M9 16h8.5M9 21.5h5\" stroke=\"var(--color-paper)\" stroke-linecap=\"round\" stroke-width=\"2\"></path><path d=\"m18.5 21 2.1 2 4.4-5\" stroke=\"var(--color-signal)\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2.25\"></path></svg><span>Cloxa</span></a><nav aria-label=\"Hoofdnavigatie\"><a class=\"ds-nav-action\" href=\"#\">Aanmelden <svg aria-hidden=\"true\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M5 12h14\"></path><path d=\"m12 5 7 7-7 7\"></path></svg></a></nav></div></header>",
+      "css": ".ds-site-header { position: sticky; top: 0; z-index: 20; border-bottom: 1px solid var(--color-rule); background: color-mix(in srgb, var(--color-paper) 95%, transparent); color: var(--color-ink); font-family: var(--font-body); } .ds-site-header-inner { display: flex; min-height: 4rem; max-width: 72rem; align-items: center; justify-content: space-between; gap: 1rem; margin: 0 auto; padding: 0 1rem; } .ds-brand { display: flex; align-items: center; gap: 0.5rem; border-radius: 0.5rem; color: var(--color-ink); font-weight: 600; text-decoration: none; } .ds-brand > svg { width: 2rem; height: 2rem; } .ds-brand > span { font-family: var(--font-display); font-size: 1.25rem; line-height: 1.75rem; letter-spacing: -0.02em; } .ds-brand:focus-visible, .ds-nav-action:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--color-focus); } .ds-nav-action { display: inline-flex; min-height: 2.75rem; align-items: center; gap: 0.5rem; border: 1px solid transparent; border-radius: 0.75rem; padding: 0 0.75rem; color: var(--color-primary); font-size: 0.875rem; font-weight: 600; text-decoration: none; transition: background-color 200ms ease-out, color 200ms ease-out; } .ds-nav-action svg { width: 1rem; height: 1rem; } .ds-nav-action:hover { background: var(--color-primary-soft); color: var(--color-primary-strong); } @media (min-width: 640px) { .ds-site-header-inner { padding-right: 1.5rem; padding-left: 1.5rem; } } @media (min-width: 1024px) { .ds-site-header-inner { padding-right: 2rem; padding-left: 2rem; } }"
+    },
+    {
+      "name": "Ruled Docket Surface",
+      "kind": "card",
+      "refersTo": "docket-surface",
+      "description": "Reusable paper record field with 32px rules and a structural outline.",
+      "html": "<article class=\"ds-docket-surface\"><h3>Van uitnodiging naar een controleerbaar bestand</h3><p>Elke stap krijgt een duidelijke eigenaar. Een correctie vervangt later nooit stilletjes de vorige registratie.</p></article>",
+      "css": ".ds-docket-surface { border: 1px solid var(--color-rule-strong); border-radius: 1rem; background-color: var(--color-paper); background-image: linear-gradient(to bottom, transparent 0, transparent 31px, color-mix(in srgb, var(--color-rule) 52%, transparent) 32px); background-size: 100% 32px; color: var(--color-ink); padding: 1.5rem; font-family: var(--font-body); } .ds-docket-surface h3 { max-width: 34rem; margin: 0; font-family: var(--font-display); font-size: 1.875rem; font-weight: 600; line-height: 1.25; letter-spacing: -0.025em; } .ds-docket-surface p { max-width: 36rem; margin: 1rem 0 0; color: var(--color-muted); font-size: 1rem; line-height: 1.75rem; } @media (min-width: 640px) { .ds-docket-surface { padding: 2.5rem; } .ds-docket-surface h3 { font-size: 2.25rem; } }"
+    },
+    {
+      "name": "Workflow Trace",
+      "kind": "custom",
+      "refersTo": "workflow-marker",
+      "description": "Four-step correction chain that changes from vertical trace to desktop row.",
+      "html": "<ol class=\"ds-workflow-trace\"><li class=\"ds-workflow-step\"><span>1</span><div><h4>Uitnodigen en aanmelden</h4><p>De organisatie bepaalt wie toegang krijgt.</p></div></li><li class=\"ds-workflow-step\"><span>2</span><div><h4>Werkuren registreren</h4><p>De medewerker registreert feitelijke werkuren.</p></div></li><li class=\"ds-workflow-step\"><span>3</span><div><h4>Correctie beoordelen</h4><p>De manager ziet het verschil en neemt een besluit.</p></div></li><li class=\"ds-workflow-step\"><span>4</span><div><h4>Goedgekeurd exporteren</h4><p>Alleen goedgekeurde gegevens gaan naar CSV of JSON.</p></div></li></ol>",
+      "css": ".ds-workflow-trace { display: grid; gap: 1.75rem; margin: 0; padding: 0; color: var(--color-ink); font-family: var(--font-body); list-style: none; } .ds-workflow-step { position: relative; display: grid; grid-template-columns: 2rem 1fr; gap: 1rem; } .ds-workflow-step:not(:last-child)::after { position: absolute; top: 2rem; bottom: -1.75rem; left: 1rem; width: 1px; content: \"\"; background: var(--color-rule-strong); transform-origin: top; } .ds-workflow-step > span { position: relative; z-index: 1; display: flex; width: 2rem; height: 2rem; align-items: center; justify-content: center; border: 1px solid var(--color-primary); border-radius: 9999px; background: var(--color-paper); color: var(--color-primary); font-size: 0.75rem; font-weight: 700; line-height: 1rem; box-shadow: 0 0 0 4px var(--color-paper); } .ds-workflow-step h4 { margin: 0; font-size: 0.875rem; font-weight: 700; line-height: 1.25rem; } .ds-workflow-step p { margin: 0.5rem 0 0; color: var(--color-muted); font-size: 0.875rem; line-height: 1.5rem; } @keyframes ds-trace-arrival { from { clip-path: inset(0 0 100% 0); } to { clip-path: inset(0); } } @media (prefers-reduced-motion: no-preference) { .ds-workflow-step:not(:last-child)::after { animation: ds-trace-arrival 620ms cubic-bezier(0.16, 1, 0.3, 1) both; } } @media (min-width: 1024px) { .ds-workflow-trace { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; } .ds-workflow-step { display: block; } .ds-workflow-step:not(:last-child)::after { top: 1rem; right: -1rem; bottom: auto; left: 2rem; width: auto; height: 1px; transform-origin: left; } .ds-workflow-step > div { margin-top: 1.25rem; } @keyframes ds-trace-arrival { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0); } } }"
+    },
+    {
+      "name": "Auth Shell",
+      "kind": "custom",
+      "refersTo": "auth-shell",
+      "description": "Clipped dossier pairing a cobalt identity field with paper auth content.",
+      "html": "<section class=\"ds-auth-shell\"><div class=\"ds-auth-field\"><svg aria-hidden=\"true\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect width=\"18\" height=\"12\" x=\"3\" y=\"10\" rx=\"2\"></rect><path d=\"M7 10V7a5 5 0 0 1 10 0v3\"></path><circle cx=\"12\" cy=\"16\" r=\"1\"></circle></svg><p>Werkuren met een zichtbaar correctiespoor</p></div><div class=\"ds-auth-content\"><h3>Aanmelden</h3><p>Aanmelden wordt aangesloten zodra uitnodigingen en het autorisatiemodel zijn uitgewerkt.</p><div class=\"ds-auth-divider\"><div class=\"ds-auth-status\">Aanmeldformulier nog niet actief</div></div></div></section>",
+      "css": ".ds-auth-shell { display: grid; overflow: hidden; border: 1px solid var(--color-rule-strong); border-radius: 1rem; background-color: var(--color-paper); background-image: linear-gradient(to bottom, transparent 0, transparent 31px, color-mix(in srgb, var(--color-rule) 52%, transparent) 32px); background-size: 100% 32px; color: var(--color-ink); font-family: var(--font-body); } .ds-auth-field { display: flex; min-height: 11rem; flex-direction: column; justify-content: space-between; background: var(--color-primary); padding: 1.5rem; color: var(--color-primary-foreground); } .ds-auth-field svg { width: 2rem; height: 2rem; } .ds-auth-field p { max-width: 24rem; margin: 2rem 0 0; color: var(--color-primary-foreground-muted); font-size: 0.875rem; line-height: 1.5rem; } .ds-auth-content { display: flex; flex-direction: column; justify-content: center; background: color-mix(in srgb, var(--color-paper) 94%, transparent); padding: 1.5rem; } .ds-auth-content h3 { max-width: 36rem; margin: 0; font-family: var(--font-display); font-size: 2.25rem; font-weight: 600; line-height: 1.02; letter-spacing: -0.03em; } .ds-auth-content > p { max-width: 36rem; margin: 1.25rem 0 0; color: var(--color-muted); font-size: 1rem; line-height: 1.75rem; } .ds-auth-divider { margin-top: 2rem; border-top: 1px solid var(--color-rule); padding-top: 1.5rem; } .ds-auth-status { display: flex; min-height: 3rem; align-items: center; border-radius: 0.75rem; background: var(--color-paper-strong); padding: 0 1rem; color: var(--color-muted); font-size: 0.875rem; font-weight: 600; } @media (min-width: 640px) { .ds-auth-field { padding: 2rem; } .ds-auth-content { padding: 2.5rem; } .ds-auth-content h3 { font-size: 3rem; } .ds-auth-content > p { font-size: 1.125rem; } } @media (min-width: 1024px) { .ds-auth-shell { grid-template-columns: minmax(0, 0.72fr) minmax(22rem, 1.28fr); } .ds-auth-field { min-height: 30rem; } .ds-auth-content { padding: 3.5rem; } }"
+    },
+    {
+      "name": "Role Shell",
+      "kind": "custom",
+      "refersTo": "role-status",
+      "description": "Role heading, amber readiness status, and ruled workspace field.",
+      "html": "<section class=\"ds-role-shell\"><div class=\"ds-role-heading\"><div class=\"ds-role-title\"><svg aria-hidden=\"true\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect width=\"8\" height=\"4\" x=\"8\" y=\"2\" rx=\"1\"></rect><path d=\"M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2\"></path><path d=\"m9 14 2 2 4-4\"></path></svg><h3>Manager</h3></div><span>Werkruimte nog niet ingericht</span></div><div class=\"ds-role-docket\"><p>Hier komt de werkruimte voor correctiebeoordeling, goedgekeurde export en wijzigingsgeschiedenis.</p></div></section>",
+      "css": ".ds-role-shell { width: 100%; max-width: 72rem; color: var(--color-ink); font-family: var(--font-body); } .ds-role-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; border-bottom: 1px solid var(--color-rule); padding-bottom: 1.25rem; } .ds-role-title { display: flex; min-width: 0; align-items: center; gap: 0.75rem; } .ds-role-title svg { width: 1.5rem; height: 1.5rem; flex: none; color: var(--color-primary); } .ds-role-title h3 { overflow: hidden; margin: 0; font-family: var(--font-display); font-size: 1.875rem; font-weight: 600; line-height: 1.2; letter-spacing: -0.025em; text-overflow: ellipsis; white-space: nowrap; } .ds-role-heading > span { flex: none; border: 1px solid var(--color-rule-strong); border-radius: 9999px; background: var(--color-signal-soft); padding: 0.25rem 0.75rem; color: var(--color-signal-ink); font-size: 0.75rem; font-weight: 600; line-height: 1rem; } .ds-role-docket { min-height: 18rem; margin-top: 2rem; border: 1px solid var(--color-rule-strong); border-radius: 1rem; background-color: var(--color-paper); background-image: linear-gradient(to bottom, transparent 0, transparent 31px, color-mix(in srgb, var(--color-rule) 52%, transparent) 32px); background-size: 100% 32px; padding: 1.5rem; } .ds-role-docket p { max-width: 42rem; margin: 0; color: var(--color-muted); font-size: 1.125rem; line-height: 2rem; } @media (min-width: 640px) { .ds-role-title h3 { font-size: 2.25rem; } .ds-role-docket { padding: 2.5rem; } }"
+    },
+    {
+      "name": "Status State",
+      "kind": "card",
+      "refersTo": "status-panel",
+      "description": "Centered recovery panel shared by loading, error, not-found, and unauthorized states.",
+      "html": "<section class=\"ds-status-state\"><svg aria-hidden=\"true\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z\"></path><polyline points=\"14 2 14 8 20 8\"></polyline><path d=\"M9.1 9a3 3 0 1 1 5.8 1c0 2-3 2-3 4\"></path><path d=\"M12 17h.01\"></path></svg><h3>Pagina niet gevonden</h3><p>Dit adres bestaat niet of is verplaatst.</p><a href=\"#\">Terug naar start</a></section>",
+      "css": ".ds-status-state { width: 100%; max-width: 48rem; border: 1px solid var(--color-rule-strong); border-radius: 1rem; background: var(--color-paper); padding: 1.5rem; color: var(--color-ink); font-family: var(--font-body); } .ds-status-state > svg { width: 2.25rem; height: 2.25rem; color: var(--color-primary); } .ds-status-state h3 { max-width: 42rem; margin: 2rem 0 0; font-family: var(--font-display); font-size: 2.25rem; font-weight: 600; line-height: 1.25; letter-spacing: -0.03em; } .ds-status-state p { max-width: 42rem; margin: 1rem 0 0; color: var(--color-muted); font-size: 1rem; line-height: 1.75rem; } .ds-status-state a { display: inline-flex; min-height: 2.75rem; align-items: center; margin-top: 2rem; border: 1px solid var(--color-primary); border-radius: 0.75rem; background: var(--color-primary); padding: 0 1.25rem; color: var(--color-primary-foreground); font-size: 0.875rem; font-weight: 600; text-decoration: none; box-shadow: 0 8px 20px -14px var(--color-ink); transition: background-color 200ms ease-out, border-color 200ms ease-out, box-shadow 200ms ease-out, transform 200ms ease-out; } .ds-status-state a:hover { border-color: var(--color-primary-strong); background: var(--color-primary-strong); } .ds-status-state a:focus-visible { outline: none; box-shadow: 0 8px 20px -14px var(--color-ink), 0 0 0 3px var(--color-focus); } @media (min-width: 640px) { .ds-status-state { padding: 2.5rem; } .ds-status-state h3 { font-size: 3rem; } .ds-status-state p { font-size: 1.125rem; } } @media (prefers-reduced-motion: no-preference) { .ds-status-state a:active { transform: translateY(1px); } }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Quality-control traveler docket",
+    "overview": "Cloxa presents work-time records as a daylight quality-control document: sturdy paper fields, deep docket ink, cobalt actions, amber inspection marks, and rules that make ownership and sequence visible. Grounded mode and seed `4cf65f85` resolve into a practical worksite artifact, not a polished payroll dashboard.\n\nMaterial hierarchy carries more identity than ornament. Broad bordered dossiers hold related work, a 32px ruled-paper texture signals traceable record space, and condensed headings make decisive landmarks inside calm body copy. Curves soften touch targets without turning every area into generic rounded-card chrome.",
+    "keyCharacteristics": [
+      "Daylight paper layers separated by precise one-pixel rules.",
+      "Condensed docket headings paired with calm humanist interface text.",
+      "Cobalt fields and actions with sparse amber inspection marks.",
+      "Broad dossiers that collapse into a clear linear trace at 320px.",
+      "Flat structural depth, with lift reserved for the primary action."
+    ],
+    "rules": [
+      {
+        "name": "The Cobalt Carries Action Rule",
+        "body": "Filled cobalt marks the primary route; quiet cobalt handles low-emphasis navigation and inline actions.",
+        "section": "colors"
+      },
+      {
+        "name": "The Amber Means Status Rule",
+        "body": "Amber records status or inspection, never the main call to action.",
+        "section": "colors"
+      },
+      {
+        "name": "The Paper Is Structure Rule",
+        "body": "Separate responsibilities with paper tiers and one-pixel rules before adding elevation.",
+        "section": "colors"
+      },
+      {
+        "name": "The Docket Voice Rule",
+        "body": "Barlow Condensed carries landmarks only; body copy and controls stay in the humanist body family.",
+        "section": "typography"
+      },
+      {
+        "name": "The Readable Copy Rule",
+        "body": "Tight tracking belongs to condensed headings, never explanatory paragraphs or controls.",
+        "section": "typography"
+      },
+      {
+        "name": "The One Dossier Rule",
+        "body": "Lead each shell with one broad bordered document; use internal rules and fields instead of a scatter of equal cards.",
+        "section": "layout"
+      },
+      {
+        "name": "The Mobile Trace Rule",
+        "body": "Sequence reads top to bottom before it reads left to right; never preserve the desktop workflow row at the cost of 320px legibility.",
+        "section": "layout"
+      },
+      {
+        "name": "The Flat-by-Default Rule",
+        "body": "Use tone, rule, and material texture for depth; do not float dossiers or status panels.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Few Radii Rule",
+        "body": "Match radius to scale and function; do not introduce intermediate corner values or make ordinary controls pill-shaped.",
+        "section": "shapes"
+      },
+      {
+        "name": "The States Must Read Rule",
+        "body": "Every interaction keeps a visible hover, keyboard focus, active, disabled, or live-state treatment appropriate to its behavior.",
+        "section": "components"
+      }
+    ],
+    "dos": [
+      "Do lead shells with one broad dossier and divide responsibility with rules or material fields.",
+      "Do reserve cobalt for actions, focus, icons, and workflow trace markers.",
+      "Do reserve amber for inspection marks, selections, and status communication.",
+      "Do use condensed type for landmarks and humanist type for explanations and controls.",
+      "Do preserve a linear, readable workflow at the 320px minimum viewport."
+    ],
+    "donts": [
+      "Don't add shadows to ordinary dossiers, role panels, or status states.",
+      "Don't use amber as a primary action color.",
+      "Don't turn every content group into an independent rounded card or pill.",
+      "Don't infer an input primitive from the placeholder auth content; no input component is implemented yet.",
+      "Don't add decorative gradients; the ruled 32px paper texture is the implemented gradient language."
+    ]
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "name": "cloxa",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.25.0",
+  "engines": {
+    "node": ">=24.0.0",
+    "pnpm": ">=11.0.0"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @cloxa/web dev",
+    "build": "pnpm --filter @cloxa/web build",
+    "start": "pnpm --filter @cloxa/web start",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint . --max-warnings=0",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "test": "vitest run",
+    "test:unit": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "supabase:start": "supabase start",
+    "supabase:status": "supabase status",
+    "supabase:env": "supabase status --output env",
+    "supabase:stop": "supabase stop",
+    "supabase:reset": "supabase db reset --local",
+    "test:db": "supabase test db --local"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.62.1",
+    "@types/node": "^24.0.0",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.3.4",
+    "eslint-config-prettier": "10.1.8",
+    "prettier": "3.9.6",
+    "prettier-plugin-tailwindcss": "0.8.1",
+    "supabase": "2.116.0",
+    "typescript": "6.0.3",
+    "vitest": "4.1.11"
+  }
+}

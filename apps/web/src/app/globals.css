@@ -1,0 +1,161 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: light;
+  --color-background: #e7e3d8;
+  --color-paper: #f8f6ee;
+  --color-paper-strong: #eeeadf;
+  --color-ink: #15212a;
+  --color-muted: #4f5e65;
+  --color-rule: #cbc5b6;
+  --color-rule-strong: #9f998b;
+  --color-primary: #0e4a67;
+  --color-primary-strong: #08394f;
+  --color-primary-soft: #d9e8ed;
+  --color-primary-foreground: #fffdf6;
+  --color-primary-foreground-muted: #d7e7eb;
+  --color-signal: #e69523;
+  --color-signal-soft: #fae7be;
+  --color-signal-ink: #5d3500;
+  --color-danger: #a13c34;
+  --color-focus: #0e4a67;
+  --font-body: "Aptos", "Segoe UI", sans-serif;
+  --font-display: "Barlow Condensed", sans-serif;
+}
+
+@theme inline {
+  --color-background: var(--color-background);
+  --color-paper: var(--color-paper);
+  --color-paper-strong: var(--color-paper-strong);
+  --color-ink: var(--color-ink);
+  --color-muted: var(--color-muted);
+  --color-rule: var(--color-rule);
+  --color-rule-strong: var(--color-rule-strong);
+  --color-primary: var(--color-primary);
+  --color-primary-strong: var(--color-primary-strong);
+  --color-primary-soft: var(--color-primary-soft);
+  --color-primary-foreground: var(--color-primary-foreground);
+  --color-signal: var(--color-signal);
+  --color-signal-soft: var(--color-signal-soft);
+  --color-signal-ink: var(--color-signal-ink);
+  --color-danger: var(--color-danger);
+  --color-focus: var(--color-focus);
+  --font-sans: var(--font-body);
+  --font-display: var(--font-display);
+}
+
+* {
+  box-sizing: border-box;
+  scrollbar-color: var(--color-primary) var(--color-paper-strong);
+}
+
+html {
+  min-width: 320px;
+  min-height: 100%;
+  background: var(--color-background);
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+  background: var(--color-background);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  text-rendering: optimizeLegibility;
+}
+
+a {
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.22em;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+::selection {
+  background: var(--color-signal-soft);
+  color: var(--color-signal-ink);
+}
+
+:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 3px;
+}
+
+.docket-surface {
+  background-color: var(--color-paper);
+  background-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent 31px,
+    color-mix(in srgb, var(--color-rule) 52%, transparent) 32px
+  );
+  background-size: 100% 32px;
+}
+
+.workflow-step:not(:last-child)::after {
+  position: absolute;
+  top: 2rem;
+  bottom: -1.75rem;
+  left: 1rem;
+  width: 1px;
+  content: "";
+  background: var(--color-rule-strong);
+  transform-origin: top;
+}
+
+@keyframes trace-arrival {
+  from {
+    clip-path: inset(0 0 100% 0);
+  }
+  to {
+    clip-path: inset(0);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .workflow-step:not(:last-child)::after {
+    animation: trace-arrival 620ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+}
+
+@media (min-width: 1024px) {
+  html {
+    scrollbar-gutter: stable;
+  }
+
+  .workflow-step:not(:last-child)::after {
+    top: 1rem;
+    right: -1rem;
+    bottom: auto;
+    left: 2rem;
+    width: auto;
+    height: 1px;
+    transform-origin: left;
+  }
+
+  @keyframes trace-arrival {
+    from {
+      clip-path: inset(0 100% 0 0);
+    }
+    to {
+      clip-path: inset(0);
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
