@@ -10,28 +10,47 @@ describe("protected routes", () => {
     ["/manager/approvals", true],
     ["/login", false],
     ["/managerial", false],
+    ["/employees", false],
+    ["/Manager", false],
+    ["/", false],
   ])("classifies %s", (pathname, expected) => {
     expect(isProtectedRoute(pathname)).toBe(expected);
   });
 });
 
 describe("post-auth redirect validation", () => {
-  it.each(["/employee", "/employee/history?periode=augustus", "/manager#open"])(
-    "accepts protected local path %s",
+  it.each(["/employee", "/manager"])(
+    "accepts implemented role landing page %s",
     (pathname) => {
       expect(getSafePostAuthPath(pathname)).toBe(pathname);
     },
   );
 
   it.each([
-    [null, "/employee"],
-    ["https://example.com", "/employee"],
-    ["//example.com", "/employee"],
-    ["/%2f%2fexample.com", "/employee"],
-    ["/%255c%255cexample.com", "/employee"],
-    ["/login", "/employee"],
-    ["javascript:alert(1)", "/employee"],
-  ])("replaces unsafe value %s", (value, expected) => {
-    expect(getSafePostAuthPath(value)).toBe(expected);
+    null,
+    undefined,
+    "",
+    "https://example.com",
+    "//example.com",
+    "\\\\example.com",
+    "/\\example.com",
+    "/%2f%2fexample.com",
+    "/%255c%255cexample.com",
+    "/employee/../manager",
+    "/employee/history",
+    "/employee?next=https://example.com",
+    "/manager#open",
+    "/manager/",
+    "/Manager",
+    "/employee\n",
+    " /employee",
+    "/login",
+    "/accept-invitation",
+    "/reset-password",
+    "javascript:alert(1)",
+  ])("does not infer authorization from unsafe value %s", (value) => {
+    expect(getSafePostAuthPath(value)).toBe("/unauthorized");
+    expect(getSafePostAuthPath(value, "/manager")).toBe("/manager");
+    expect(getSafePostAuthPath(value, "/employee")).toBe("/employee");
   });
 });

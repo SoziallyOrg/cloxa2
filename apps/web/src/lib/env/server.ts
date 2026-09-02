@@ -1,6 +1,6 @@
 import "server-only";
 
-import { parseServerEnvironment, type ServerEnvironment } from "./schema";
+import { parseServerEnvironment, type ServerEnvironment } from "./server-schema";
 
 let cachedEnvironment: ServerEnvironment | undefined;
 

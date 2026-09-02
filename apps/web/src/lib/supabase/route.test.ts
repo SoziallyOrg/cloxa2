@@ -70,5 +70,10 @@ describe("Supabase route client", () => {
     expect(response.headers.get("Cache-Control")).toContain("no-store");
     expect(response.headers.get("Expires")).toBe("0");
     expect(response.headers.get("Pragma")).toBe("no-cache");
+    expect(createServerClientMock.mock.calls[0]?.[2]).toMatchObject({
+      cookieOptions: { httpOnly: true, sameSite: "lax", path: "/" },
+      cookies: { encode: "tokens-only" },
+      global: { fetch: expect.any(Function) },
+    });
   });
 });

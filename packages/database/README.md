@@ -32,7 +32,7 @@ Type generation passes CLI output through the repository Prettier configuration 
 writing `src/database.types.ts`. The check command regenerates the same output in memory
 and fails when the stored types differ.
 
-## Phase 1 authorization
+## Authorization and invitation authentication
 
 `public.memberships` is the authoritative source for organization roles. Authorization
 helpers derive identity from `auth.uid()` and require an active membership in an
@@ -63,23 +63,43 @@ roles, membership status, tenant assignment, or invitations through direct table
 and the current authenticated identity. Only `authenticated` receives execution grants;
 the `private` schema remains outside the API's exposed schemas.
 
-All six private functions have owner `postgres` and fixed `search_path = ''`:
+All private functions have owner `postgres` and fixed `search_path = ''`:
 
-| Function                      | Security | Application-role EXECUTE |
-| ----------------------------- | -------- | ------------------------ |
-| `is_active_org_member`        | DEFINER  | `authenticated`          |
-| `has_org_role`                | DEFINER  | `authenticated`          |
-| `can_read_member_profile`     | DEFINER  | `authenticated`          |
-| `set_updated_at`              | INVOKER  | None                     |
-| `normalize_invitation_email`  | INVOKER  | None                     |
-| `reject_audit_event_mutation` | INVOKER  | None                     |
+| Function                        | Security | Application-role EXECUTE |
+| ------------------------------- | -------- | ------------------------ |
+| `is_active_org_member`          | DEFINER  | `authenticated`          |
+| `has_org_role`                  | DEFINER  | `authenticated`          |
+| `can_read_member_profile`       | DEFINER  | `authenticated`          |
+| `set_updated_at`                | INVOKER  | None                     |
+| `normalize_invitation_email`    | INVOKER  | None                     |
+| `reject_audit_event_mutation`   | INVOKER  | None                     |
+| `get_auth_context`              | DEFINER  | `authenticated`          |
+| `create_employee_invitation`    | DEFINER  | `authenticated`          |
+| `get_employee_invitation_state` | DEFINER  | `authenticated`          |
+| `accept_employee_invitation`    | DEFINER  | `authenticated`          |
 
 The owner retains EXECUTE; `PUBLIC`, `anon`, and `service_role` have no EXECUTE grants.
-Authenticated SQL callers can invoke the three authorization helpers. Their definer
-context bypasses membership RLS to avoid recursion, but each helper binds its check to
-`auth.uid()` and returns a boolean for that caller's access. No helper accepts a caller
-identity override or writes data. Trigger functions have no application EXECUTE grants,
-and none of these private functions have Data API endpoints.
+Authenticated SQL callers can invoke authorization and invitation helpers through four
+`SECURITY INVOKER` wrappers in `public`. Their definer implementations stay in the
+unexposed `private` schema. Every protected helper binds identity to `auth.uid()` and a
+matching live `auth.sessions` row. Trigger functions have no application EXECUTE grants.
+Neither `anon` nor `service_role` can call the new RPCs.
+
+| Public RPC                                                                  | Browser inputs                             | Result                                                                                                                                  |
+| --------------------------------------------------------------------------- | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `get_auth_context()`                                                        | None                                       | One `authorized`, `unauthorized`, or `unsupported` row; tenant and role appear only for one active membership in an active organization |
+| `create_employee_invitation(employee_email, display_name?, employee_code?)` | Employee email and optional profile fields | New invitation ID or a non-disclosing `NULL` duplicate/no-op                                                                            |
+| `get_employee_invitation_state()`                                           | None                                       | `ready`, `unavailable`, or `unsupported` for current verified Auth email                                                                |
+| `accept_employee_invitation()`                                              | None                                       | Activated employee membership ID                                                                                                        |
+
+Creation derives organization from caller's sole active manager membership, fixes role
+to `employee`, normalizes email, expires invitations after 24 hours, and appends a
+minimal creation audit. Acceptance requires a verified Auth email, password marker, live
+matching session, one usable invitation, and no active membership. It creates or
+preserves the profile, activates exactly one employee membership, marks invitation
+accepted, and appends acceptance audit in one database transaction. Advisory and row
+locks serialize competing operations. Browser callers cannot provide organization, role,
+status, user, worksite, invitation ID, or expiry.
 
 For `audit_events`, both `authenticated` and `service_role` have SELECT-only table
 privileges. RLS limits authenticated reads to active managers in their own non-suspended
@@ -95,11 +115,12 @@ statement. TRUNCATE needs its own guard because it ignores RLS and DELETE trigge
 Database owners can still alter or disable triggers; these guards are not tamper-proof
 storage.
 
-Future controlled transactional database functions must authenticate the caller, check
-protected memberships, and append audit events with the authorized business change in
-one transaction. Phase 1 grants no application role INSERT and adds no audit-write RPC
-or organization-bootstrap endpoint. Keep secrets, authentication tokens, and exported
-files out of audit JSON.
+Invitation functions authenticate caller, check protected membership state, and append
+audit events with authorized business changes in one transaction. Application roles
+still receive no direct table INSERT privilege and no general audit-write RPC. Local
+manager bootstrap uses a server-side secret client against a verified loopback stack; it
+does not expose a database bootstrap endpoint. Audits contain no emails, profile fields,
+secrets, authentication tokens, or links.
 
 Profile UPDATE privileges cover `display_name` and `locale` only, with RLS checking
 `user_id = auth.uid()` before and after each update. Callers cannot write `user_id`,
@@ -120,13 +141,12 @@ profile text does not grant authorization.
   `lower(btrim(normalized_email))`. A partial unique index permits one `pending`
   invitation per organization and normalized email. It does not merge provider-specific
   aliases such as plus-addresses.
-- Passing `expires_at` does not change `pending` status or free that unique slot. Future
-  trusted invitation operations must reject expired acceptance and mark stale pending
-  invitations `expired` or `revoked` before issuing a replacement. Phase 1 adds no
-  expiry scheduler, email delivery, acceptance workflow, or reusable invitation token.
-- `intended_role` permits `employee` only. Future acceptance must verify authenticated
-  email against normalized invitation email. Manager creation remains a separate
-  controlled operation.
+- Passing `expires_at` does not change `pending` status or free that unique slot. The
+  trusted creation RPC expires a stale invitation in caller's tenant before replacing
+  it. No background expiry scheduler exists.
+- `intended_role` permits `employee` only. Acceptance verifies current Auth user email
+  against normalized invitation email. Manager creation remains a separate controlled
+  local-development operation.
 - Invitation constraints require expiry after creation and consistent status fields:
   `pending`/`expired` have no acceptance or revocation data; `accepted` requires an
   accepter and acceptance time from creation until before expiry, with no revocation;
@@ -143,5 +163,4 @@ data remain prohibited. Development and tests use local synthetic data only. Thi
 does not establish production readiness or implement time records, corrections,
 approvals, exports, billing, or product dashboards.
 
-Invitation-based authentication and controlled local test-user creation remain outside
-Phase 1.
+Next phase: employee clock-in and clock-out.

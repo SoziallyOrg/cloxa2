@@ -1,6 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { parsePublicEnvironment, parseServerEnvironment } from "./schema";
+vi.mock("server-only", () => ({}));
+
+import { parsePublicEnvironment } from "./schema";
+import { parseServerEnvironment } from "./server-schema";
 
 const publicEnvironment = {
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "local-publishable-key",

@@ -10,7 +10,7 @@
   },
   "scripts": {
     "dev": "pnpm --filter @cloxa/web dev",
-    "build": "pnpm --filter @cloxa/web build",
+    "build": "node scripts/local-auth-build.mjs",
     "start": "pnpm --filter @cloxa/web start",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
@@ -20,6 +20,9 @@
     "test:unit": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "test:bundles": "node scripts/local-auth-bundles.mjs",
+    "local:bootstrap": "node scripts/local-auth-bootstrap.mjs",
+    "local:credentials": "node scripts/local-auth-credentials.mjs",
     "supabase:start": "supabase start",
     "supabase:status": "supabase status",
     "supabase:env": "supabase status --output env",

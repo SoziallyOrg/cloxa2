@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 import { describe, expect, it, vi } from "vitest";
 
+vi.mock("server-only", () => ({}));
+
 vi.mock("@/lib/env/public", () => ({
   getPublicEnvironment: () => ({
     NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "local-publishable-key",

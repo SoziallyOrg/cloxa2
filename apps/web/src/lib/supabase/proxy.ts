@@ -1,8 +1,13 @@
+import "server-only";
+
+import type { Database } from "@cloxa/database";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 import { isProtectedRoute } from "@/lib/auth/routes";
 import { getPublicEnvironment } from "@/lib/env/public";
+import { assertLocalOrigin, localOnlyFetch } from "@/lib/auth/local-only";
+import { getAuthCookieOptions } from "@/lib/supabase/cookies";
 
 export async function refreshSupabaseSession(request: NextRequest) {
   const environment = getPublicEnvironment();
@@ -13,11 +18,14 @@ export async function refreshSupabaseSession(request: NextRequest) {
   }> = [];
   const pendingHeaders = new Headers();
 
-  const supabase = createServerClient(
-    environment.NEXT_PUBLIC_SUPABASE_URL,
+  const supabase = createServerClient<Database>(
+    assertLocalOrigin(environment.NEXT_PUBLIC_SUPABASE_URL),
     environment.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
     {
+      global: { fetch: localOnlyFetch },
+      cookieOptions: getAuthCookieOptions(),
       cookies: {
+        encode: "tokens-only",
         getAll() {
           return request.cookies.getAll();
         },
@@ -66,6 +74,11 @@ function applySupabaseResponseState(
   cookies: Array<{ name: string; options: CookieOptions; value: string }>,
   headers: Headers,
 ) {
+  response.headers.set(
+    "Cache-Control",
+    "private, no-cache, no-store, must-revalidate, max-age=0",
+  );
+  response.headers.set("Referrer-Policy", "no-referrer");
   cookies.forEach(({ name, options, value }) => {
     response.cookies.set(name, value, options);
   });
