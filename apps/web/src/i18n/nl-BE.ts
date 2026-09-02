@@ -23,6 +23,8 @@ export const nlBE = {
     forgotPasswordTitle: "Wachtwoord herstellen",
     loginTitle: "Aanmelden",
     signupTitle: "Registreren via uitnodiging",
+    acceptInvitationTitle: "Uitnodiging aanvaarden",
+    resetPasswordTitle: "Nieuw wachtwoord instellen",
   },
   manifest: {
     description:
@@ -67,9 +69,7 @@ export const nlBE = {
   },
   login: {
     title: "Aanmelden",
-    description:
-      "Aanmelden wordt aangesloten zodra uitnodigingen en het autorisatiemodel zijn uitgewerkt.",
-    status: "Aanmeldformulier nog niet actief",
+    description: "Meld je aan met het e-mailadres waarmee je bent uitgenodigd.",
     forgotPassword: "Wachtwoord vergeten?",
     invitationHelp: "Een uitnodiging ontvangen? Bekijk hoe registratie werkt.",
     invitationLink: "Registreren via uitnodiging",
@@ -77,29 +77,86 @@ export const nlBE = {
   signup: {
     title: "Registreren kan alleen via uitnodiging.",
     description:
-      "Open later de persoonlijke link in de uitnodigingsmail van je organisatie. Openbare registratie blijft uitgeschakeld.",
+      "Open de persoonlijke link in de uitnodigingsmail van je organisatie. Openbare registratie blijft uitgeschakeld.",
     noInvitation: "Geen uitnodiging? Neem contact op met je manager.",
     backToLogin: "Terug naar aanmelden",
   },
   forgotPassword: {
     title: "Wachtwoord herstellen",
     description:
-      "Wachtwoordherstel wordt toegevoegd samen met de uitnodigings- en e-mailstroom.",
+      "Vul je e-mailadres in om een link voor een nieuw wachtwoord aan te vragen.",
     privacy:
-      "De uiteindelijke bevestiging zal nooit verklappen of een e-mailadres bestaat.",
+      "Je krijgt dezelfde bevestiging, ook als er geen account bij het e-mailadres hoort.",
     backToLogin: "Terug naar aanmelden",
   },
   employee: {
     title: "Medewerker",
     description:
       "Hier komt de mobiele werkruimte voor tijdregistratie, handmatige invoer en eigen correctieverzoeken.",
-    status: "Werkruimte nog niet ingericht",
+    status: "Aangemeld",
   },
   manager: {
     title: "Manager",
     description:
       "Hier komt de werkruimte voor correctiebeoordeling, goedgekeurde export en wijzigingsgeschiedenis.",
-    status: "Werkruimte nog niet ingericht",
+    status: "Aangemeld",
+  },
+  auth: {
+    email: "E-mailadres",
+    password: "Wachtwoord",
+    newPassword: "Nieuw wachtwoord",
+    passwordConfirmation: "Herhaal nieuw wachtwoord",
+    passwordHelp: "Gebruik 12 tot 128 tekens. Een lange, unieke wachtzin is geschikt.",
+    loginSubmit: "Aanmelden",
+    logout: "Afmelden",
+    logoutFailure: "Afmelden is niet gelukt. Probeer opnieuw.",
+    recoverySubmit: "Herstellink aanvragen",
+    pending: "Even wachten…",
+    invalidForm: "Controleer de ingevulde velden.",
+    loginFailure:
+      "Aanmelden lukt niet met deze gegevens. Controleer je e-mailadres en wachtwoord.",
+    recoverySuccess:
+      "Als dit e-mailadres bij een account hoort, ontvang je een e-mail met verdere stappen.",
+    invitationSuccess:
+      "Als uitnodigen mogelijk is, ontvangt de medewerker een e-mail. Controleer de lokale inbox.",
+    invitationFailure:
+      "De uitnodiging kon niet worden verwerkt. Probeer opnieuw of vraag hulp aan je manager.",
+    invitationUnavailable:
+      "Deze uitnodiging is niet beschikbaar. Ze kan verlopen, ingetrokken of al gebruikt zijn. Vraag je manager om hulp.",
+    recoveryUnavailable:
+      "Deze herstellink is niet beschikbaar. Vraag een nieuwe link aan om je wachtwoord te herstellen.",
+    passwordFailure:
+      "Het wachtwoord kon niet worden opgeslagen. Probeer opnieuw of vraag een nieuwe link aan.",
+  },
+  authValidation: {
+    email: "Vul een geldig e-mailadres in.",
+    password: "Gebruik een wachtwoord van 12 tot 128 tekens.",
+    passwordConfirmation: "Vul tweemaal hetzelfde nieuwe wachtwoord in.",
+    displayName: "Gebruik maximaal 100 tekens voor de weergavenaam.",
+    employeeCode: "Gebruik maximaal 32 tekens voor de medewerkerscode.",
+  },
+  invitation: {
+    title: "Medewerker uitnodigen",
+    description:
+      "Nodig een medewerker uit voor je eigen organisatie. De medewerker stelt via de e-mail een wachtwoord in.",
+    email: "E-mailadres medewerker",
+    displayName: "Weergavenaam (optioneel)",
+    employeeCode: "Medewerkerscode (optioneel)",
+    submit: "Uitnodiging versturen",
+    localOnly:
+      "Lokale testomgeving: gebruik alleen fictieve gegevens. E-mails blijven in de lokale Supabase-inbox.",
+  },
+  acceptInvitation: {
+    title: "Uitnodiging aanvaarden",
+    description:
+      "Stel je wachtwoord in om de uitnodiging te aanvaarden en je medewerkersaccount te activeren.",
+    submit: "Wachtwoord instellen",
+  },
+  resetPassword: {
+    title: "Nieuw wachtwoord instellen",
+    description:
+      "Kies een nieuw wachtwoord voor je account. Andere sessies worden daarna afgemeld.",
+    submit: "Wachtwoord opslaan",
   },
   states: {
     loading: {
@@ -120,6 +177,8 @@ export const nlBE = {
       title: "Geen toegang",
       description:
         "Je account heeft geen toegang tot deze werkruimte. Meld je aan met het juiste account of vraag je manager om hulp.",
+      unsupported:
+        "Je account is aan meerdere actieve organisaties gekoppeld. Deze situatie wordt nog niet ondersteund. Vraag je manager om hulp.",
     },
   },
   authCallback: {

@@ -1,10 +1,10 @@
 # Cloxa
 
 Cloxa is a Dutch-language web application for one Flemish organization with one worksite
-and 5–20 employees. This repository contains route shells, tooling, Supabase client
-boundaries, and the local tenant-authorization database foundation. It does not yet
-contain authentication forms, invitation acceptance, or a working time-registration
-workflow.
+and 5–20 employees. This repository contains local invitation-based authentication,
+tenant authorization, and manager/employee entry pages. Managers can invite fictional
+employees; employees can accept, set passwords, sign in, and recover access. Time
+registration remains outside this phase.
 
 ## Workspace
 
@@ -25,16 +25,13 @@ supabase/tests       Transactional pgTAP authorization tests
 All application and test dependencies are open source. Local development does not
 require a paid service.
 
-## Install and run web app
+## Install
 
 ```bash
 pnpm install
-pnpm dev
 ```
 
-Open `http://localhost:3000`. Public pages do not require Supabase to render. Protected
-route shells require a valid local Auth session and therefore redirect anonymous
-visitors to `/login`.
+Complete local setup below before using authentication or running E2E tests.
 
 ## Local Supabase
 
@@ -46,13 +43,15 @@ No hosted project is linked. Commands below operate on local Docker containers o
    pnpm supabase:start
    ```
 
-2. Print local URLs and keys:
+2. Inspect local URLs and keys on your own machine:
 
    ```bash
    pnpm supabase:env
    ```
 
-3. Copy `.env.example` to `apps/web/.env.local`, then map local values:
+   Output contains privileged local keys. Do not paste it into logs, tickets, or chat.
+
+3. Create ignored `apps/web/.env.local` with these three values from local status:
 
    ```dotenv
    NEXT_PUBLIC_SUPABASE_URL=<API_URL>
@@ -60,14 +59,43 @@ No hosted project is linked. Commands below operate on local Docker containers o
    SUPABASE_SECRET_KEY=<SERVICE_ROLE_KEY_OR_SECRET_KEY>
    ```
 
-   For local CLI output, map its `SERVICE_ROLE_KEY` value to `SUPABASE_SECRET_KEY`.
-   Hosted projects should use a current `sb_secret_...` key. Both have service-role
-   privileges and stay server-only. Never prefix this variable with `NEXT_PUBLIC_`,
-   import its environment module into client code, or commit `.env.local`.
+   Map local `SERVICE_ROLE_KEY` or `SECRET_KEY` to `SUPABASE_SECRET_KEY`. This
+   credential bypasses RLS and must stay server-only. Never prefix it with
+   `NEXT_PUBLIC_`, import its environment module into client code, or commit
+   `.env.local`. `.env.example` lists supported names; do not leave empty fixture lines
+   if using the helper below.
 
-4. Run web app with `pnpm dev`.
+4. Generate missing fictional local credentials, then create manager fixtures:
 
-5. Stop local containers without deleting their volumes:
+   ```bash
+   pnpm local:credentials --confirm-local-development
+   pnpm local:bootstrap --confirm-local-development
+   ```
+
+   Both commands require this explicit flag. Credential generation checks Git ignore
+   status and matches configured URL/keys against this repository's running local stack.
+   It preserves existing values and appends missing settings without printing them:
+
+   - `CLOXA_SITE_URL`, default `http://localhost:3000`
+   - `CLOXA_LOCAL_MANAGER_EMAIL`, default `manager.local@example.test`
+   - `CLOXA_LOCAL_MANAGER_PASSWORD`
+   - `CLOXA_LOCAL_EMPLOYEE_PASSWORD`
+   - `CLOXA_LOCAL_EMPLOYEE_RESET_PASSWORD`
+
+   Empty existing values, duplicate names, hosted URLs, and mismatched local keys cause
+   refusal. Bootstrap uses a literal loopback endpoint and rejects HTTP redirects. It
+   creates one confirmed fictional manager, profile, research-pilot organization,
+   `Europe/Brussels` worksite, and active manager membership. Repeated bootstrap runs
+   preserve passwords and fixtures; conflicting records cause refusal instead of an
+   overwrite. See [scripts/README.md](scripts/README.md).
+
+5. Run `pnpm dev`, then open [local Cloxa](http://localhost:3000/login). Read manager
+   credentials from your ignored file; do not share them. Open
+   [local Mailpit](http://127.0.0.1:54324) for invitation and recovery messages. Local
+   SMTP captures mail without sending it to external recipients. Use `example.test`
+   addresses and fictional names only.
+
+6. Stop local containers without deleting their volumes:
 
    ```bash
    pnpm supabase:stop
@@ -98,10 +126,42 @@ pnpm exec supabase migration list --local
 `pnpm supabase:types:check` regenerates them in memory and fails when the stored file is
 missing or stale.
 
-Public signup is disabled globally and for email in `supabase/config.toml`; the app also
-exposes no signup action. Before any future hosted deployment, disable “Allow new users
-to sign up” in hosted Supabase Auth settings too. Local config does not change hosted
-settings.
+Global `auth.enable_signup = false` rejects public signup.
+`auth.email.enable_signup = true` keeps the email/password provider available for
+administrator invitations, login, and recovery; it does not override the global signup
+block. Supabase documents the separate signup and email-provider switches in its
+[Auth configuration reference](https://github.com/supabase/auth/blob/master/_autodocs/configuration.md).
+The app exposes no signup action. Local configuration does not change hosted settings.
+
+## Authentication flow
+
+`/login`, `/forgot-password`, `/reset-password`, and `/accept-invitation` use server
+actions. The callback verifies Supabase email tokens server-side and redirects to fixed
+local routes. Auth clients store tokens in `HttpOnly`, `SameSite=Lax` cookies; HTTPS
+also sets `Secure`. Local HTTP is permitted on loopback only. Browser-importable code
+has no service credential. Proxy refresh preserves response cookies and cache headers;
+server pages and actions enforce current database authorization.
+
+Managers submit employee email, optional display name, and optional employee code. The
+database derives organization and `employee` role from trusted membership state,
+normalizes email, and blocks duplicate usable invitations or active memberships.
+Invitation creation returns the same Dutch success response for duplicate/no-op cases;
+password recovery conceals whether an account exists.
+
+Application invitations expire after 24 hours. Supabase invite/recovery links expire
+after 1 hour. A verified callback sets a signed, user/session-bound, purpose-specific
+cookie valid for 15 minutes; acceptance and password reset require that proof. The
+acceptance transaction creates or completes profile and employee membership, marks the
+invitation accepted, and appends one minimal audit event. Replays cannot create another
+membership. Password reset also signs out other Auth sessions.
+
+Supabase Auth email delivery and password updates cannot share the application database
+transaction. A delivery failure triggers a conditional revocation attempt; acceptance
+failure after password creation can leave an Auth account without tenant access. The
+database still commits profile, membership, invitation, and acceptance audit together.
+Supabase administrator invitations reject already-confirmed Auth accounts; this phase
+does not add a reinvitation flow for those accounts. Use a new fictional employee email
+for a fresh local journey, or reset the local stack if its test data is disposable.
 
 ## Authorization model
 
@@ -116,24 +176,52 @@ directly manage organizations, worksites, memberships, invitations, or audit eve
 
 Invited and inactive memberships grant no organization-scoped access. Suspension removes
 access to organization-scoped rows, including users' own memberships; users retain
-access to their own profile. Audit events are append-only. Later trusted database
-functions will own sensitive writes and audit insertion. See the complete access matrix
-and schema decisions in [packages/database/README.md](packages/database/README.md).
+access to their own profile. Audit events are append-only. Controlled invitation
+functions own invitation creation, membership activation, and minimal audit insertion.
+Existing table RLS policies remain unchanged. The new Auth-context and invitation RPCs
+also require a verified, non-deleted, non-banned Auth user with a live matching
+`auth.sessions` row.
+
+The app supports one active membership per user. Multiple active memberships return an
+unsupported state, including a second membership in a suspended organization; the app
+does not choose a tenant. Anonymous requests redirect to `/login`; authenticated users
+without a supported active role reach `/unauthorized`. See the access matrix and RPC
+contracts in [packages/database/README.md](packages/database/README.md).
 
 Secret-key and service-role clients can bypass row-level security. They must remain
 server-only and be limited to controlled operations; never import one into browser code.
 
-## Quality commands
+## Verification
+
+Run this sequence in order against the local stack. These commands describe the
+verification procedure, not a claim that a particular checkout has passed:
 
 ```bash
-pnpm format
+pnpm supabase:reset
+pnpm test:db
+pnpm supabase:lint
+pnpm supabase:types
+pnpm supabase:types:check
 pnpm format:check
 pnpm lint
 pnpm typecheck
 pnpm test
-pnpm test:e2e
 pnpm build
+pnpm test:e2e
+pnpm audit --prod --audit-level high
 ```
+
+`supabase:reset` deletes local database contents and recreates the schema. Bootstrap
+again after reset for manual use. Playwright bootstraps its manager through the same
+explicitly flagged local helper, then uses a fresh fictional employee and local Mailpit.
+Its desktop journey covers invitation, acceptance, logout/login, and password
+recovery/reset; mobile checks cover route access and layout. Auth journey traces,
+screenshots, and videos stay disabled to avoid retaining credentials or email links.
+
+`pnpm build` checks production browser bundles for server-secret exposure;
+`pnpm test:bundles` repeats that check on an existing build. Use `pnpm format` to fix
+formatting before verification. Stop on assertion, security, data-loss, or build
+failures; investigate a transient tool failure without rerunning the entire sequence.
 
 Playwright requires Chromium once per machine:
 
@@ -151,4 +239,4 @@ pnpm exec playwright install chromium
 - No remote Supabase connection, hosted deployment, or real employee data. Development
   and tests remain local and synthetic.
 
-Next task: invitation-based authentication and controlled local test-user creation.
+Next task: employee clock-in and clock-out.

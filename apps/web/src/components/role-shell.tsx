@@ -1,11 +1,16 @@
 import type { LucideIcon } from "lucide-react";
+import type { ReactNode } from "react";
+
+import { LogoutForm } from "@/components/logout-form";
 
 export function RoleShell({
   description,
   icon: Icon,
   status,
   title,
+  children,
 }: {
+  children?: ReactNode;
   description: string;
   icon: LucideIcon;
   status: string;
@@ -28,8 +33,13 @@ export function RoleShell({
         </span>
       </div>
 
+      <div className="mt-5 flex justify-end">
+        <LogoutForm />
+      </div>
+
       <section className="docket-surface mt-8 min-h-72 rounded-2xl border border-rule-strong p-6 sm:p-10">
         <p className="max-w-2xl text-lg leading-8 text-muted">{description}</p>
+        {children}
       </section>
     </main>
   );

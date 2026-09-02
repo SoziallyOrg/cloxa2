@@ -53,6 +53,8 @@ export type Database = {
           accepted_at: string | null;
           accepted_by: string | null;
           created_at: string;
+          display_name: string | null;
+          employee_code: string | null;
           expires_at: string;
           id: string;
           intended_role: string;
@@ -67,6 +69,8 @@ export type Database = {
           accepted_at?: string | null;
           accepted_by?: string | null;
           created_at?: string;
+          display_name?: string | null;
+          employee_code?: string | null;
           expires_at: string;
           id?: string;
           intended_role?: string;
@@ -81,6 +85,8 @@ export type Database = {
           accepted_at?: string | null;
           accepted_by?: string | null;
           created_at?: string;
+          display_name?: string | null;
+          employee_code?: string | null;
           expires_at?: string;
           id?: string;
           intended_role?: string;
@@ -230,7 +236,24 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
-      [_ in never]: never;
+      accept_employee_invitation: { Args: never; Returns: string };
+      create_employee_invitation: {
+        Args: {
+          display_name?: string;
+          employee_code?: string;
+          employee_email: string;
+        };
+        Returns: string;
+      };
+      get_auth_context: {
+        Args: never;
+        Returns: {
+          authorization_state: string;
+          membership_role: string;
+          organization_id: string;
+        }[];
+      };
+      get_employee_invitation_state: { Args: never; Returns: string };
     };
     Enums: {
       [_ in never]: never;

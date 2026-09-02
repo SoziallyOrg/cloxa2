@@ -3,12 +3,14 @@ import type { Metadata } from "next";
 
 import { RoleShell } from "@/components/role-shell";
 import { nlBE } from "@/i18n/nl-BE";
+import { requireRole } from "@/lib/auth/session";
 
 export const metadata: Metadata = {
   title: nlBE.employee.title,
 };
 
-export default function EmployeePage() {
+export default async function EmployeePage() {
+  await requireRole("employee");
   return (
     <RoleShell
       description={nlBE.employee.description}

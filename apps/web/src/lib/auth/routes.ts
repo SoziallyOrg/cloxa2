@@ -1,26 +1,7 @@
 const protectedRoutePrefixes = ["/employee", "/manager"] as const;
-const defaultAuthenticatedPath = "/employee";
-const localOrigin = "http://cloxa.local";
+const postAuthPaths = new Set<string>(protectedRoutePrefixes);
 
-function decodeRepeatedly(value: string): string | null {
-  let decoded = value;
-
-  try {
-    for (let pass = 0; pass < 3; pass += 1) {
-      const next = decodeURIComponent(decoded);
-
-      if (next === decoded) {
-        return decoded;
-      }
-
-      decoded = next;
-    }
-
-    return decoded;
-  } catch {
-    return null;
-  }
-}
+export type RolePath = (typeof protectedRoutePrefixes)[number];
 
 export function isProtectedRoute(pathname: string): boolean {
   return protectedRoutePrefixes.some(
@@ -28,28 +9,10 @@ export function isProtectedRoute(pathname: string): boolean {
   );
 }
 
-export function getSafePostAuthPath(value: string | null): string {
-  if (!value) {
-    return defaultAuthenticatedPath;
-  }
-
-  const candidate = decodeRepeatedly(value.trim());
-
-  if (
-    !candidate ||
-    !candidate.startsWith("/") ||
-    candidate.startsWith("//") ||
-    candidate.includes("\\") ||
-    /[\u0000-\u001f]/u.test(candidate)
-  ) {
-    return defaultAuthenticatedPath;
-  }
-
-  const parsed = new URL(candidate, localOrigin);
-
-  if (parsed.origin !== localOrigin || !isProtectedRoute(parsed.pathname)) {
-    return defaultAuthenticatedPath;
-  }
-
-  return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+/** Only implemented role landing pages are valid post-auth destinations. */
+export function getSafePostAuthPath(
+  value: string | null | undefined,
+  fallback: RolePath | "/unauthorized" = "/unauthorized",
+): RolePath | "/unauthorized" {
+  return value && postAuthPaths.has(value) ? (value as RolePath) : fallback;
 }
