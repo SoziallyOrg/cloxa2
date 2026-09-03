@@ -27,3 +27,13 @@ Mailpit, and disables traces, screenshots, video and retained test artifacts. Bu
 automatically scans production browser bundles for server-secret leakage. Pinned
 Playwright's automatic failure DOM snapshots are disabled too, keeping form values out
 of error reports. Browser requests allow only the local app and Auth API.
+
+Correction journeys use fresh synthetic employees and authenticated RPCs for factual
+clock records and correction mutations. Parallel tests use two independent live sessions
+to exercise retry, overlap, and withdrawal races. Service credentials create fixtures
+and inspect outcomes only; they never write factual time or correction rows.
+
+For local UI review only, `CLOXA_CAPTURE_REVIEW=1` captures the correction page after
+its synthetic journey into ignored `.impeccable/review/desktop.png` and `mobile.png`.
+These captures exclude Auth forms, passwords, cookies, and links. Normal E2E runs keep
+capture disabled; review images never enter Git.

@@ -39,18 +39,19 @@ helpers derive identity from `auth.uid()` and require an active membership in an
 organization whose lifecycle is `research_pilot` or `paid_beta`. They do not trust
 metadata, email addresses, route names, or browser state as proof of tenant access.
 
-All seven application tables have RLS enabled. This matrix describes direct access
+All eight application tables have RLS enabled. This matrix describes direct access
 through `anon` and `authenticated` database roles:
 
-| Table           | Anonymous | Active employee               | Active manager                                                                                    | Invited, inactive, absent membership, or suspended organization | Direct browser writes                                                                                      |
-| --------------- | --------- | ----------------------------- | ------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `profiles`      | None      | Own profile                   | Own profile and profiles of members in manager's organization, including invited/inactive members | Own profile                                                     | Authenticated owner may update `display_name` and `locale`; no insert/delete or identity/timestamp changes |
-| `organizations` | None      | Own organization              | Own organization                                                                                  | None                                                            | None                                                                                                       |
-| `worksites`     | None      | Worksites in own organization | Worksites in own organization                                                                     | None                                                            | None                                                                                                       |
-| `memberships`   | None      | Own active membership         | Memberships in own organization, including invited/inactive members                               | None, including own membership                                  | None                                                                                                       |
-| `invitations`   | None      | None                          | Invitations in own organization                                                                   | None                                                            | None                                                                                                       |
-| `audit_events`  | None      | None                          | Events in own organization                                                                        | None                                                            | None                                                                                                       |
-| `time_entries`  | None      | Own entries while active      | None                                                                                              | None                                                            | None                                                                                                       |
+| Table                 | Anonymous | Active employee               | Active manager                                                                                    | Invited, inactive, absent membership, or suspended organization | Direct browser writes                                                                                      |
+| --------------------- | --------- | ----------------------------- | ------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `profiles`            | None      | Own profile                   | Own profile and profiles of members in manager's organization, including invited/inactive members | Own profile                                                     | Authenticated owner may update `display_name` and `locale`; no insert/delete or identity/timestamp changes |
+| `organizations`       | None      | Own organization              | Own organization                                                                                  | None                                                            | None                                                                                                       |
+| `worksites`           | None      | Worksites in own organization | Worksites in own organization                                                                     | None                                                            | None                                                                                                       |
+| `memberships`         | None      | Own active membership         | Memberships in own organization, including invited/inactive members                               | None, including own membership                                  | None                                                                                                       |
+| `invitations`         | None      | None                          | Invitations in own organization                                                                   | None                                                            | None                                                                                                       |
+| `audit_events`        | None      | None                          | Events in own organization                                                                        | None                                                            | None                                                                                                       |
+| `time_entries`        | None      | Own entries while active      | None                                                                                              | None                                                            | None                                                                                                       |
+| `correction_requests` | None      | Own requests while active     | None                                                                                              | None                                                            | None                                                                                                       |
 
 Access applies per organization: losing access to one tenant does not remove a user's
 separate active membership in another tenant. Suspension removes access to all rows
@@ -66,39 +67,49 @@ the `private` schema remains outside the API's exposed schemas.
 
 All private functions have owner `postgres` and fixed `search_path = ''`:
 
-| Function                        | Security | Application-role EXECUTE |
-| ------------------------------- | -------- | ------------------------ |
-| `is_active_org_member`          | DEFINER  | `authenticated`          |
-| `has_org_role`                  | DEFINER  | `authenticated`          |
-| `can_read_member_profile`       | DEFINER  | `authenticated`          |
-| `set_updated_at`                | INVOKER  | None                     |
-| `normalize_invitation_email`    | INVOKER  | None                     |
-| `reject_audit_event_mutation`   | INVOKER  | None                     |
-| `get_auth_context`              | DEFINER  | `authenticated`          |
-| `create_employee_invitation`    | DEFINER  | `authenticated`          |
-| `get_employee_invitation_state` | DEFINER  | `authenticated`          |
-| `accept_employee_invitation`    | DEFINER  | `authenticated`          |
-| `can_read_own_time_entry`       | DEFINER  | `authenticated`          |
-| `clock_in`                      | DEFINER  | `authenticated`          |
-| `clock_out`                     | DEFINER  | `authenticated`          |
-| `get_employee_time_clock`       | DEFINER  | `authenticated`          |
+| Function                                  | Security | Application-role EXECUTE |
+| ----------------------------------------- | -------- | ------------------------ |
+| `is_active_org_member`                    | DEFINER  | `authenticated`          |
+| `has_org_role`                            | DEFINER  | `authenticated`          |
+| `can_read_member_profile`                 | DEFINER  | `authenticated`          |
+| `set_updated_at`                          | INVOKER  | None                     |
+| `normalize_invitation_email`              | INVOKER  | None                     |
+| `reject_audit_event_mutation`             | INVOKER  | None                     |
+| `get_auth_context`                        | DEFINER  | `authenticated`          |
+| `create_employee_invitation`              | DEFINER  | `authenticated`          |
+| `get_employee_invitation_state`           | DEFINER  | `authenticated`          |
+| `accept_employee_invitation`              | DEFINER  | `authenticated`          |
+| `can_read_own_time_entry`                 | DEFINER  | `authenticated`          |
+| `clock_in`                                | DEFINER  | `authenticated`          |
+| `clock_out`                               | DEFINER  | `authenticated`          |
+| `get_employee_time_clock`                 | DEFINER  | `authenticated`          |
+| `resolve_brussels_local`                  | INVOKER  | None                     |
+| `guard_correction_request_immutability`   | INVOKER  | None                     |
+| `guard_correction_operation_immutability` | INVOKER  | None                     |
+| `can_read_own_correction_request`         | DEFINER  | `authenticated`          |
+| `submit_employee_correction_request`      | DEFINER  | `authenticated`          |
+| `withdraw_employee_correction_request`    | DEFINER  | `authenticated`          |
+| `get_employee_correction_requests`        | DEFINER  | `authenticated`          |
 
 The owner retains EXECUTE; `PUBLIC`, `anon`, and `service_role` have no EXECUTE grants.
-Authenticated SQL callers invoke protected helpers through seven `SECURITY INVOKER`
+Authenticated SQL callers invoke protected helpers through ten `SECURITY INVOKER`
 wrappers in `public`. Their definer implementations stay in the unexposed `private`
 schema. Every protected helper binds identity to `auth.uid()` and a matching live
 `auth.sessions` row. Trigger functions have no application EXECUTE grants. Neither
 `anon` nor `service_role` can call the new RPCs.
 
-| Public RPC                                                                  | Browser inputs                             | Result                                                                                                                                  |
-| --------------------------------------------------------------------------- | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `get_auth_context()`                                                        | None                                       | One `authorized`, `unauthorized`, or `unsupported` row; tenant and role appear only for one active membership in an active organization |
-| `create_employee_invitation(employee_email, display_name?, employee_code?)` | Employee email and optional profile fields | New invitation ID or a non-disclosing `NULL` duplicate/no-op                                                                            |
-| `get_employee_invitation_state()`                                           | None                                       | `ready`, `unavailable`, or `unsupported` for current verified Auth email                                                                |
-| `accept_employee_invitation()`                                              | None                                       | Activated employee membership ID                                                                                                        |
-| `clock_in(request_id)`                                                      | Request UUID                               | `started`, `already_working`, or the saved result for the same request                                                                  |
-| `clock_out(request_id)`                                                     | Request UUID                               | `stopped`, `already_stopped`, or the saved result for the same request                                                                  |
-| `get_employee_time_clock()`                                                 | None                                       | Current work state and today's own entries using the worksite timezone                                                                  |
+| Public RPC                                                                  | Browser inputs                                                                           | Result                                                                                                                                  |
+| --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `get_auth_context()`                                                        | None                                                                                     | One `authorized`, `unauthorized`, or `unsupported` row; tenant and role appear only for one active membership in an active organization |
+| `create_employee_invitation(employee_email, display_name?, employee_code?)` | Employee email and optional profile fields                                               | New invitation ID or a non-disclosing `NULL` duplicate/no-op                                                                            |
+| `get_employee_invitation_state()`                                           | None                                                                                     | `ready`, `unavailable`, or `unsupported` for current verified Auth email                                                                |
+| `accept_employee_invitation()`                                              | None                                                                                     | Activated employee membership ID                                                                                                        |
+| `clock_in(request_id)`                                                      | Request UUID                                                                             | `started`, `already_working`, or the saved result for the same request                                                                  |
+| `clock_out(request_id)`                                                     | Request UUID                                                                             | `stopped`, `already_stopped`, or the saved result for the same request                                                                  |
+| `get_employee_time_clock()`                                                 | None                                                                                     | Current work state and today's own entries using the worksite timezone                                                                  |
+| `submit_employee_correction_request(...)`                                   | Request UUID, kind, optional target, Brussels wall times, occurrence choices, and reason | New pending request or saved identical result                                                                                           |
+| `withdraw_employee_correction_request(request_id, correction_request_id)`   | Operation request UUID and own request UUID                                              | `withdrawn`, `already_withdrawn`, or saved identical result                                                                             |
+| `get_employee_correction_requests()`                                        | None                                                                                     | Recent closed entries and own request history                                                                                           |
 
 Creation derives organization from caller's sole active manager membership, fixes role
 to `employee`, normalizes email, expires invitations after 24 hours, and appends a
@@ -147,8 +158,48 @@ remains active. Browser and service roles receive no direct time-entry write gra
 
 State RPC calculates today's boundary in worksite's `Europe/Brussels` timezone and
 returns timestamps as absolute instants. Interface formats those instants in same
-timezone, including daylight-saving transitions. Breaks, manual records, corrections,
-approvals, and exports remain outside this phase.
+timezone, including daylight-saving transitions. Breaks, direct manual factual records,
+corrections, approvals, and exports remain outside time-clock RPC scope.
+
+## Employee correction requests
+
+Correction rows contain employee claims, not approved facts. Adjustment requests target
+a closed own `time_entries` row and store immutable original start/end snapshots. Missed
+entry requests carry no target or snapshot. Composite foreign keys keep organization,
+employee membership, worksite, target entry, and future resolver membership tenant
+consistent. Status constraints support `pending`, `withdrawn`, `approved`, and
+`rejected`; this phase creates only pending and withdrawn states.
+
+Authenticated employees may select only own requests while their membership,
+organization, Auth user, and session remain active. Managers and anonymous users receive
+no rows. Browser and service roles have no direct insert, update, or delete privileges.
+Public invoker RPCs call private definer implementations with empty search paths and
+derive identity, tenant, employee membership, role, status, worksite, and audit actor
+from live locked state.
+
+Dutch wall-clock input is normalized to `YYYY-MM-DDTHH:mm[:ss[.ffffff]]` without using
+browser or server machine timezone, then `private.resolve_brussels_local` resolves it
+against `Europe/Brussels`. Spring-forward gaps fail. Autumn repeated times require
+`earlier` or `later`. Proposals must end strictly after start, end before database time,
+change an adjustment, and avoid factual entries other than adjustment target. Pending
+proposals for same employee may not overlap, and one pending adjustment may target an
+entry.
+
+Submission and withdrawal share time clock advisory-lock namespace and lock order.
+Private operation ledger stores SHA-256 payload hashes and original outcomes per
+employee/request UUID. Identical retries replay; changed operations or payloads fail
+closed. Real transitions append one status-only audit in same transaction. Reasons and
+proposed timestamps never enter audits. Withdrawal affects only employee's own pending
+request and does not modify, delete, replace, or mark target `time_entries`.
+
+Request update/delete/truncate guards preserve submitted claims, target snapshots, and
+creation fields. Terminal states cannot change. Ledger update/delete/truncate guards
+preserve hashes and saved outcomes; its private table also enables RLS without
+application policies. Database owners can alter or disable triggers, so these are
+accidental-mutation guards, not tamper-proof storage. Public request reads require
+exactly one active membership. The read RPC returns 20 recent closed entries and 50
+recent requests; older rows remain stored but need a future history-pagination
+interface.
 
 Profile UPDATE privileges cover `display_name` and `locale` only, with RLS checking
 `user_id = auth.uid()` before and after each update. Callers cannot write `user_id`,
@@ -184,11 +235,16 @@ profile text does not grant authorization.
   timezone defaults to `Europe/Brussels`. Timestamps use `timestamptz`; mutable tables
   maintain `updated_at` through database triggers.
 - Schema permits multiple worksites per organization for future use. Pilot time-clock
-  RPCs require exactly one worksite; no worksite-management UI exists.
+  and correction RPCs require exactly one worksite; no worksite-management UI exists.
+- Correction reasons are trimmed and limited to 500 characters. Partial unique indexes
+  enforce one pending adjustment per target and prevent exact duplicate pending
+  intervals. Private transactional checks also reject any overlapping pending proposal
+  for employee.
 
 Hosted Supabase connections, deployment, paid resources, and real personal or customer
 data remain prohibited. Development and tests use local synthetic data only. This phase
-does not establish production readiness or implement breaks, manual records,
-corrections, approvals, exports, billing, or product dashboards.
+does not establish production readiness or implement breaks, direct manual factual
+records, manager decisions, correction application, exports, billing, or product
+dashboards.
 
-Next phase: correction requests and manager approval.
+Next phase: manager correction review, decisions, and controlled application.

@@ -5,7 +5,9 @@ and 5–20 employees. This repository contains local invitation-based authentica
 tenant authorization, and manager/employee entry pages. Managers can invite fictional
 employees; employees can accept, set passwords, sign in, and recover access. Time
 registration lets an active employee start and stop work at the sole pilot worksite and
-review today's own registrations.
+review today's own registrations. Employees can submit reviewable adjustment and
+missed-entry claims without changing factual registrations, then withdraw pending
+claims.
 
 ## Workspace
 
@@ -175,7 +177,9 @@ but cannot list coworkers. Active managers can read memberships, member profiles
 invitations, and audit events inside their own organization. Browser roles cannot
 directly manage organizations, worksites, memberships, invitations, or audit events.
 Employees receive read-only access to their own permitted `time_entries`; managers do
-not receive time-entry review access in this phase.
+not receive time-entry or correction review access in this phase. Employees likewise
+receive read-only access to their own `correction_requests`; all correction writes pass
+through controlled authenticated RPCs.
 
 Invited and inactive memberships grant no organization-scoped access. Suspension removes
 access to organization-scoped rows, including users' own memberships; users retain
@@ -214,6 +218,29 @@ employees may select only entries belonging to their own active employee members
 active organization. Anonymous, manager, inactive, unaffiliated, expired-session,
 ambiguous-tenant, suspended-organization, and cross-tenant access fails closed.
 
+## Employee correction requests
+
+`/employee/corrections` lists up to 20 recent closed own registrations and 50 own
+correction requests. Employees can propose a changed start and/or end for a closed own
+entry, report a completely missed closed interval, or withdraw an own pending request.
+Original `time_entries` remain untouched. Managers receive no correction access or
+review interface yet.
+
+Inputs use Dutch `dd/mm/jjjj uu:mm` wall-clock text and one explicit conversion path in
+Postgres for `Europe/Brussels`. Nonexistent spring-forward values fail. Repeated autumn
+values require an explicit first or second occurrence. Accepted instants are stored as
+`timestamptz`. Prefilled values preserve seconds and microseconds; optional `:ss.ffffff`
+precision stays intact through conversion. Database checks require a bounded trimmed
+reason, strict chronology, entirely past intervals, a real change for adjustments, and
+no overlap with other factual entries or pending employee proposals.
+
+Submission and withdrawal functions reuse the time clock's per-user advisory lock and
+lock order. A private immutable operation ledger binds each request UUID to operation
+and payload hash. Identical retries replay the original outcome; altered payloads fail
+closed. Real submissions and withdrawals append one status-only audit each, while
+retries and no-ops append none. Browser roles cannot insert, update, or delete
+correction rows.
+
 ## Verification
 
 Run this sequence in order against the local stack. These commands describe the
@@ -239,9 +266,13 @@ again after reset for manual use. Playwright bootstraps its manager through the 
 explicitly flagged local helper, then uses a fresh fictional employee and local Mailpit.
 Its desktop Auth journey covers invitation, acceptance, logout/login, and password
 recovery/reset. Separate desktop and 320px mobile clock journeys cover start, duplicate
-submission, concurrent tabs, stop, and persisted state after reload. Auth journey
-traces, screenshots, and videos stay disabled to avoid retaining credentials or email
-links.
+submission, concurrent tabs, stop, and persisted state after reload. Correction journeys
+cover adjustment and missed-entry submission, duplicate submission, reload persistence,
+escaped reason rendering, withdrawal, audit counts, unchanged factual entries, focus and
+field-error semantics, and exact 320px layout. Separate parallel-RPC tests use two live
+employee sessions for identical retries, conflicting pending intervals, withdrawal
+races, and mixed clock/correction calls. Auth journey traces, screenshots, and videos
+stay disabled to avoid retaining credentials or email links.
 
 `pnpm build` checks production browser bundles for server-secret exposure;
 `pnpm test:bundles` repeats that check on an existing build. Use `pnpm format` to fix
@@ -259,11 +290,11 @@ pnpm exec playwright install chromium
 - Invitation-only; no public signup or automatic billing.
 - No ORM, Redux, Redis, queues, realtime, storage, analytics, or microservices.
 - No offline mode or service worker. Manifest only.
-- No breaks, manual entries, corrections, approvals, exports, scheduling, billing,
-  realtime updates, or native app.
+- No breaks, direct manual factual entries, manager approvals or rejections, applied
+  corrections, exports, scheduling, billing, realtime updates, or native app.
 - No claim that Cloxa calculates payroll, satisfies Belgian employment rules, or is
   production-ready.
 - No remote Supabase connection, hosted deployment, or real employee data. Development
   and tests remain local and synthetic.
 
-Next task: employee correction requests and manager review.
+Next task: manager correction review, decisions, and controlled application.
