@@ -315,6 +315,12 @@ vertical documents. Workflow sequence is a vertical trace on small screens and a
 four-column horizontal trace on large screens. Page supports a 320px minimum viewport
 without horizontal composition loss.
 
+Role headings wrap naturally, with status below the title before 640px and beside it at
+wider widths. Correction comparisons stack original then proposal below 1024px; decision
+controls stack below 640px. Names, employee codes, reasons, and notes wrap within
+available width. Protected dialogs retain 1rem viewport gutters and scroll within 90dvh
+so long decisions remain reachable on compact screens.
+
 **The One Dossier Rule.** Lead each shell with one broad bordered document; use internal
 rules and fields instead of a scatter of equal cards.
 
@@ -395,7 +401,8 @@ descriptor copy.
 
 Role shell uses a ruled content dossier beneath a simple ruled title row. Status appears
 as a full-radius Carbon-Copy Amber pill with Amber Ink, Inspector Rule border, and
-compact status typography.
+compact status typography. Title wraps instead of truncating; mobile status sits below
+the heading. At 640px, title and status share a row.
 
 ### Employee Time Clock
 
@@ -450,7 +457,46 @@ distinct in labels and help copy.
   assistive technology.
 - **Claim history:** use unboxed ruled rows with proposed time range, wrapping reason
   text, and existing amber status pill. Offer secondary withdrawal action on pending
-  requests. Preserve line breaks in reasons and keep long text inside mobile width.
+  requests. Resolved requests expose outcome, decision time, and manager note when
+  present. Preserve line breaks in reasons and notes; keep long text inside mobile
+  width.
+
+### Original / Proposal Comparison
+
+Review rows remain unboxed inside the ruled dossier. Native disclosure summaries keep
+employee identity, code, request type, and amber status visible before expansion.
+
+- **Fact / claim:** pair flat Pressed Paper for original facts with Pale Cobalt Wash for
+  proposed values. Use explicit headings as well as material contrast. Missing facts
+  receive a plain explanation in the original field.
+- **Exact times:** show each endpoint on its own line with tabular numerals. Preserve
+  source fractional seconds through microsecond precision and show Europe/Brussels
+  offset beside local time; repeated autumn hours remain distinguishable.
+- **Record context:** place employee reason, submission time, decision time, and manager
+  note beneath the comparison. Preserve line breaks and wrap long names, codes, reasons,
+  and notes. Keep completed rows readable without decision controls.
+- **Disclosure / actions:** native summary supports keyboard expansion and cobalt focus.
+  Pending rows offer filled cobalt approval and paper rejection controls; both open a
+  protected decision dialog.
+
+### Protected Decision Dialog
+
+Native modal dialog carries Traveler Paper, Inspector Rule outline, 1rem corners, and an
+ink backdrop at 40% opacity. It uses existing paper fields and button states without
+adding a new elevation style.
+
+- **Decision context:** condensed heading and plain consequence copy precede employee
+  identity and exact proposed interval. Rejection requires an explanation; approval
+  permits an optional note. Labels explain that employees can read the note.
+- **Field / validation:** note field follows shared input styling, with 7rem minimum
+  height and 500-character limit. Field errors connect to the textarea and expose
+  invalid state. Failed submissions retain dialog content and focus alert feedback.
+- **Protected submission:** mark form busy, announce saving, and disable fields and
+  actions while pending. Dismissal and duplicate submission are blocked during saving.
+  Escape or cancellation returns focus to initiating control when idle; success closes
+  the dialog and focuses visible result feedback.
+- **Compact layout:** maximum width is 36rem; viewport gutters remain 1rem. Dialog
+  scrolls within 90dvh. Controls stack on mobile, and confirmation copy can wrap.
 
 ### Status State
 

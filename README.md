@@ -7,7 +7,9 @@ employees; employees can accept, set passwords, sign in, and recover access. Tim
 registration lets an active employee start and stop work at the sole pilot worksite and
 review today's own registrations. Employees can submit reviewable adjustment and
 missed-entry claims without changing factual registrations, then withdraw pending
-claims.
+claims. Managers review their own organization's proposals, approve exact intervals, or
+reject with an explanation. Approval updates factual history atomically; employees see
+final decisions and manager explanations.
 
 ## Workspace
 
@@ -176,10 +178,10 @@ Authenticated users can read their own profile and update its `display_name` and
 but cannot list coworkers. Active managers can read memberships, member profiles,
 invitations, and audit events inside their own organization. Browser roles cannot
 directly manage organizations, worksites, memberships, invitations, or audit events.
-Employees receive read-only access to their own permitted `time_entries`; managers do
-not receive time-entry or correction review access in this phase. Employees likewise
-receive read-only access to their own `correction_requests`; all correction writes pass
-through controlled authenticated RPCs.
+Employees receive read-only access to their own permitted `time_entries`; verified
+active managers receive read access inside their sole active organization. Employees
+likewise receive read-only access to their own `correction_requests`; all correction
+writes pass through controlled authenticated RPCs.
 
 Invited and inactive memberships grant no organization-scoped access. Suspension removes
 access to organization-scoped rows, including users' own memberships; users retain
@@ -215,7 +217,7 @@ event in the same transaction; retries and no-ops append none.
 
 Time entries cannot be inserted, updated, or deleted directly by browser roles. Active
 employees may select only entries belonging to their own active employee membership and
-active organization. Anonymous, manager, inactive, unaffiliated, expired-session,
+active organization. Anonymous, inactive, unaffiliated, expired-session,
 ambiguous-tenant, suspended-organization, and cross-tenant access fails closed.
 
 ## Employee correction requests
@@ -223,8 +225,8 @@ ambiguous-tenant, suspended-organization, and cross-tenant access fails closed.
 `/employee/corrections` lists up to 20 recent closed own registrations and 50 own
 correction requests. Employees can propose a changed start and/or end for a closed own
 entry, report a completely missed closed interval, or withdraw an own pending request.
-Original `time_entries` remain untouched. Managers receive no correction access or
-review interface yet.
+Submission and withdrawal leave `time_entries` untouched. Manager approval is the
+separate controlled operation that may apply the proposal.
 
 Inputs use Dutch `dd/mm/jjjj uu:mm` wall-clock text and one explicit conversion path in
 Postgres for `Europe/Brussels`. Nonexistent spring-forward values fail. Repeated autumn
@@ -240,6 +242,36 @@ and payload hash. Identical retries replay the original outcome; altered payload
 closed. Real submissions and withdrawals append one status-only audit each, while
 retries and no-ops append none. Browser roles cannot insert, update, or delete
 correction rows.
+
+## Manager correction review
+
+`/manager/corrections` shows all pending requests and the 50 latest terminal requests
+from the manager's own organization. Expand a row to compare original facts with the
+employee proposal, including exact timestamp precision and Brussels UTC offset. Approval
+requires confirmation; rejection requires a trimmed explanation of at most 500
+characters. Optional approval notes share that bound. Both remain escaped text.
+
+The browser submits only an operation UUID, correction UUID, decision, and note. Private
+database code locks the employee using the clock/correction advisory-lock namespace,
+rechecks manager authorization after waits, then locks factual and request rows.
+Approval revalidates original timestamps and the immutable factual-version snapshot,
+plus employee membership, sole worksite, closed/past interval, and current factual
+overlaps. A fact that changed and later returned to the same timestamps is still stale.
+Stale or overlapping proposals remain pending without factual changes or decision
+audits. Reject them with an explanation so the employee can submit a new proposal.
+
+One transaction applies the exact proposal, resolves the request, records an immutable
+operation outcome, and appends audits. Rejection appends only its status audit. Approval
+also appends exact old/new factual timestamps, versions, origins, and correction
+reference. Employee reasons and manager notes never enter audit payloads. Replaying an
+operation UUID with identical content returns its original outcome; changed content
+fails. Competing decisions produce one terminal transition. Terminal claims and decision
+ledgers cannot be updated, deleted, or truncated by application roles.
+
+Employee correction history shows final status and explanation. Factual readers show
+approved adjustments and newly approved missed entries. Browser reads exclude manager
+membership and decision-operation identifiers. Historical claims remain stored beyond
+the UI's limits; full history pagination and exports are not implemented.
 
 ## Verification
 
@@ -257,8 +289,10 @@ pnpm lint
 pnpm typecheck
 pnpm test
 pnpm build
-pnpm test:e2e
+CLOXA_E2E_PRODUCTION=1 pnpm test:e2e
 pnpm audit --prod --audit-level high
+git diff --check
+pnpm test:bundles
 ```
 
 `supabase:reset` deletes local database contents and recreates the schema. Bootstrap
@@ -271,8 +305,11 @@ cover adjustment and missed-entry submission, duplicate submission, reload persi
 escaped reason rendering, withdrawal, audit counts, unchanged factual entries, focus and
 field-error semantics, and exact 320px layout. Separate parallel-RPC tests use two live
 employee sessions for identical retries, conflicting pending intervals, withdrawal
-races, and mixed clock/correction calls. Auth journey traces, screenshots, and videos
-stay disabled to avoid retaining credentials or email links.
+races, and mixed clock/correction calls. Manager journeys cover approval/rejection
+persistence, employee outcomes and facts, concurrent manager tabs, eight-way retries,
+mixed clock/correction/decision calls, stale-target handling, generic retry failures,
+and session expiry after an advisory lock wait. Auth journey traces, screenshots, and
+videos stay disabled to avoid retaining credentials or email links.
 
 `pnpm build` checks production browser bundles for server-secret exposure;
 `pnpm test:bundles` repeats that check on an existing build. Use `pnpm format` to fix
@@ -290,11 +327,11 @@ pnpm exec playwright install chromium
 - Invitation-only; no public signup or automatic billing.
 - No ORM, Redux, Redis, queues, realtime, storage, analytics, or microservices.
 - No offline mode or service worker. Manifest only.
-- No breaks, direct manual factual entries, manager approvals or rejections, applied
-  corrections, exports, scheduling, billing, realtime updates, or native app.
+- No breaks, direct manual factual entries, exports, scheduling, billing, realtime
+  updates, or native app.
 - No claim that Cloxa calculates payroll, satisfies Belgian employment rules, or is
   production-ready.
 - No remote Supabase connection, hosted deployment, or real employee data. Development
   and tests remain local and synthetic.
 
-Next task: manager correction review, decisions, and controlled application.
+Next task: approved factual exports.

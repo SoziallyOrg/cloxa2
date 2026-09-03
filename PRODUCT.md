@@ -17,7 +17,7 @@ separately forbids Redux; no replacement client state library is assumed.
 
 - Dutch-speaking employees at one Flemish worksite who record and review their own
   factual work-time entries.
-- One Dutch-speaking manager who will eventually review corrections and hand approved
+- One Dutch-speaking manager who reviews corrections and will eventually hand approved
   records to a payroll-preparation role.
 - First customer profile: one organization, one worksite, 5–20 workers.
 
@@ -25,8 +25,8 @@ separately forbids Redux; no replacement client state library is assumed.
 
 Cloxa will reduce time spent collecting, correcting, approving, and handing off factual
 work-time records while preserving a visible history of changes. Current pilot scope
-supports invitation authentication, secure employee clock-in/out, and employee
-correction requests before manager decisions and export workflows are added.
+supports invitation authentication, employee clock-in/out, employee correction requests,
+and manager approval/rejection with controlled factual application.
 
 ## Positioning
 
@@ -43,13 +43,15 @@ pilots, if authorized later, run beside the customer’s existing official proce
 ## Capabilities and Constraints
 
 - Implemented workflow: invitation, login, secure employee clock-in/out, today's own
-  factual registrations, and employee adjustment or missed-entry requests.
-- Planned workflow continues with manager approval, application of approved corrections,
-  approved export, and visible change history.
+  factual registrations, employee adjustment or missed-entry requests, manager review,
+  and employee visibility of final decisions and explanations.
+- Approval applies the employee's exact interval atomically. Rejection preserves facts.
+  Immutable claims, versioned factual records, and append-only audits preserve history.
+- Planned workflow continues with approved export; export remains outside Phase 5.
 - Public signup and automatic billing remain disabled.
-- No breaks, direct manual factual entries, manager decisions, applied corrections,
-  exports, scheduling, billing, realtime, native app, ORM, Redux, Redis, queues,
-  storage, analytics, microservices, or offline service worker.
+- No breaks, direct manual factual entries, exports, scheduling, billing, realtime,
+  native app, ORM, Redux, Redis, queues, storage, analytics, microservices, or offline
+  service worker.
 - Hosted Supabase access, real employee data, customer outreach, spending, and
   deployment are out of scope.
 - One organization and one worksite remain explicit pilot constraints.

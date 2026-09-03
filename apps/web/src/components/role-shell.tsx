@@ -21,10 +21,10 @@ export function RoleShell({
       className="mx-auto w-full max-w-6xl flex-1 px-4 py-10 sm:px-6 sm:py-16 lg:px-8"
       id="main-content"
     >
-      <div className="flex items-center justify-between gap-4 border-b border-rule pb-5">
+      <div className="flex flex-col items-start justify-between gap-4 border-b border-rule pb-5 sm:flex-row sm:items-center">
         <div className="flex min-w-0 items-center gap-3">
-          <Icon aria-hidden="true" className="size-6 text-primary" />
-          <h1 className="truncate font-display text-3xl font-semibold tracking-[-0.025em] text-ink sm:text-4xl">
+          <Icon aria-hidden="true" className="size-6 shrink-0 text-primary" />
+          <h1 className="font-display text-3xl font-semibold tracking-[-0.025em] break-words text-ink sm:text-4xl">
             {title}
           </h1>
         </div>

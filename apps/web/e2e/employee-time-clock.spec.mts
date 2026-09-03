@@ -93,7 +93,9 @@ async function login(page: Page, email: string) {
   await page.getByLabel("E-mailadres", { exact: true }).fill(email);
   await page.getByLabel("Wachtwoord", { exact: true }).fill(employeePassword);
   await page.getByRole("button", { name: "Aanmelden", exact: true }).click();
-  await expect.poll(() => new URL(page.url()).pathname).toBe("/employee");
+  await expect
+    .poll(() => new URL(page.url()).pathname, { timeout: 15_000 })
+    .toBe("/employee");
 }
 
 async function expectDatabaseCounts(

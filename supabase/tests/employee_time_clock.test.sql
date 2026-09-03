@@ -295,7 +295,7 @@ set local "request.jwt.claims" =
   '{"sub":"91000000-0000-4000-8000-000000000002","role":"authenticated","session_id":"92000000-0000-4000-8000-000000000002"}';
 select throws_ok($$select * from public.clock_in('97000000-0000-4000-8000-000000000010')$$,
   '42501', null, 'manager cannot clock as employee');
-select is((select count(*) from public.time_entries), 0::bigint, 'manager cannot read employee entries');
+select is((select count(*) from public.time_entries), 5::bigint, 'manager reads own tenant employee entries');
 
 reset role;
 set local role authenticated;

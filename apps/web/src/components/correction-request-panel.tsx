@@ -489,6 +489,22 @@ export function CorrectionRequestPanel({
                 <p className="mt-3 max-w-3xl text-sm leading-6 break-words whitespace-pre-wrap text-ink">
                   {request.employeeReason}
                 </p>
+                {request.resolvedAt ? (
+                  <p className="mt-3 text-sm text-muted">
+                    {nlBE.managerCorrections.resolved}:{" "}
+                    {formatBelgianDateTime(request.resolvedAt)}
+                  </p>
+                ) : null}
+                {request.managerNote ? (
+                  <div className="mt-3">
+                    <p className="text-sm font-semibold text-ink">
+                      {nlBE.managerCorrections.note}
+                    </p>
+                    <p className="mt-1 max-w-3xl text-sm leading-6 break-words whitespace-pre-wrap text-ink">
+                      {request.managerNote}
+                    </p>
+                  </div>
+                ) : null}
                 {request.status === "pending" ? (
                   <WithdrawalControl correctionRequestId={request.id} />
                 ) : null}

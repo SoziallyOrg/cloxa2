@@ -50,13 +50,16 @@ export type Database = {
       };
       correction_requests: {
         Row: {
+          applied_time_entry_id: string | null;
           created_at: string;
           employee_membership_id: string;
           employee_reason: string;
           id: string;
+          manager_note: string | null;
           organization_id: string;
           original_ended_at: string | null;
           original_started_at: string | null;
+          original_time_entry_version: number | null;
           proposed_ended_at: string;
           proposed_started_at: string;
           request_kind: string;
@@ -71,13 +74,16 @@ export type Database = {
           worksite_id: string;
         };
         Insert: {
+          applied_time_entry_id?: string | null;
           created_at?: string;
           employee_membership_id: string;
           employee_reason: string;
           id?: string;
+          manager_note?: string | null;
           organization_id: string;
           original_ended_at?: string | null;
           original_started_at?: string | null;
+          original_time_entry_version?: number | null;
           proposed_ended_at: string;
           proposed_started_at: string;
           request_kind: string;
@@ -92,13 +98,16 @@ export type Database = {
           worksite_id: string;
         };
         Update: {
+          applied_time_entry_id?: string | null;
           created_at?: string;
           employee_membership_id?: string;
           employee_reason?: string;
           id?: string;
+          manager_note?: string | null;
           organization_id?: string;
           original_ended_at?: string | null;
           original_started_at?: string | null;
+          original_time_entry_version?: number | null;
           proposed_ended_at?: string;
           proposed_started_at?: string;
           request_kind?: string;
@@ -113,6 +122,23 @@ export type Database = {
           worksite_id?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: "correction_requests_applied_entry_fkey";
+            columns: [
+              "organization_id",
+              "employee_membership_id",
+              "worksite_id",
+              "applied_time_entry_id",
+            ];
+            isOneToOne: false;
+            referencedRelation: "time_entries";
+            referencedColumns: [
+              "organization_id",
+              "membership_id",
+              "worksite_id",
+              "id",
+            ];
+          },
           {
             foreignKeyName: "correction_requests_resolver_tenant_fkey";
             columns: ["organization_id", "resolved_by_membership_id"];
@@ -306,30 +332,56 @@ export type Database = {
           created_at: string;
           ended_at: string | null;
           id: string;
+          last_correction_request_id: string | null;
           membership_id: string;
           organization_id: string;
+          origin: string;
           started_at: string;
+          version: number;
           worksite_id: string;
         };
         Insert: {
           created_at?: string;
           ended_at?: string | null;
           id?: string;
+          last_correction_request_id?: string | null;
           membership_id: string;
           organization_id: string;
+          origin?: string;
           started_at: string;
+          version?: number;
           worksite_id: string;
         };
         Update: {
           created_at?: string;
           ended_at?: string | null;
           id?: string;
+          last_correction_request_id?: string | null;
           membership_id?: string;
           organization_id?: string;
+          origin?: string;
           started_at?: string;
+          version?: number;
           worksite_id?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: "time_entries_correction_request_fkey";
+            columns: [
+              "organization_id",
+              "membership_id",
+              "worksite_id",
+              "last_correction_request_id",
+            ];
+            isOneToOne: false;
+            referencedRelation: "correction_requests";
+            referencedColumns: [
+              "organization_id",
+              "employee_membership_id",
+              "worksite_id",
+              "id",
+            ];
+          },
           {
             foreignKeyName: "time_entries_membership_tenant_fkey";
             columns: ["organization_id", "membership_id"];
@@ -419,6 +471,22 @@ export type Database = {
         };
         Returns: string;
       };
+      decide_correction_request: {
+        Args: {
+          correction_request_id: string;
+          decision: string;
+          manager_note: string;
+          request_id: string;
+        };
+        Returns: {
+          correction_request_id: string;
+          did_decide: boolean;
+          request_id: string;
+          request_status: string;
+          result_code: string;
+          time_entry_id: string;
+        }[];
+      };
       get_auth_context: {
         Args: never;
         Returns: {
@@ -430,6 +498,7 @@ export type Database = {
       get_employee_correction_requests: { Args: never; Returns: Json };
       get_employee_invitation_state: { Args: never; Returns: string };
       get_employee_time_clock: { Args: never; Returns: Json };
+      get_manager_correction_requests: { Args: never; Returns: Json };
       submit_employee_correction_request: {
         Args: {
           employee_reason: string;

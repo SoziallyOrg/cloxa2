@@ -50,8 +50,8 @@ through `anon` and `authenticated` database roles:
 | `memberships`         | None      | Own active membership         | Memberships in own organization, including invited/inactive members                               | None, including own membership                                  | None                                                                                                       |
 | `invitations`         | None      | None                          | Invitations in own organization                                                                   | None                                                            | None                                                                                                       |
 | `audit_events`        | None      | None                          | Events in own organization                                                                        | None                                                            | None                                                                                                       |
-| `time_entries`        | None      | Own entries while active      | None                                                                                              | None                                                            | None                                                                                                       |
-| `correction_requests` | None      | Own requests while active     | None                                                                                              | None                                                            | None                                                                                                       |
+| `time_entries`        | None      | Own entries while active      | Own organization while live and unambiguous                                                       | None                                                            | None                                                                                                       |
+| `correction_requests` | None      | Own requests while active     | Own organization while live and unambiguous                                                       | None                                                            | None                                                                                                       |
 
 Access applies per organization: losing access to one tenant does not remove a user's
 separate active membership in another tenant. Suspension removes access to all rows
@@ -90,9 +90,13 @@ All private functions have owner `postgres` and fixed `search_path = ''`:
 | `submit_employee_correction_request`      | DEFINER  | `authenticated`          |
 | `withdraw_employee_correction_request`    | DEFINER  | `authenticated`          |
 | `get_employee_correction_requests`        | DEFINER  | `authenticated`          |
+| `manager_review_organization`             | DEFINER  | `authenticated`          |
+| `decide_correction_request`               | DEFINER  | `authenticated`          |
+| `get_manager_correction_requests`         | DEFINER  | `authenticated`          |
+| `guard_time_entry_history`                | INVOKER  | None                     |
 
 The owner retains EXECUTE; `PUBLIC`, `anon`, and `service_role` have no EXECUTE grants.
-Authenticated SQL callers invoke protected helpers through ten `SECURITY INVOKER`
+Authenticated SQL callers invoke protected helpers through twelve `SECURITY INVOKER`
 wrappers in `public`. Their definer implementations stay in the unexposed `private`
 schema. Every protected helper binds identity to `auth.uid()` and a matching live
 `auth.sessions` row. Trigger functions have no application EXECUTE grants. Neither
@@ -164,15 +168,17 @@ corrections, approvals, and exports remain outside time-clock RPC scope.
 ## Employee correction requests
 
 Correction rows contain employee claims, not approved facts. Adjustment requests target
-a closed own `time_entries` row and store immutable original start/end snapshots. Missed
-entry requests carry no target or snapshot. Composite foreign keys keep organization,
-employee membership, worksite, target entry, and future resolver membership tenant
-consistent. Status constraints support `pending`, `withdrawn`, `approved`, and
-`rejected`; this phase creates only pending and withdrawn states.
+a closed own `time_entries` row and store immutable original start/end and
+factual-version snapshots. Missed-entry requests carry no target or snapshot. Composite
+foreign keys keep organization, employee membership, worksite, target entry, and
+resolver membership tenant consistent. Status constraints support `pending`,
+`withdrawn`, `approved`, and `rejected`; only submission, withdrawal, and manager
+decision functions can write them.
 
 Authenticated employees may select only own requests while their membership,
-organization, Auth user, and session remain active. Managers and anonymous users receive
-no rows. Browser and service roles have no direct insert, update, or delete privileges.
+organization, Auth user, and session remain active. Live verified managers with exactly
+one active membership read their own organization's requests. Anonymous users receive no
+rows. Browser and service roles have no direct insert, update, or delete privileges.
 Public invoker RPCs call private definer implementations with empty search paths and
 derive identity, tenant, employee membership, role, status, worksite, and audit actor
 from live locked state.
@@ -188,9 +194,10 @@ entry.
 Submission and withdrawal share time clock advisory-lock namespace and lock order.
 Private operation ledger stores SHA-256 payload hashes and original outcomes per
 employee/request UUID. Identical retries replay; changed operations or payloads fail
-closed. Real transitions append one status-only audit in same transaction. Reasons and
-proposed timestamps never enter audits. Withdrawal affects only employee's own pending
-request and does not modify, delete, replace, or mark target `time_entries`.
+closed. Real submissions and withdrawals append one status-only audit in the same
+transaction, without reasons or proposed timestamps. Approval's factual audit preserves
+exact applied timestamps. Withdrawal affects only employee's own pending request and
+does not modify, delete, replace, or mark target `time_entries`.
 
 Request update/delete/truncate guards preserve submitted claims, target snapshots, and
 creation fields. Terminal states cannot change. Ledger update/delete/truncate guards
@@ -206,6 +213,93 @@ Profile UPDATE privileges cover `display_name` and `locale` only, with RLS check
 `created_at`, or `updated_at`; the trusted trigger sets `updated_at` to the statement
 timestamp. Profiles contain no organization, membership, role, or status fields, and
 profile text does not grant authorization.
+
+## Manager decisions and factual application
+
+Migration `20260903094913_manager_correction_review.sql` adds request `manager_note`,
+`applied_time_entry_id`, and `original_time_entry_version`; factual `version`, immutable
+`origin`, and `last_correction_request_id`; plus private `manager_decision_operations`.
+Existing resolution fields hold database decision time, manager membership, and
+operation UUID. Manager identity/operation columns are excluded from authenticated
+column-level SELECT grants and employee RPC results. Service-role SELECT remains
+available for controlled local inspection; service role cannot invoke decision or review
+RPCs or write facts, claims, decision operations, or audits.
+
+`get_manager_correction_requests()` accepts no input and returns every own-tenant
+pending request plus 50 recent terminal requests with name/code, original/proposed
+intervals, reason, status, and decision explanation.
+`decide_correction_request(request_id, correction_request_id, decision, manager_note)`
+accepts only those four fields and returns `approved`, `rejected`, `already_decided`,
+`stale_request`, `overlap`, `invalid_interval`, or `unavailable`, with request status
+and the applied factual ID when appropriate.
+
+Public decision/review RPCs are invokers calling private definers owned by `postgres`
+with empty search paths and authenticated-only execution grants. The manager helper
+checks effective authenticated role, Auth identity, verified email, ban/deletion,
+matching live session, optional JWT expiry, exactly one active membership, manager role,
+and active organization. It uses current database clock time and runs again after waits.
+Employee target membership must still be active, unambiguous, in the same tenant, and
+associated with the sole worksite before approval. Employee direct factual reads now
+share the same exactly-one-membership boundary as employee correction reads.
+
+Lock order: manager Auth rows; read immutable request references without row locks;
+global decision UUID advisory lock (`17041`); target employee's existing advisory lock
+(`17031`, hash of Auth user UUID); manager/employee memberships in ID order;
+organization; worksites; all employee factual rows in ID order; target correction row.
+Membership locks are shared, avoiding competing managers serializing or deadlocking
+through an exclusive manager membership lock. Clock and employee correction operations
+use the same employee advisory lock before their factual/request rows. The decision
+never locks a correction row before that advisory lock. Manager Auth rows stay locked;
+authorization and session expiry are rechecked after waits before mutation or replay.
+
+Phase 4 facts deterministically become version 1 before existing adjustment requests are
+backfilled from their tenant-bound targets. A kind-aware constraint is active for new
+writes during backfill, then validated; the scoped immutability trigger pause is
+restored inside the same migration transaction. New submissions capture target version
+while its factual row is locked. Missed-entry requests keep the snapshot null. Version
+history before this migration cannot be reconstructed: every Phase 4 fact starts at
+version 1. Phase 4 application roles had no path for changing a closed targeted fact;
+owner-side changes before versioning remain outside application integrity guarantees.
+
+Adjustment approval reloads the target and compares start/end and version to the
+immutable original snapshot. A changed, open, or ABA-restored target returns
+`stale_request`. Application rechecks finite, strictly ordered, entirely past proposed
+instants and overlap with all current employee facts, excluding the adjustment target.
+Stale, invalid, overlapping, or unavailable applications leave requests pending and
+facts/audits untouched. Rejection can resolve a stale or unavailable pending claim with
+a required explanation; it never changes facts.
+
+Approval changes the exact proposed timestamps or inserts one closed missed entry,
+resolves the request, records an operation, and appends audits in one transaction. The
+factual trigger increments version for every update, including clock-out. Existing rows
+start at version 1 with origin `clock`; approved missed entries start at version 1 with
+origin `approved_missed_entry`. Origin and identity/creation fields never change.
+Tenant/employee/worksite composite foreign keys bind requests and applied facts. No
+entry or request is deleted. Terminal requests and the private ledger reject
+UPDATE/DELETE/TRUNCATE, including accidental owner SQL. Owners can still alter triggers;
+these guards are not tamper-proof external storage.
+
+Each global operation UUID binds manager membership, correction, decision, SHA-256 of
+raw caller/request/intent/note, and the original outcome. Identical replay returns the
+original result including `did_decide`; it does not repeat the mutation. Changed raw
+note, decision, request, or manager fails closed. New UUIDs against terminal requests
+return `already_decided`. Safe stale/overlap/unavailable outcomes are durable too:
+identical UUID retries replay that outcome even if surrounding facts change.
+
+Each real decision produces exactly one `correction_request.approved` or
+`correction_request.rejected` audit with `{status}` before/after only. Each approval
+also produces one `time_entry.adjusted` or `time_entry.missed_entry_added` audit whose
+before/after fields are exactly `started_at`, `ended_at`, `version`, `origin`, and
+`correction_request_id` (before is null for a missed entry). Actor is the authenticated
+manager. No employee reason or manager note enters either audit. No-op or failed
+decisions append no audit. Existing audit append-only guards and SELECT-only grants
+remain intact.
+
+UI history is bounded: all pending manager requests, 50 recent terminal manager
+requests, 50 recent employee requests, and 20 recent closed employee facts. Full history
+stays stored; pagination and export remain future work. Expired sessions, revoked
+access, and ambiguous membership fail closed. Local tests use synthetic Auth users; no
+hosted Supabase project is linked or accessed.
 
 ## Schema decisions and limits
 
@@ -244,7 +338,6 @@ profile text does not grant authorization.
 Hosted Supabase connections, deployment, paid resources, and real personal or customer
 data remain prohibited. Development and tests use local synthetic data only. This phase
 does not establish production readiness or implement breaks, direct manual factual
-records, manager decisions, correction application, exports, billing, or product
-dashboards.
+records, exports, billing, or product dashboards.
 
-Next phase: manager correction review, decisions, and controlled application.
+Next phase: approved factual exports.

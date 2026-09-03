@@ -184,8 +184,64 @@ export const nlBE = {
   manager: {
     title: "Manager",
     description:
-      "Hier komt de werkruimte voor correctiebeoordeling, goedgekeurde export en wijzigingsgeschiedenis.",
+      "Beoordeel correctieaanvragen van je medewerkers en nodig medewerkers uit.",
     status: "Aangemeld",
+  },
+  managerCorrections: {
+    title: "Correcties beoordelen",
+    description:
+      "Beoordeel het voorstel van je medewerker. Goedkeuren past de tijdregistratie aan; de oorspronkelijke gegevens blijven bewaard.",
+    back: "Terug naar manager",
+    pending: "In afwachting",
+    history: "Eerdere aanvragen",
+    historyHelp: "De 50 meest recente afgehandelde en ingetrokken aanvragen.",
+    empty: "Er zijn geen aanvragen in afwachting.",
+    noHistory: "Er zijn nog geen eerdere aanvragen.",
+    employeeFallback: "Medewerker zonder weergavenaam",
+    codeFallback: "Geen medewerkerscode",
+    original: "Oorspronkelijke registratie",
+    proposal: "Voorstel van medewerker",
+    noOriginal: "Gemiste registratie: er is nog geen feitelijke registratie.",
+    reason: "Reden van medewerker",
+    submitted: "Ingediend op",
+    resolved: "Beslist op",
+    note: "Toelichting van manager",
+    approve: "Goedkeuren",
+    reject: "Afwijzen",
+    confirmTitle: "Voorstel goedkeuren?",
+    confirmHelp:
+      "Je past deze exacte start en dit exacte einde toe op de tijdregistratie. Deze beslissing is definitief.",
+    confirmApprove: "Goedkeuren en toepassen",
+    rejectTitle: "Aanvraag afwijzen",
+    rejectHelp:
+      "Leg uit waarom je de aanvraag afwijst. De medewerker ziet je toelichting. De tijdregistratie verandert niet.",
+    confirmReject: "Afwijzing bevestigen",
+    optionalNote: "Toelichting (optioneel)",
+    requiredNote: "Reden van afwijzing",
+    noteHelp: "Maximaal 500 tekens. Deze toelichting is zichtbaar voor de medewerker.",
+    noteValidation:
+      "Vul een toelichting van maximaal 500 tekens in. Bij afwijzing is een reden verplicht.",
+    cancel: "Annuleren",
+    working: "Beslissing opslaan…",
+    approved: "Aanvraag goedgekeurd. De tijdregistratie is aangepast.",
+    rejected: "Aanvraag afgewezen. De tijdregistratie is ongewijzigd.",
+    failure:
+      "De beslissing kon niet worden verwerkt. Probeer opnieuw of herlaad de pagina.",
+    loadFailure:
+      "De correctieaanvragen konden niet worden geladen. Herlaad de pagina om opnieuw te proberen.",
+    reload: "Pagina herladen",
+    stale:
+      "De oorspronkelijke registratie is intussen gewijzigd. Er is niets toegepast. Wijs deze aanvraag af en vraag om een nieuw voorstel.",
+    overlap:
+      "Het voorstel overlapt nu een bestaande tijdregistratie. Er is niets toegepast. Wijs de aanvraag af en vraag om een nieuw voorstel.",
+    invalidInterval:
+      "Het voorstel is geen geldige afgesloten periode in het verleden. Er is niets toegepast.",
+    unavailable:
+      "Deze aanvraag kan momenteel niet worden toegepast. Controleer de toegang van de medewerker en de werkplek.",
+    alreadyDecided:
+      "Deze aanvraag is al afgehandeld of ingetrokken. De actuele status is opnieuw geladen.",
+    timezone:
+      "Alle tijden: Europe/Brussels. De UTC-offset onderscheidt herhaalde wintertijduren.",
   },
   auth: {
     email: "E-mailadres",

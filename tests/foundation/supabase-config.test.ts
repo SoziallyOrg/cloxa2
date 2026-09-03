@@ -36,9 +36,13 @@ function readSection(name: string): string {
 }
 
 describe("local Supabase policy", () => {
+  let settings: ReturnType<typeof validateLocalStack>;
+
   beforeAll(() => {
     loadLocalEnvironment();
-  });
+    // Docker/CLI discovery is shared setup, outside each Auth request's timeout.
+    settings = validateLocalStack(process.env, getLocalStackStatus());
+  }, 30_000);
 
   it("blocks public signup while keeping the email provider available to admin invitations", () => {
     expect(readSection("auth")).toMatch(/^enable_signup = false$/mu);
@@ -47,7 +51,6 @@ describe("local Supabase policy", () => {
   });
 
   it("rejects an unauthenticated public signup against the local Auth API", async () => {
-    const settings = validateLocalStack(process.env, getLocalStackStatus());
     const password = requireLocalPassword(
       process.env.CLOXA_LOCAL_EMPLOYEE_PASSWORD,
       "CLOXA_LOCAL_EMPLOYEE_PASSWORD",
@@ -106,7 +109,6 @@ describe("local Supabase policy", () => {
     );
     expect(adminSource).toMatch(/^import "server-only";/u);
 
-    const settings = validateLocalStack(process.env, getLocalStackStatus());
     const admin = createClient(settings.supabaseUrl, settings.secretKey, {
       auth: {
         autoRefreshToken: false,
