@@ -17,8 +17,8 @@ separately forbids Redux; no replacement client state library is assumed.
 
 - Dutch-speaking employees at one Flemish worksite who record and review their own
   factual work-time entries.
-- One Dutch-speaking manager who reviews corrections and will eventually hand approved
-  records to a payroll-preparation role.
+- One Dutch-speaking manager who reviews corrections and creates confirmed factual
+  CSV/JSON snapshots for a payroll-preparation role.
 - First customer profile: one organization, one worksite, 5–20 workers.
 
 ## Product Purpose
@@ -26,7 +26,8 @@ separately forbids Redux; no replacement client state library is assumed.
 Cloxa will reduce time spent collecting, correcting, approving, and handing off factual
 work-time records while preserving a visible history of changes. Current pilot scope
 supports invitation authentication, employee clock-in/out, employee correction requests,
-and manager approval/rejection with controlled factual application.
+manager approval/rejection with controlled factual application, and manager-confirmed
+factual CSV/JSON snapshots.
 
 ## Positioning
 
@@ -36,22 +37,24 @@ rules, and it must not be presented as payroll or compliance software.
 
 ## Operating Context
 
-Employees primarily use a mobile browser at or around work. A manager reviews records in
-a browser and will eventually export approved factual data as CSV or JSON. Research
-pilots, if authorized later, run beside the customer’s existing official process.
+Employees primarily use a mobile browser at or around work. A manager reviews records
+and confirms fixed factual snapshots for CSV or JSON in a browser. Research pilots, if
+authorized later, run beside the customer’s existing official process.
 
 ## Capabilities and Constraints
 
 - Implemented workflow: invitation, login, secure employee clock-in/out, today's own
   factual registrations, employee adjustment or missed-entry requests, manager review,
-  and employee visibility of final decisions and explanations.
+  employee visibility of final decisions and explanations, export preview/blockers,
+  explicit snapshot confirmation, deterministic CSV/JSON download, and recent history.
 - Approval applies the employee's exact interval atomically. Rejection preserves facts.
   Immutable claims, versioned factual records, and append-only audits preserve history.
-- Planned workflow continues with approved export; export remains outside Phase 5.
+- Export confirmation approves only exact factual versions captured in that snapshot.
+  Later fact/profile/code changes require a new export and do not rewrite prior rows.
 - Public signup and automatic billing remain disabled.
-- No breaks, direct manual factual entries, exports, scheduling, billing, realtime,
-  native app, ORM, Redux, Redis, queues, storage, analytics, microservices, or offline
-  service worker.
+- No breaks, direct manual factual entries, scheduled exports, delivery integration,
+  payroll calculations, billing, realtime, native app, ORM, Redux, Redis, queues,
+  storage, analytics, microservices, or offline service worker.
 - Hosted Supabase access, real employee data, customer outreach, spending, and
   deployment are out of scope.
 - One organization and one worksite remain explicit pilot constraints.

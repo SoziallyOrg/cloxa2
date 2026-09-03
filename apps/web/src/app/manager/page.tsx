@@ -1,4 +1,4 @@
-import { ClipboardCheck } from "lucide-react";
+import { ClipboardCheck, FileDown } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -21,9 +21,17 @@ export default async function ManagerPage() {
       status={nlBE.manager.status}
       title={nlBE.manager.title}
     >
-      <Button asChild className="mt-6 w-full sm:w-auto">
-        <Link href="/manager/corrections">{nlBE.managerCorrections.title}</Link>
-      </Button>
+      <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+        <Button asChild className="w-full sm:w-auto">
+          <Link href="/manager/corrections">{nlBE.managerCorrections.title}</Link>
+        </Button>
+        <Button asChild variant="secondary" className="w-full sm:w-auto">
+          <Link href="/manager/exports">
+            <FileDown aria-hidden="true" />
+            {nlBE.managerExports.open}
+          </Link>
+        </Button>
+      </div>
       <div className="mt-8 border-t border-rule pt-8">
         <h2 className="font-display text-3xl font-semibold tracking-[-0.025em] text-ink">
           {nlBE.invitation.title}
