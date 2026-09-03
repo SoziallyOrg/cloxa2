@@ -1,6 +1,7 @@
 # Database tests
 
-Run Phase 1 authorization tests against the local Supabase database:
+Run authorization, invitation, and employee time-clock tests against the local Supabase
+database:
 
 ```bash
 pnpm supabase:start
@@ -19,6 +20,12 @@ fixture setup and schema-constraint checks do not replace browser-role authoriza
 tests. Coverage also checks profile field permissions, invitation normalization and
 duplicate pending invitations, audit protection, and RLS configuration.
 
+`employee_time_clock.test.sql` checks exact grants, tenant-consistent foreign keys, the
+one-open-entry constraint, Brussels-local day history, and authorized RPC behavior. It
+also covers inactive, suspended, sessionless, multi-tenant, and multi-worksite callers;
+cross-tenant reads; forged inputs; idempotent retries; competing starts and stops; and
+minimal audit payloads.
+
 `authorization_boundaries.test.sql` adds exact audit table and profile column privilege
 checks, direct private-function calls, and effective-role audit mutations including
 TRUNCATE. An explicit `service_role` case tests cross-tenant audit reads through its
@@ -28,4 +35,4 @@ mutations with SQLSTATE `55000` (`audit_events are append-only`).
 
 Keep new fixtures synthetic and transaction-scoped. Run against local Docker services
 only; do not connect to hosted Supabase or import real personal or customer data. Tests
-cover Phase 1 database behavior, not invitation acceptance or later product workflows.
+cover implemented database behavior, not corrections, approvals, or exports.

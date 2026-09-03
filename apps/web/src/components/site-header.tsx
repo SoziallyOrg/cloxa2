@@ -4,8 +4,17 @@ import Link from "next/link";
 import { BrandMark } from "@/components/brand-mark";
 import { Button } from "@/components/ui/button";
 import { nlBE } from "@/i18n/nl-BE";
+import { getAuthContext } from "@/lib/auth/session";
 
-export function SiteHeader() {
+export async function SiteHeader() {
+  const authContext = await getAuthContext();
+  const workspaceHref =
+    authContext.state === "authorized"
+      ? authContext.role === "employee"
+        ? "/employee"
+        : "/manager"
+      : "/login";
+
   return (
     <header className="sticky top-0 z-20 border-b border-rule bg-paper/95">
       <a
@@ -27,8 +36,10 @@ export function SiteHeader() {
 
         <nav aria-label={nlBE.navigation.mainLabel} className="flex items-center gap-1">
           <Button asChild size="default" variant="quiet">
-            <Link href="/login">
-              {nlBE.navigation.login}
+            <Link href={workspaceHref}>
+              {authContext.state === "authorized"
+                ? nlBE.navigation.workspace
+                : nlBE.navigation.login}
               <ArrowRight aria-hidden="true" />
             </Link>
           </Button>

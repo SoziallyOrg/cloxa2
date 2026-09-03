@@ -117,7 +117,7 @@ describe("local browser journey privacy", () => {
 
   it("blocks non-local HTTP requests in both manager and separate employee contexts", () => {
     const journey = readFileSync(
-      new URL("../apps/web/e2e/local-auth.spec.ts", import.meta.url),
+      new URL("../apps/web/e2e/local-auth.spec.mts", import.meta.url),
       "utf8",
     );
     expect(journey.includes("await blockExternalRequests(context)")).toBe(true);

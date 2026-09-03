@@ -12,6 +12,7 @@ import {
 
 const port = 3100;
 const baseURL = `http://127.0.0.1:${port}`;
+const useProductionServer = process.env.CLOXA_E2E_PRODUCTION === "1";
 
 loadLocalEnvironment();
 requireLocalOrigin(process.env.NEXT_PUBLIC_SUPABASE_URL);
@@ -69,7 +70,9 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: `pnpm --filter @cloxa/web dev --hostname 127.0.0.1 --port ${port}`,
+    command: `pnpm --filter @cloxa/web ${
+      useProductionServer ? "start" : "dev"
+    } --hostname 127.0.0.1 --port ${port}`,
     env: {
       CLOXA_SITE_URL: baseURL,
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: localSettings.publishableKey,
