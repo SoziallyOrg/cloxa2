@@ -27,14 +27,14 @@ cross-tenant reads; forged inputs; idempotent retries; competing starts and stop
 minimal audit payloads.
 
 `employee_correction_requests.test.sql` checks tenant-consistent request and snapshot
-references, exact grants and RLS, employee-only reads, closed-entry ownership,
-direct-write denial, past and overlap rules, immutable factual rows, idempotency hashes,
-withdrawal ownership, and status-only audits. Brussels conversion cases cover ordinary
-dates, local midnight, overnight intervals, spring-forward gaps, and both explicit
-autumn occurrences. Additional cases cover microsecond preservation, immutable claim and
-ledger guards, replay after withdrawal, changed-payload rejection, rejected/approved
-withdrawal denial, and live bans, deletion, session expiry, or tenant suspension after
-claims exist. Real concurrent network calls live in
+references, exact grants and RLS, own-employee and manager tenant reads, closed-entry
+ownership, direct-write denial, past and overlap rules, immutable factual rows,
+idempotency hashes, withdrawal ownership, and status-only audits. Brussels conversion
+cases cover ordinary dates, local midnight, overnight intervals, spring-forward gaps,
+and both explicit autumn occurrences. Additional cases cover microsecond preservation,
+immutable claim and ledger guards, replay after withdrawal, changed-payload rejection,
+rejected/approved withdrawal denial, and live bans, deletion, session expiry, or tenant
+suspension after claims exist. Real concurrent network calls live in
 `apps/web/e2e/employee-corrections.spec.mts`; transaction-scoped SQL assertions do not
 substitute for those races.
 
@@ -47,5 +47,22 @@ mutations with SQLSTATE `55000` (`audit_events are append-only`).
 
 Keep new fixtures synthetic and transaction-scoped. Run against local Docker services
 only; do not connect to hosted Supabase or import real personal or customer data. Tests
-cover implemented database behavior, not manager decisions, correction application, or
-exports.
+cover implemented database behavior; exports remain outside scope.
+
+`manager_correction_review.test.sql` checks exact private-ledger columns, indexes,
+constraints, owner/search paths/grants, safe browser column reads, and tenant-consistent
+foreign keys. It exercises manager and employee read boundaries, all unsupported caller
+states, service-role impersonation, exact microsecond application, missed-entry origin,
+version increments, rejection without factual change, stale/open/future/invalid/overlap
+outcomes, terminal immutability, replay payload/actor binding, and exactly-once audits.
+An injected audit failure proves request, fact, and operation rollback together.
+Transaction-scoped owner fixtures exercise invalid states without changing migrations or
+weakening application grants.
+
+`apps/web/e2e/manager-corrections.spec.mts` supplies real concurrent network evidence:
+eight same-ID approvals across live sessions, competing approve/reject UUIDs, manager
+tabs, and mixed employee clock/submission/withdrawal/manager calls. A local PostgreSQL
+session holds the employee advisory lock while manager authorization expires; the
+blocked decision is observed in `pg_stat_activity`, then denied after release with no
+fact or resolution. Browser checks cover final employee status/explanation, applied
+facts, escaping, focus/error/status semantics, duplicate-submit controls, and 320px.

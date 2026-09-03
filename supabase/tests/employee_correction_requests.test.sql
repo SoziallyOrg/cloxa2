@@ -102,7 +102,7 @@ select is(
 )
 from (values
   ('anon', array[]::text[]),
-  ('authenticated', array['SELECT']::text[]),
+  ('authenticated', array[]::text[]),
   ('service_role', array['SELECT']::text[])
 ) as expected(role_name, allowed);
 select ok(
@@ -776,7 +776,7 @@ update public.organizations set lifecycle_status = 'research_pilot' where id = '
 set local role authenticated;
 set local "request.jwt.claims" =
   '{"sub":"a1000000-0000-4000-8000-000000000002","role":"authenticated","session_id":"a2000000-0000-4000-8000-000000000002"}';
-select is((select count(*) from public.correction_requests), 0::bigint, 'manager cannot read employee requests in own tenant');
+select is((select count(*) from public.correction_requests), 3::bigint, 'manager reads employee requests in own tenant');
 select throws_ok($$select * from public.withdraw_employee_correction_request(
   gen_random_uuid(), current_setting('app.test_employee_a_request_id')::uuid
 )$$, '42501', null, 'manager cannot withdraw employee request');
@@ -794,7 +794,7 @@ select throws_ok($$select public.get_employee_correction_requests()$$, '42501', 
 
 -- Future decision states are read-only to employees and cannot be withdrawn.
 reset role;
-update public.correction_requests set status = 'rejected', resolved_at = now(),
+update public.correction_requests set status = 'rejected', manager_note = 'Synthetic rejected fixture', resolved_at = now(),
   resolved_by_membership_id = 'a5000000-0000-4000-8000-000000000002', resolution_request_id = gen_random_uuid()
 where submission_request_id = 'a7000000-0000-4000-8000-000000000042';
 set local role authenticated;
@@ -804,10 +804,14 @@ select throws_ok($$select * from public.withdraw_employee_correction_request(
   gen_random_uuid(), current_setting('app.test_employee_a_request_id')::uuid
 )$$, '22023', 'correction_not_pending', 'rejected request cannot be withdrawn');
 reset role;
-update public.correction_requests set status = 'approved', resolved_at = now(),
-  resolved_by_membership_id = 'a5000000-0000-4000-8000-000000000002', resolution_request_id = gen_random_uuid()
-where submission_request_id = 'a7000000-0000-4000-8000-000000000060';
 set local role authenticated;
+set local "request.jwt.claims" =
+  '{"sub":"a1000000-0000-4000-8000-000000000002","role":"authenticated","session_id":"a2000000-0000-4000-8000-000000000002"}';
+select is((select result_code from public.decide_correction_request(gen_random_uuid(),
+  (select id from public.correction_requests where submission_request_id = 'a7000000-0000-4000-8000-000000000060'),
+  'approve', 'Synthetic approved fixture')), 'approved', 'manager resolves approved withdrawal-denial fixture');
+set local "request.jwt.claims" =
+  '{"sub":"a1000000-0000-4000-8000-000000000001","role":"authenticated","session_id":"a2000000-0000-4000-8000-000000000001"}';
 select throws_ok($$select * from public.withdraw_employee_correction_request(
   gen_random_uuid(), (select id from public.correction_requests where submission_request_id = 'a7000000-0000-4000-8000-000000000060')
 )$$, '22023', 'correction_not_pending', 'approved request cannot be withdrawn');

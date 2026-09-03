@@ -1,5 +1,7 @@
 import { ClipboardCheck } from "lucide-react";
 import type { Metadata } from "next";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 
 import { RoleShell } from "@/components/role-shell";
 import { EmployeeInvitationForm } from "@/components/auth-forms";
@@ -19,6 +21,9 @@ export default async function ManagerPage() {
       status={nlBE.manager.status}
       title={nlBE.manager.title}
     >
+      <Button asChild className="mt-6 w-full sm:w-auto">
+        <Link href="/manager/corrections">{nlBE.managerCorrections.title}</Link>
+      </Button>
       <div className="mt-8 border-t border-rule pt-8">
         <h2 className="font-display text-3xl font-semibold tracking-[-0.025em] text-ink">
           {nlBE.invitation.title}

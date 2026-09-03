@@ -11,9 +11,12 @@ export type CorrectionRequestKind = "adjustment" | "missed_entry";
 export type CorrectionRequestStatus = "pending" | "withdrawn" | "approved" | "rejected";
 
 export type EmployeeCorrectionRequest = {
+  appliedTimeEntryId: string | null;
   createdAt: string;
   employeeReason: string;
   id: string;
+  managerNote: string | null;
+  resolvedAt: string | null;
   proposedEndedAt: string;
   proposedStartedAt: string;
   requestKind: CorrectionRequestKind;
@@ -63,7 +66,7 @@ export const initialWithdrawalActionState: WithdrawalActionState = {
 const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 
-function isRecord(value: unknown): value is Record<string, unknown> {
+export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
@@ -71,7 +74,7 @@ export function isUuid(value: unknown): value is string {
   return typeof value === "string" && uuidPattern.test(value);
 }
 
-function isTimestamp(value: unknown): value is string {
+export function isTimestamp(value: unknown): value is string {
   return (
     typeof value === "string" &&
     /T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})$/u.test(value) &&
@@ -79,7 +82,7 @@ function isTimestamp(value: unknown): value is string {
   );
 }
 
-function microseconds(value: string) {
+export function microseconds(value: string) {
   const fraction = /\.(\d{1,6})(?:Z|[+-]\d{2}:\d{2})$/u.exec(value)?.[1] ?? "";
   return BigInt(Date.parse(value)) * 1000n + BigInt(fraction.padEnd(6, "0").slice(3));
 }
@@ -104,7 +107,9 @@ function parseEntry(value: unknown): CorrectionEntry | null {
   };
 }
 
-function parseRequest(value: unknown): EmployeeCorrectionRequest | null {
+export function parseCorrectionRequest(
+  value: unknown,
+): EmployeeCorrectionRequest | null {
   if (
     !isRecord(value) ||
     !isUuid(value.id) ||
@@ -117,6 +122,20 @@ function parseRequest(value: unknown): EmployeeCorrectionRequest | null {
     [...value.employee_reason].length > 500 ||
     !["pending", "withdrawn", "approved", "rejected"].includes(String(value.status)) ||
     !isTimestamp(value.created_at) ||
+    !(
+      value.manager_note === null ||
+      (typeof value.manager_note === "string" &&
+        value.manager_note.trim().length > 0 &&
+        [...value.manager_note].length <= 500)
+    ) ||
+    !(value.resolved_at === null || isTimestamp(value.resolved_at)) ||
+    !(value.applied_time_entry_id === null || isUuid(value.applied_time_entry_id)) ||
+    ["approved", "rejected"].includes(String(value.status)) !==
+      (value.resolved_at !== null) ||
+    (value.status === "approved") !== (value.applied_time_entry_id !== null) ||
+    (value.status === "rejected" && value.manager_note === null) ||
+    (["pending", "withdrawn"].includes(String(value.status)) &&
+      value.manager_note !== null) ||
     !(value.withdrawn_at === null || isTimestamp(value.withdrawn_at)) ||
     !(value.target_time_entry_id === null || isUuid(value.target_time_entry_id)) ||
     (value.request_kind === "adjustment") !==
@@ -127,9 +146,12 @@ function parseRequest(value: unknown): EmployeeCorrectionRequest | null {
   }
 
   return {
+    appliedTimeEntryId: value.applied_time_entry_id,
     createdAt: value.created_at,
     employeeReason: value.employee_reason,
     id: value.id,
+    managerNote: value.manager_note,
+    resolvedAt: value.resolved_at,
     proposedEndedAt: value.proposed_ended_at,
     proposedStartedAt: value.proposed_started_at,
     requestKind: value.request_kind,
@@ -153,7 +175,7 @@ export function parseEmployeeCorrectionsView(
   }
 
   const entries = value.entries.map(parseEntry);
-  const requests = value.requests.map(parseRequest);
+  const requests = value.requests.map(parseCorrectionRequest);
 
   if (
     entries.some((entry) => entry === null) ||
