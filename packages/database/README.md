@@ -39,8 +39,8 @@ helpers derive identity from `auth.uid()` and require an active membership in an
 organization whose lifecycle is `research_pilot` or `paid_beta`. They do not trust
 metadata, email addresses, route names, or browser state as proof of tenant access.
 
-All six application tables have RLS enabled. This matrix describes direct access through
-`anon` and `authenticated` database roles:
+All seven application tables have RLS enabled. This matrix describes direct access
+through `anon` and `authenticated` database roles:
 
 | Table           | Anonymous | Active employee               | Active manager                                                                                    | Invited, inactive, absent membership, or suspended organization | Direct browser writes                                                                                      |
 | --------------- | --------- | ----------------------------- | ------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
@@ -50,6 +50,7 @@ All six application tables have RLS enabled. This matrix describes direct access
 | `memberships`   | None      | Own active membership         | Memberships in own organization, including invited/inactive members                               | None, including own membership                                  | None                                                                                                       |
 | `invitations`   | None      | None                          | Invitations in own organization                                                                   | None                                                            | None                                                                                                       |
 | `audit_events`  | None      | None                          | Events in own organization                                                                        | None                                                            | None                                                                                                       |
+| `time_entries`  | None      | Own entries while active      | None                                                                                              | None                                                            | None                                                                                                       |
 
 Access applies per organization: losing access to one tenant does not remove a user's
 separate active membership in another tenant. Suspension removes access to all rows
@@ -77,13 +78,17 @@ All private functions have owner `postgres` and fixed `search_path = ''`:
 | `create_employee_invitation`    | DEFINER  | `authenticated`          |
 | `get_employee_invitation_state` | DEFINER  | `authenticated`          |
 | `accept_employee_invitation`    | DEFINER  | `authenticated`          |
+| `can_read_own_time_entry`       | DEFINER  | `authenticated`          |
+| `clock_in`                      | DEFINER  | `authenticated`          |
+| `clock_out`                     | DEFINER  | `authenticated`          |
+| `get_employee_time_clock`       | DEFINER  | `authenticated`          |
 
 The owner retains EXECUTE; `PUBLIC`, `anon`, and `service_role` have no EXECUTE grants.
-Authenticated SQL callers can invoke authorization and invitation helpers through four
-`SECURITY INVOKER` wrappers in `public`. Their definer implementations stay in the
-unexposed `private` schema. Every protected helper binds identity to `auth.uid()` and a
-matching live `auth.sessions` row. Trigger functions have no application EXECUTE grants.
-Neither `anon` nor `service_role` can call the new RPCs.
+Authenticated SQL callers invoke protected helpers through seven `SECURITY INVOKER`
+wrappers in `public`. Their definer implementations stay in the unexposed `private`
+schema. Every protected helper binds identity to `auth.uid()` and a matching live
+`auth.sessions` row. Trigger functions have no application EXECUTE grants. Neither
+`anon` nor `service_role` can call the new RPCs.
 
 | Public RPC                                                                  | Browser inputs                             | Result                                                                                                                                  |
 | --------------------------------------------------------------------------- | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
@@ -91,6 +96,9 @@ Neither `anon` nor `service_role` can call the new RPCs.
 | `create_employee_invitation(employee_email, display_name?, employee_code?)` | Employee email and optional profile fields | New invitation ID or a non-disclosing `NULL` duplicate/no-op                                                                            |
 | `get_employee_invitation_state()`                                           | None                                       | `ready`, `unavailable`, or `unsupported` for current verified Auth email                                                                |
 | `accept_employee_invitation()`                                              | None                                       | Activated employee membership ID                                                                                                        |
+| `clock_in(request_id)`                                                      | Request UUID                               | `started`, `already_working`, or the saved result for the same request                                                                  |
+| `clock_out(request_id)`                                                     | Request UUID                               | `stopped`, `already_stopped`, or the saved result for the same request                                                                  |
+| `get_employee_time_clock()`                                                 | None                                       | Current work state and today's own entries using the worksite timezone                                                                  |
 
 Creation derives organization from caller's sole active manager membership, fixes role
 to `employee`, normalizes email, expires invitations after 24 hours, and appends a
@@ -121,6 +129,26 @@ still receive no direct table INSERT privilege and no general audit-write RPC. L
 manager bootstrap uses a server-side secret client against a verified loopback stack; it
 does not expose a database bootstrap endpoint. Audits contain no emails, profile fields,
 secrets, authentication tokens, or links.
+
+## Employee time clock
+
+Employees start and stop work through authenticated RPCs. Browser sends an operation and
+a request UUID; database derives user, membership, organization, worksite, and
+timestamps. It rejects managers, inactive memberships, suspended organizations, expired
+or missing live sessions, multiple active tenants, and organizations without exactly one
+worksite.
+
+A partial unique index permits one open entry per membership. Composite foreign keys
+keep each entry's membership and worksite in the same organization. An unexposed request
+ledger stores original result for safe retries. Advisory and row locks serialize
+requests, so rapid or competing submissions create one state transition and one audit
+event. Authenticated clients may read their own entries while their employee access
+remains active. Browser and service roles receive no direct time-entry write grants.
+
+State RPC calculates today's boundary in worksite's `Europe/Brussels` timezone and
+returns timestamps as absolute instants. Interface formats those instants in same
+timezone, including daylight-saving transitions. Breaks, manual records, corrections,
+approvals, and exports remain outside this phase.
 
 Profile UPDATE privileges cover `display_name` and `locale` only, with RLS checking
 `user_id = auth.uid()` before and after each update. Callers cannot write `user_id`,
@@ -155,12 +183,12 @@ profile text does not grant authorization.
 - Profile locale defaults to `nl-BE` and currently permits only `nl-BE`. Worksite
   timezone defaults to `Europe/Brussels`. Timestamps use `timestamptz`; mutable tables
   maintain `updated_at` through database triggers.
-- Schema permits multiple worksites per organization for future use. Pilot application
-  must expose one worksite; Phase 1 adds no worksite-management UI.
+- Schema permits multiple worksites per organization for future use. Pilot time-clock
+  RPCs require exactly one worksite; no worksite-management UI exists.
 
 Hosted Supabase connections, deployment, paid resources, and real personal or customer
 data remain prohibited. Development and tests use local synthetic data only. This phase
-does not establish production readiness or implement time records, corrections,
-approvals, exports, billing, or product dashboards.
+does not establish production readiness or implement breaks, manual records,
+corrections, approvals, exports, billing, or product dashboards.
 
-Next phase: employee clock-in and clock-out.
+Next phase: correction requests and manager approval.

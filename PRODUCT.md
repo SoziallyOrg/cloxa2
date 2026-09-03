@@ -15,8 +15,8 @@ separately forbids Redux; no replacement client state library is assumed.
 
 ## Users
 
-- Dutch-speaking employees at one Flemish worksite who will eventually record and review
-  their own factual work-time entries.
+- Dutch-speaking employees at one Flemish worksite who record and review their own
+  factual work-time entries.
 - One Dutch-speaking manager who will eventually review corrections and hand approved
   records to a payroll-preparation role.
 - First customer profile: one organization, one worksite, 5–20 workers.
@@ -24,9 +24,9 @@ separately forbids Redux; no replacement client state library is assumed.
 ## Product Purpose
 
 Cloxa will reduce time spent collecting, correcting, approving, and handing off factual
-work-time records while preserving a visible history of changes. Initial foundation
-succeeds when route shells, secure Supabase boundaries, environment validation, local
-development, and quality checks are ready for schema work.
+work-time records while preserving a visible history of changes. Current pilot scope
+supports invitation authentication and secure employee clock-in/out before correction,
+approval, and export workflows are added.
 
 ## Positioning
 
@@ -37,17 +37,19 @@ rules, and it must not be presented as payroll or compliance software.
 ## Operating Context
 
 Employees primarily use a mobile browser at or around work. A manager reviews records in
-a browser and eventually exports approved factual data as CSV or JSON. Research pilots,
-if authorized later, run beside the customer’s existing official process.
+a browser and will eventually export approved factual data as CSV or JSON. Research
+pilots, if authorized later, run beside the customer’s existing official process.
 
 ## Capabilities and Constraints
 
-- Current task creates project foundation and route shells only.
-- Planned workflow: invitation, login, time entry, correction request, manager approval,
-  approved export, and visible change history.
+- Implemented workflow: invitation, login, secure employee clock-in/out, and today's own
+  factual registrations.
+- Planned workflow continues with correction request, manager approval, approved export,
+  and visible change history.
 - Public signup and automatic billing remain disabled.
-- No database schema, migrations, product workflow, ORM, Redux, Redis, queues, realtime,
-  storage, analytics, microservices, or offline service worker yet.
+- No breaks, manual entries, corrections, approvals, exports, scheduling, billing,
+  realtime, native app, ORM, Redux, Redis, queues, storage, analytics, microservices, or
+  offline service worker.
 - Hosted Supabase access, real employee data, customer outreach, spending, and
   deployment are out of scope.
 - One organization and one worksite remain explicit pilot constraints.

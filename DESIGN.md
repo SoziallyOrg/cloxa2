@@ -183,6 +183,16 @@ components:
     typography: "{typography.status}"
     rounded: "{rounded.full}"
     padding: "0.25rem 0.75rem"
+  time-clock-idle:
+    backgroundColor: "{colors.paper-strong}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.2xl}"
+    padding: "1.25rem"
+  time-clock-working:
+    backgroundColor: "{colors.primary}"
+    textColor: "{colors.primary-foreground}"
+    rounded: "{rounded.2xl}"
+    padding: "1.25rem"
   status-panel:
     backgroundColor: "{colors.paper}"
     textColor: "{colors.ink}"
@@ -386,6 +396,24 @@ descriptor copy.
 Role shell uses a ruled content dossier beneath a simple ruled title row. Status appears
 as a full-radius Carbon-Copy Amber pill with Amber Ink, Inspector Rule border, and
 compact status typography.
+
+### Employee Time Clock
+
+Time clock pairs one stateful action field with today's factual ledger. It stays a
+single-column document through compact and tablet widths, then becomes a
+`minmax(0, 0.85fr) minmax(0, 1.15fr)` split at 1024px. Both columns keep `min-width: 0`;
+at 320px, time ranges and supporting copy wrap while the action remains full-width.
+
+- **Idle:** Pressed Paper field, Inspector Rule outline, muted clock marker, and filled
+  cobalt start action.
+- **Working:** cobalt field, Docket White heading, Mist Cobalt timestamp, and paper stop
+  action. Color inversion makes active recording unmistakable without adding elevation.
+- **Primary action:** full-width, 4rem minimum height, 1.125rem control type, and
+  existing button focus, disabled, and pending behavior.
+- **Today's ledger:** unboxed list under a ruled heading; entries use Hairline Rule
+  separators, factual time ranges, and cobalt only for the open registration.
+- **Feedback:** success stays within current field; errors receive a contained paper
+  strip with Correction Red text and an alert role.
 
 ### Status State
 

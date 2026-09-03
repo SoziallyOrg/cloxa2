@@ -4,7 +4,8 @@ Cloxa is a Dutch-language web application for one Flemish organization with one 
 and 5–20 employees. This repository contains local invitation-based authentication,
 tenant authorization, and manager/employee entry pages. Managers can invite fictional
 employees; employees can accept, set passwords, sign in, and recover access. Time
-registration remains outside this phase.
+registration lets an active employee start and stop work at the sole pilot worksite and
+review today's own registrations.
 
 ## Workspace
 
@@ -173,14 +174,16 @@ Authenticated users can read their own profile and update its `display_name` and
 but cannot list coworkers. Active managers can read memberships, member profiles,
 invitations, and audit events inside their own organization. Browser roles cannot
 directly manage organizations, worksites, memberships, invitations, or audit events.
+Employees receive read-only access to their own permitted `time_entries`; managers do
+not receive time-entry review access in this phase.
 
 Invited and inactive memberships grant no organization-scoped access. Suspension removes
 access to organization-scoped rows, including users' own memberships; users retain
 access to their own profile. Audit events are append-only. Controlled invitation
 functions own invitation creation, membership activation, and minimal audit insertion.
-Existing table RLS policies remain unchanged. The new Auth-context and invitation RPCs
-also require a verified, non-deleted, non-banned Auth user with a live matching
-`auth.sessions` row.
+Clock RPCs likewise require a verified, non-deleted, non-banned Auth user with a live
+matching `auth.sessions` row, exactly one active employee membership, an active
+organization, and exactly one database worksite.
 
 The app supports one active membership per user. Multiple active memberships return an
 unsupported state, including a second membership in a suspended organization; the app
@@ -190,6 +193,26 @@ contracts in [packages/database/README.md](packages/database/README.md).
 
 Secret-key and service-role clients can bypass row-level security. They must remain
 server-only and be limited to controlled operations; never import one into browser code.
+
+## Employee time clock
+
+`/employee` renders a Dutch mobile-first clock screen through a Server Component and
+Server Action. Browser submissions contain only an operation intent and a generated UUID
+request ID. Database RPCs derive employee membership, organization, sole worksite, and
+timestamps from trusted locked state. Stored timestamps are `timestamptz`; display uses
+`nl-BE` and `Europe/Brussels` while durations use absolute instants.
+
+A partial unique index enforces at most one open entry per membership. Both clock RPCs
+take the same advisory and row locks in a fixed order. A private request ledger
+preserves the first outcome for each request UUID, so retries return the same result.
+Different rapid requests return `already_working` or `already_stopped` without
+duplicating entries or audits. Each real start or stop appends exactly one minimal audit
+event in the same transaction; retries and no-ops append none.
+
+Time entries cannot be inserted, updated, or deleted directly by browser roles. Active
+employees may select only entries belonging to their own active employee membership and
+active organization. Anonymous, manager, inactive, unaffiliated, expired-session,
+ambiguous-tenant, suspended-organization, and cross-tenant access fails closed.
 
 ## Verification
 
@@ -214,9 +237,11 @@ pnpm audit --prod --audit-level high
 `supabase:reset` deletes local database contents and recreates the schema. Bootstrap
 again after reset for manual use. Playwright bootstraps its manager through the same
 explicitly flagged local helper, then uses a fresh fictional employee and local Mailpit.
-Its desktop journey covers invitation, acceptance, logout/login, and password
-recovery/reset; mobile checks cover route access and layout. Auth journey traces,
-screenshots, and videos stay disabled to avoid retaining credentials or email links.
+Its desktop Auth journey covers invitation, acceptance, logout/login, and password
+recovery/reset. Separate desktop and 320px mobile clock journeys cover start, duplicate
+submission, concurrent tabs, stop, and persisted state after reload. Auth journey
+traces, screenshots, and videos stay disabled to avoid retaining credentials or email
+links.
 
 `pnpm build` checks production browser bundles for server-secret exposure;
 `pnpm test:bundles` repeats that check on an existing build. Use `pnpm format` to fix
@@ -234,9 +259,11 @@ pnpm exec playwright install chromium
 - Invitation-only; no public signup or automatic billing.
 - No ORM, Redux, Redis, queues, realtime, storage, analytics, or microservices.
 - No offline mode or service worker. Manifest only.
+- No breaks, manual entries, corrections, approvals, exports, scheduling, billing,
+  realtime updates, or native app.
 - No claim that Cloxa calculates payroll, satisfies Belgian employment rules, or is
   production-ready.
 - No remote Supabase connection, hosted deployment, or real employee data. Development
   and tests remain local and synthetic.
 
-Next task: employee clock-in and clock-out.
+Next task: employee correction requests and manager review.

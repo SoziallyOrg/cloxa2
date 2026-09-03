@@ -35,6 +35,7 @@
   --color-primary-strong: var(--color-primary-strong);
   --color-primary-soft: var(--color-primary-soft);
   --color-primary-foreground: var(--color-primary-foreground);
+  --color-primary-foreground-muted: var(--color-primary-foreground-muted);
   --color-signal: var(--color-signal);
   --color-signal-soft: var(--color-signal-soft);
   --color-signal-ink: var(--color-signal-ink);

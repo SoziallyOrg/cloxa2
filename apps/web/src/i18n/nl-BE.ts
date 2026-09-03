@@ -6,6 +6,7 @@ export const nlBE = {
   navigation: {
     home: "Start",
     login: "Aanmelden",
+    workspace: "Werkruimte",
     mainLabel: "Hoofdnavigatie",
     skipToContent: "Ga naar de inhoud",
   },
@@ -92,8 +93,28 @@ export const nlBE = {
   employee: {
     title: "Medewerker",
     description:
-      "Hier komt de mobiele werkruimte voor tijdregistratie, handmatige invoer en eigen correctieverzoeken.",
+      "Start en stop je werk op deze werkplek. Tijdstippen komen rechtstreeks van de beveiligde databank.",
     status: "Aangemeld",
+  },
+  timeClock: {
+    working: "Je bent aan het werk",
+    notWorking: "Je bent niet aan het werk",
+    startedAt: "Gestart om",
+    start: "Start werk",
+    stop: "Stop werk",
+    pending: "Registratie verwerken…",
+    startSuccess: "Werk gestart.",
+    alreadyWorking: "Je was al aan het werk. De huidige registratie blijft behouden.",
+    stopSuccess: "Werk gestopt.",
+    alreadyStopped: "Je was al gestopt. Er is niets gewijzigd.",
+    failure: "Tijdregistratie is niet gelukt. Probeer opnieuw.",
+    loadFailure: "Je tijdregistratie kon niet worden geladen.",
+    retry: "Opnieuw proberen",
+    today: "Registraties van vandaag",
+    empty: "Vandaag zijn er nog geen registraties.",
+    current: "Bezig",
+    completed: "Afgerond",
+    duration: "Duur",
   },
   manager: {
     title: "Manager",

@@ -196,6 +196,51 @@ export type Database = {
         };
         Relationships: [];
       };
+      time_entries: {
+        Row: {
+          created_at: string;
+          ended_at: string | null;
+          id: string;
+          membership_id: string;
+          organization_id: string;
+          started_at: string;
+          worksite_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          ended_at?: string | null;
+          id?: string;
+          membership_id: string;
+          organization_id: string;
+          started_at: string;
+          worksite_id: string;
+        };
+        Update: {
+          created_at?: string;
+          ended_at?: string | null;
+          id?: string;
+          membership_id?: string;
+          organization_id?: string;
+          started_at?: string;
+          worksite_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "time_entries_membership_tenant_fkey";
+            columns: ["organization_id", "membership_id"];
+            isOneToOne: false;
+            referencedRelation: "memberships";
+            referencedColumns: ["organization_id", "id"];
+          },
+          {
+            foreignKeyName: "time_entries_worksite_tenant_fkey";
+            columns: ["organization_id", "worksite_id"];
+            isOneToOne: false;
+            referencedRelation: "worksites";
+            referencedColumns: ["organization_id", "id"];
+          },
+        ];
+      };
       worksites: {
         Row: {
           created_at: string;
@@ -237,6 +282,30 @@ export type Database = {
     };
     Functions: {
       accept_employee_invitation: { Args: never; Returns: string };
+      clock_in: {
+        Args: { request_id: string };
+        Returns: {
+          did_transition: boolean;
+          ended_at: string;
+          request_id: string;
+          result_code: string;
+          started_at: string;
+          time_entry_id: string;
+          worksite_id: string;
+        }[];
+      };
+      clock_out: {
+        Args: { request_id: string };
+        Returns: {
+          did_transition: boolean;
+          ended_at: string;
+          request_id: string;
+          result_code: string;
+          started_at: string;
+          time_entry_id: string;
+          worksite_id: string;
+        }[];
+      };
       create_employee_invitation: {
         Args: {
           display_name?: string;
@@ -254,6 +323,7 @@ export type Database = {
         }[];
       };
       get_employee_invitation_state: { Args: never; Returns: string };
+      get_employee_time_clock: { Args: never; Returns: Json };
     };
     Enums: {
       [_ in never]: never;
