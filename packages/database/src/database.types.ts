@@ -48,6 +48,111 @@ export type Database = {
           },
         ];
       };
+      correction_requests: {
+        Row: {
+          created_at: string;
+          employee_membership_id: string;
+          employee_reason: string;
+          id: string;
+          organization_id: string;
+          original_ended_at: string | null;
+          original_started_at: string | null;
+          proposed_ended_at: string;
+          proposed_started_at: string;
+          request_kind: string;
+          resolution_request_id: string | null;
+          resolved_at: string | null;
+          resolved_by_membership_id: string | null;
+          status: string;
+          submission_request_id: string;
+          target_time_entry_id: string | null;
+          withdrawal_request_id: string | null;
+          withdrawn_at: string | null;
+          worksite_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          employee_membership_id: string;
+          employee_reason: string;
+          id?: string;
+          organization_id: string;
+          original_ended_at?: string | null;
+          original_started_at?: string | null;
+          proposed_ended_at: string;
+          proposed_started_at: string;
+          request_kind: string;
+          resolution_request_id?: string | null;
+          resolved_at?: string | null;
+          resolved_by_membership_id?: string | null;
+          status?: string;
+          submission_request_id: string;
+          target_time_entry_id?: string | null;
+          withdrawal_request_id?: string | null;
+          withdrawn_at?: string | null;
+          worksite_id: string;
+        };
+        Update: {
+          created_at?: string;
+          employee_membership_id?: string;
+          employee_reason?: string;
+          id?: string;
+          organization_id?: string;
+          original_ended_at?: string | null;
+          original_started_at?: string | null;
+          proposed_ended_at?: string;
+          proposed_started_at?: string;
+          request_kind?: string;
+          resolution_request_id?: string | null;
+          resolved_at?: string | null;
+          resolved_by_membership_id?: string | null;
+          status?: string;
+          submission_request_id?: string;
+          target_time_entry_id?: string | null;
+          withdrawal_request_id?: string | null;
+          withdrawn_at?: string | null;
+          worksite_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "correction_requests_resolver_tenant_fkey";
+            columns: ["organization_id", "resolved_by_membership_id"];
+            isOneToOne: false;
+            referencedRelation: "memberships";
+            referencedColumns: ["organization_id", "id"];
+          },
+          {
+            foreignKeyName: "correction_requests_target_entry_fkey";
+            columns: [
+              "organization_id",
+              "employee_membership_id",
+              "worksite_id",
+              "target_time_entry_id",
+            ];
+            isOneToOne: false;
+            referencedRelation: "time_entries";
+            referencedColumns: [
+              "organization_id",
+              "membership_id",
+              "worksite_id",
+              "id",
+            ];
+          },
+          {
+            foreignKeyName: "correction_requests_tenant_membership_fkey";
+            columns: ["organization_id", "employee_membership_id"];
+            isOneToOne: false;
+            referencedRelation: "memberships";
+            referencedColumns: ["organization_id", "id"];
+          },
+          {
+            foreignKeyName: "correction_requests_tenant_worksite_fkey";
+            columns: ["organization_id", "worksite_id"];
+            isOneToOne: false;
+            referencedRelation: "worksites";
+            referencedColumns: ["organization_id", "id"];
+          },
+        ];
+      };
       invitations: {
         Row: {
           accepted_at: string | null;
@@ -322,8 +427,38 @@ export type Database = {
           organization_id: string;
         }[];
       };
+      get_employee_correction_requests: { Args: never; Returns: Json };
       get_employee_invitation_state: { Args: never; Returns: string };
       get_employee_time_clock: { Args: never; Returns: Json };
+      submit_employee_correction_request: {
+        Args: {
+          employee_reason: string;
+          proposed_end_local: string;
+          proposed_end_occurrence: string;
+          proposed_start_local: string;
+          proposed_start_occurrence: string;
+          request_id: string;
+          request_kind: string;
+          target_time_entry_id: string;
+        };
+        Returns: {
+          correction_request_id: string;
+          did_create: boolean;
+          request_id: string;
+          request_status: string;
+          result_code: string;
+        }[];
+      };
+      withdraw_employee_correction_request: {
+        Args: { correction_request_id: string; request_id: string };
+        Returns: {
+          correction_request_id: string;
+          did_withdraw: boolean;
+          request_id: string;
+          request_status: string;
+          result_code: string;
+        }[];
+      };
     };
     Enums: {
       [_ in never]: never;

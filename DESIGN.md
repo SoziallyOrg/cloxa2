@@ -250,8 +250,8 @@ ink, worksite cobalt, and a small amber notation system.
 
 ### Tertiary
 
-- **Correction Red** (`danger`): declared destructive/error semantic; no inspected
-  component currently renders it.
+- **Correction Red** (`danger`): field-validation copy, request errors, and contained
+  failure strips.
 
 ### Neutral
 
@@ -415,6 +415,43 @@ at 320px, time ranges and supporting copy wrap while the action remains full-wid
 - **Feedback:** success stays within current field; errors receive a contained paper
   strip with Correction Red text and an alert role.
 
+### Inputs / Fields
+
+Use shared paper-field treatment for claim timestamps, occurrence selectors, and
+reasons.
+
+- **Style:** Traveler Paper, Deep Docket Ink, one-pixel Inspector Rule border, 0.75rem
+  corners, 1rem body type, 0.75rem horizontal padding, and 0.5rem vertical padding.
+  Controls fill available width with a 2.75rem minimum height; reason fields allow
+  vertical resizing from a 7rem minimum height.
+- **Labels / Help:** place semibold labels above controls and muted help beneath them.
+  Associate labels and help with their control IDs.
+- **Focus / Pending:** use cobalt border and 3px Focus Cobalt ring at 30% opacity.
+  Disable controls during submission, reduce opacity to 55%, and mark form busy.
+- **Errors:** place Correction Red messages beside affected fields, set `aria-invalid`,
+  and connect error text with `aria-describedby`. Form failures use paper strips with
+  red border and alert semantics; success uses Pale Cobalt Wash with status semantics.
+
+### Employee Correction Claims
+
+Keep requests within existing ruled role dossier. Employees move from recent closed
+registrations to an inline claim form, then their own request history. Separate these
+sections with rules and condensed headings; keep original facts and proposed changes
+distinct in labels and help copy.
+
+- **Form layout:** stack timestamp and occurrence controls through tablet widths; pair
+  them at 1024px. Keep grid children shrinkable and actions full-width at 320px.
+- **Wall-time entry:** use text fields for `dd/mm/yyyy HH:mm` in Europe/Brussels, with
+  optional seconds and up to six fractional digits. Preserve source timestamp precision
+  in prefilled values. Repeated autumn hours require explicit earlier/later occurrence
+  selectors for each endpoint.
+- **Keyboard flow:** move focus to form heading on open or target change. Return focus
+  to initiating control on close; keep opening controls' expanded state available to
+  assistive technology.
+- **Claim history:** use unboxed ruled rows with proposed time range, wrapping reason
+  text, and existing amber status pill. Offer secondary withdrawal action on pending
+  requests. Preserve line breaks in reasons and keep long text inside mobile width.
+
 ### Status State
 
 Loading, error, not-found, and unauthorized states share a centered paper panel with
@@ -441,7 +478,5 @@ active, disabled, or live-state treatment appropriate to its behavior.
 - **Don't** add shadows to ordinary dossiers, role panels, or status states.
 - **Don't** use amber as a primary action color.
 - **Don't** turn every content group into an independent rounded card or pill.
-- **Don't** infer an input primitive from the placeholder auth content; no input
-  component is implemented yet.
 - **Don't** add decorative gradients; the ruled 32px paper texture is the implemented
   gradient language.

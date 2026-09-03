@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-09-03T08:54:24.9641446+02:00",
+  "generatedAt": "2026-09-03T09:29:50Z",
   "title": "Design System: Cloxa",
   "extensions": {
     "colorMeta": {
@@ -331,6 +331,21 @@
   },
   "components": [
     {
+      "name": "Correction Claim Fields",
+      "kind": "input",
+      "description": "Shared paper fields for Brussels wall time, explicit earlier/later occurrence, and employee reason. Associate errors with controls, focus form heading on open, and restore initiating control on close.",
+      "html": "<div class=\"ds-claim-fields\"><div><label for=\"ds-claim-start\">Voorgestelde start</label><input id=\"ds-claim-start\" type=\"text\" inputmode=\"text\" value=\"03/09/2026 08:00:12.123456\" placeholder=\"dd/mm/jjjj uu:mm\" aria-describedby=\"ds-claim-time-help\" required><p class=\"ds-claim-help\" id=\"ds-claim-time-help\">Gebruik dd/mm/jjjj uu:mm in Europe/Brussels. Ingevulde seconden blijven behouden; je mag ze aanpassen. Niet-bestaande lentetijden worden geweigerd.</p></div><fieldset><legend>Herhaald herfstuur</legend><label for=\"ds-claim-occurrence\">Starttijd komt voor de</label><select id=\"ds-claim-occurrence\"><option value=\"\">Niet van toepassing</option><option value=\"earlier\">Eerste keer (zomertijd)</option><option value=\"later\">Tweede keer (wintertijd)</option></select></fieldset><div class=\"ds-claim-reason\"><label for=\"ds-claim-reason\">Reden</label><textarea id=\"ds-claim-reason\" maxlength=\"500\" required aria-invalid=\"true\" aria-describedby=\"ds-claim-reason-help ds-claim-reason-error\"></textarea><p class=\"ds-claim-help\" id=\"ds-claim-reason-help\">Verplicht, maximaal 500 tekens.</p><p class=\"ds-claim-error\" id=\"ds-claim-reason-error\">Vul een reden van maximaal 500 tekens in.</p></div></div>",
+      "css": ".ds-claim-fields { display: grid; min-width: 0; gap: 1.5rem; color: var(--color-ink); font-family: var(--font-body); } .ds-claim-fields > div, .ds-claim-fields fieldset { min-width: 0; } .ds-claim-fields label, .ds-claim-fields legend { display: block; font-size: 0.875rem; font-weight: 600; line-height: 1.25rem; } .ds-claim-fields fieldset { margin: 0; padding: 0; border: 0; } .ds-claim-fields legend { margin-bottom: 0.75rem; padding: 0; } .ds-claim-fields input, .ds-claim-fields select, .ds-claim-fields textarea { display: block; width: 100%; min-width: 0; min-height: 2.75rem; margin-top: 0.5rem; border: 1px solid var(--color-rule-strong); border-radius: 0.75rem; background: var(--color-paper); padding: 0.5rem 0.75rem; color: var(--color-ink); font-family: var(--font-body); font-size: 1rem; line-height: 1.5rem; outline: none; transition: border-color 150ms cubic-bezier(0.4, 0, 0.2, 1); } .ds-claim-fields textarea { min-height: 7rem; resize: vertical; } .ds-claim-fields input:focus-visible, .ds-claim-fields select:focus-visible, .ds-claim-fields textarea:focus-visible { border-color: var(--color-primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-focus) 30%, transparent); } .ds-claim-fields input:disabled, .ds-claim-fields select:disabled, .ds-claim-fields textarea:disabled { opacity: 0.55; } .ds-claim-help, .ds-claim-error { margin: 0.5rem 0 0; font-size: 0.875rem; line-height: 1.5rem; } .ds-claim-help { color: var(--color-muted); } .ds-claim-error { color: var(--color-danger); } @media (min-width: 1024px) { .ds-claim-fields { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .ds-claim-reason { grid-column: 1 / -1; } } @media (prefers-reduced-motion: reduce) { .ds-claim-fields input, .ds-claim-fields select, .ds-claim-fields textarea { transition-duration: 0.01ms; } }"
+    },
+    {
+      "name": "Correction Claim History Row",
+      "kind": "custom",
+      "refersTo": "role-status",
+      "description": "Unboxed claim row with proposed time range, wrapping employee reason, amber status, and secondary withdrawal action for pending requests.",
+      "html": "<article class=\"ds-claim-row\"><div class=\"ds-claim-row-heading\"><div><p class=\"ds-claim-kind\">Ontbrekende registratie</p><p class=\"ds-claim-range\">do 3 september 2026 08:00 – do 3 september 2026 09:00</p></div><span class=\"ds-claim-status\">In afwachting</span></div><p class=\"ds-claim-row-reason\">Vergeten te starten.</p><button type=\"button\">Aanvraag intrekken</button></article>",
+      "css": ".ds-claim-row { min-width: 0; padding: 1.5rem 0; border-bottom: 1px solid var(--color-rule); color: var(--color-ink); font-family: var(--font-body); } .ds-claim-row-heading { display: flex; min-width: 0; flex-direction: column; gap: 0.75rem; } .ds-claim-row-heading > div { min-width: 0; } .ds-claim-kind { margin: 0; font-size: 1rem; font-weight: 600; line-height: 1.5rem; } .ds-claim-range { margin: 0.25rem 0 0; color: var(--color-muted); font-size: 0.875rem; line-height: 1.5rem; } .ds-claim-status { width: fit-content; flex-shrink: 0; border: 1px solid var(--color-rule-strong); border-radius: 9999px; background: var(--color-signal-soft); padding: 0.25rem 0.75rem; color: var(--color-signal-ink); font-size: 0.75rem; font-weight: 600; line-height: 1rem; } .ds-claim-row-reason { max-width: 48rem; margin: 0.75rem 0 0; overflow-wrap: break-word; white-space: pre-wrap; font-size: 0.875rem; line-height: 1.5rem; } .ds-claim-row button { display: inline-flex; min-height: 2.75rem; align-items: center; justify-content: center; margin-top: 1rem; border: 1px solid var(--color-rule-strong); border-radius: 0.75rem; background: var(--color-paper); padding: 0 1.25rem; color: var(--color-ink); font-family: var(--font-body); font-size: 0.875rem; font-weight: 600; line-height: 1.25rem; transition: background-color 200ms ease-out, border-color 200ms ease-out, box-shadow 200ms ease-out, transform 200ms ease-out; } .ds-claim-row button:hover { border-color: var(--color-ink); background: var(--color-paper-strong); } .ds-claim-row button:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--color-focus); } .ds-claim-row button:disabled { pointer-events: none; opacity: 0.55; } @media (min-width: 640px) { .ds-claim-row-heading { flex-direction: row; align-items: flex-start; justify-content: space-between; } } @media (prefers-reduced-motion: no-preference) { .ds-claim-row button:active { transform: translateY(1px); } } @media (prefers-reduced-motion: reduce) { .ds-claim-row button { transition-duration: 0.01ms; } }"
+    },
+    {
       "name": "Primary Button · large",
       "kind": "button",
       "refersTo": "button-primary-large",
@@ -484,7 +499,6 @@
       "Don't add shadows to ordinary dossiers, role panels, or status states.",
       "Don't use amber as a primary action color.",
       "Don't turn every content group into an independent rounded card or pill.",
-      "Don't infer an input primitive from the placeholder auth content; no input component is implemented yet.",
       "Don't add decorative gradients; the ruled 32px paper texture is the implemented gradient language."
     ]
   }
