@@ -4,7 +4,7 @@ create extension if not exists pgtap with schema extensions;
 set local search_path = extensions, public, pg_catalog;
 set local "request.jwt.claim.sub" = '';
 
-select plan(70);
+select plan(78);
 
 -- Synthetic transaction-only identities and sessions. Password values cannot
 -- authenticate and every row is rolled back after this file.
@@ -18,7 +18,8 @@ with fixtures(number, email) as (values
   (7, 'clock.multiple-memberships@example.test'),
   (8, 'clock.sessionless@example.test'),
   (9, 'clock.expired-session@example.test'),
-  (10, 'clock.multiple-worksites@example.test')
+  (10, 'clock.multiple-worksites@example.test'),
+  (11, 'clock.overnight@example.test')
 )
 insert into auth.users (id, email, email_confirmed_at, encrypted_password)
 select ('91000000-0000-4000-8000-' || lpad(number::text, 12, '0'))::uuid,
@@ -29,7 +30,7 @@ insert into auth.sessions (id, user_id, created_at, updated_at, not_after)
 select ('92000000-0000-4000-8000-' || lpad(number::text, 12, '0'))::uuid,
   ('91000000-0000-4000-8000-' || lpad(number::text, 12, '0'))::uuid,
   now(), now(), case when number = 9 then now() - interval '1 hour' else null end
-from generate_series(1, 10) as numbers(number)
+from generate_series(1, 11) as numbers(number)
 where number <> 8;
 
 insert into public.organizations (id, name, lifecycle_status) values
@@ -55,7 +56,8 @@ insert into public.memberships (id, organization_id, user_id, role, status) valu
   ('95000000-0000-4000-8000-000000000008', '93000000-0000-4000-8000-000000000002', '91000000-0000-4000-8000-000000000007', 'employee', 'active'),
   ('95000000-0000-4000-8000-000000000009', '93000000-0000-4000-8000-000000000001', '91000000-0000-4000-8000-000000000008', 'employee', 'active'),
   ('95000000-0000-4000-8000-000000000010', '93000000-0000-4000-8000-000000000001', '91000000-0000-4000-8000-000000000009', 'employee', 'active'),
-  ('95000000-0000-4000-8000-000000000011', '93000000-0000-4000-8000-000000000004', '91000000-0000-4000-8000-000000000010', 'employee', 'active');
+  ('95000000-0000-4000-8000-000000000011', '93000000-0000-4000-8000-000000000004', '91000000-0000-4000-8000-000000000010', 'employee', 'active'),
+  ('95000000-0000-4000-8000-000000000012', '93000000-0000-4000-8000-000000000001', '91000000-0000-4000-8000-000000000011', 'employee', 'active');
 
 insert into public.time_entries (
   id, organization_id, membership_id, worksite_id, started_at, ended_at, created_at
@@ -63,6 +65,27 @@ insert into public.time_entries (
   ('96000000-0000-4000-8000-000000000001', '93000000-0000-4000-8000-000000000001', '95000000-0000-4000-8000-000000000001', '94000000-0000-4000-8000-000000000001', now() - interval '2 hours', now() - interval '1 hour', now() - interval '2 hours'),
   ('96000000-0000-4000-8000-000000000002', '93000000-0000-4000-8000-000000000002', '95000000-0000-4000-8000-000000000003', '94000000-0000-4000-8000-000000000002', now() - interval '3 hours', now() - interval '2 hours', now() - interval '3 hours'),
   ('96000000-0000-4000-8000-000000000003', '93000000-0000-4000-8000-000000000003', '95000000-0000-4000-8000-000000000005', '94000000-0000-4000-8000-000000000003', now() - interval '4 hours', now() - interval '3 hours', now() - interval '4 hours');
+
+with bounds as (
+  select (now() at time zone 'Europe/Brussels')::date::timestamp
+    at time zone 'Europe/Brussels' as day_start
+)
+insert into public.time_entries (
+  id, organization_id, membership_id, worksite_id, started_at, ended_at, created_at
+)
+select entry.id, entry.organization_id, entry.membership_id, entry.worksite_id,
+  bounds.day_start + entry.start_offset,
+  case when entry.end_offset is null then null
+    else bounds.day_start + entry.end_offset end,
+  bounds.day_start + entry.start_offset
+from bounds
+cross join (values
+  ('96000000-0000-4000-8000-000000000004'::uuid, '93000000-0000-4000-8000-000000000001'::uuid, '95000000-0000-4000-8000-000000000012'::uuid, '94000000-0000-4000-8000-000000000001'::uuid, interval '-1 hour', null::interval),
+  ('96000000-0000-4000-8000-000000000005'::uuid, '93000000-0000-4000-8000-000000000001'::uuid, '95000000-0000-4000-8000-000000000012'::uuid, '94000000-0000-4000-8000-000000000001'::uuid, interval '-3 hours', interval '-2 hours'),
+  ('96000000-0000-4000-8000-000000000006'::uuid, '93000000-0000-4000-8000-000000000001'::uuid, '95000000-0000-4000-8000-000000000012'::uuid, '94000000-0000-4000-8000-000000000001'::uuid, interval '-1 hour', interval '0 hours'),
+  ('96000000-0000-4000-8000-000000000007'::uuid, '93000000-0000-4000-8000-000000000002'::uuid, '95000000-0000-4000-8000-000000000003'::uuid, '94000000-0000-4000-8000-000000000002'::uuid, interval '-1 hour', interval '1 hour'),
+  ('96000000-0000-4000-8000-000000000008'::uuid, '93000000-0000-4000-8000-000000000001'::uuid, '95000000-0000-4000-8000-000000000007'::uuid, '94000000-0000-4000-8000-000000000001'::uuid, interval '-1 hour', interval '1 hour')
+) as entry(id, organization_id, membership_id, worksite_id, start_offset, end_offset);
 
 -- Schema, indexes, tenant-consistent references, RLS, and exact privileges.
 select ok(
@@ -218,6 +241,51 @@ select throws_ok(
   $$select * from public.clock_in('97000000-0000-4000-8000-000000000099',
     '93000000-0000-4000-8000-000000000002')$$,
   '42883', null, 'browser-supplied tenant authority is rejected by function signature'
+);
+
+-- Brussels-local today uses half-open interval overlap, including overnight work.
+reset role;
+set local role authenticated;
+set local "request.jwt.claims" =
+  '{"sub":"91000000-0000-4000-8000-000000000011","role":"authenticated","session_id":"92000000-0000-4000-8000-000000000011"}';
+select ok(
+  (public.get_employee_time_clock() -> 'entries')
+    @> '[{"id":"96000000-0000-4000-8000-000000000004"}]'::jsonb,
+  'open entry beginning before local midnight overlaps today'
+);
+select lives_ok(
+  $$select * from public.clock_out('97000000-0000-4000-8000-000000000024')$$,
+  'overnight entry closes through controlled clock-out'
+);
+select ok(
+  (select ended_at is not null from public.time_entries
+    where id = '96000000-0000-4000-8000-000000000004'),
+  'overnight entry is closed'
+);
+select ok(
+  (public.get_employee_time_clock() -> 'entries')
+    @> '[{"id":"96000000-0000-4000-8000-000000000004"}]'::jsonb,
+  'completed entry spanning local midnight remains visible after clock-out'
+);
+select ok(
+  not (public.get_employee_time_clock() -> 'entries')
+    @> '[{"id":"96000000-0000-4000-8000-000000000005"}]'::jsonb,
+  'entry entirely before today is excluded'
+);
+select ok(
+  not (public.get_employee_time_clock() -> 'entries')
+    @> '[{"id":"96000000-0000-4000-8000-000000000006"}]'::jsonb,
+  'entry ending exactly at local day start is excluded'
+);
+select ok(
+  not (public.get_employee_time_clock() -> 'entries')
+    @> '[{"id":"96000000-0000-4000-8000-000000000007"}]'::jsonb,
+  'overlapping entry from another tenant remains excluded'
+);
+select ok(
+  not (public.get_employee_time_clock() -> 'entries')
+    @> '[{"id":"96000000-0000-4000-8000-000000000008"}]'::jsonb,
+  'overlapping entry from another employee remains excluded'
 );
 
 -- Manager, inactive, suspended, unaffiliated, ambiguous, and invalid sessions fail closed.

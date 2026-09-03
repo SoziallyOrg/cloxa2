@@ -134,18 +134,53 @@ describe("employee time-clock action", () => {
   });
 
   it.each([
-    ["already_working", nlBE.timeClock.alreadyWorking],
-    ["already_stopped", nlBE.timeClock.alreadyStopped],
-  ])("accepts idempotent database result %s", async (resultCode, message) => {
-    mocks.rpc.mockResolvedValue({
-      data: [{ did_transition: false, request_id: requestId, result_code: resultCode }],
-      error: null,
-    });
-    await expect(
-      submitTimeClockAction(initialTimeClockActionState, clockForm()),
-    ).resolves.toEqual({ message, requestId, status: "success" });
-    expect(mocks.revalidatePath).toHaveBeenCalledOnce();
-  });
+    ["clock_in", "already_working", nlBE.timeClock.alreadyWorking],
+    ["clock_out", "already_stopped", nlBE.timeClock.alreadyStopped],
+  ])(
+    "accepts valid idempotent %s result %s",
+    async (operation, resultCode, message) => {
+      mocks.rpc.mockResolvedValue({
+        data: [
+          { did_transition: false, request_id: requestId, result_code: resultCode },
+        ],
+        error: null,
+      });
+      await expect(
+        submitTimeClockAction(initialTimeClockActionState, clockForm(operation)),
+      ).resolves.toEqual({ message, requestId, status: "success" });
+      expect(mocks.revalidatePath).toHaveBeenCalledOnce();
+    },
+  );
+
+  it.each([
+    ["clock_in", "stopped", true],
+    ["clock_in", "already_stopped", false],
+    ["clock_out", "started", true],
+    ["clock_out", "already_working", false],
+    ["clock_in", "started", false],
+    ["clock_in", "already_working", true],
+    ["clock_out", "stopped", false],
+    ["clock_out", "already_stopped", true],
+  ])(
+    "fails closed on invalid semantic result %s + %s + %s",
+    async (operation, resultCode, didTransition) => {
+      mocks.rpc.mockResolvedValue({
+        data: [
+          {
+            did_transition: didTransition,
+            request_id: requestId,
+            result_code: resultCode,
+          },
+        ],
+        error: null,
+      });
+
+      await expect(
+        submitTimeClockAction(initialTimeClockActionState, clockForm(operation)),
+      ).resolves.toEqual({ message: nlBE.timeClock.failure, status: "error" });
+      expect(mocks.revalidatePath).not.toHaveBeenCalled();
+    },
+  );
 
   it.each([
     { data: [], error: null },

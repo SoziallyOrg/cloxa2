@@ -503,10 +503,8 @@ begin
   ) into entries
   from public.time_entries as entry
   where entry.membership_id = target_membership_id
-    and (
-      (entry.started_at >= day_start and entry.started_at < day_end)
-      or entry.ended_at is null
-    );
+    and entry.started_at < day_end
+    and (entry.ended_at is null or entry.ended_at > day_start);
 
   return pg_catalog.jsonb_build_object(
     'status', case when current_started_at is null then 'not_working' else 'working' end,

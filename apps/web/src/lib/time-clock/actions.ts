@@ -22,15 +22,30 @@ function isClockOperation(value: string): value is ClockOperation {
   return value === "clock_in" || value === "clock_out";
 }
 
-function successMessage(resultCode: string) {
-  const messages: Record<string, string> = {
-    already_stopped: nlBE.timeClock.alreadyStopped,
-    already_working: nlBE.timeClock.alreadyWorking,
-    started: nlBE.timeClock.startSuccess,
-    stopped: nlBE.timeClock.stopSuccess,
-  };
+function successMessage(
+  operation: ClockOperation,
+  resultCode: unknown,
+  didTransition: unknown,
+) {
+  if (operation === "clock_in") {
+    if (resultCode === "started" && didTransition === true) {
+      return nlBE.timeClock.startSuccess;
+    }
+    if (resultCode === "already_working" && didTransition === false) {
+      return nlBE.timeClock.alreadyWorking;
+    }
+  }
 
-  return messages[resultCode] ?? null;
+  if (operation === "clock_out") {
+    if (resultCode === "stopped" && didTransition === true) {
+      return nlBE.timeClock.stopSuccess;
+    }
+    if (resultCode === "already_stopped" && didTransition === false) {
+      return nlBE.timeClock.alreadyStopped;
+    }
+  }
+
+  return null;
 }
 
 export async function submitTimeClockAction(
@@ -57,15 +72,11 @@ export async function submitTimeClockAction(
       request_id: requestId,
     });
     const row = Array.isArray(data) && data.length === 1 ? data[0] : null;
-    const message = row ? successMessage(row.result_code) : null;
+    const message = row
+      ? successMessage(operation, row.result_code, row.did_transition)
+      : null;
 
-    if (
-      error ||
-      !row ||
-      row.request_id !== requestId ||
-      typeof row.did_transition !== "boolean" ||
-      !message
-    ) {
+    if (error || !row || row.request_id !== requestId || !message) {
       return failureState();
     }
 
