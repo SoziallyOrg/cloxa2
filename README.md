@@ -254,10 +254,11 @@ characters. Optional approval notes share that bound. Both remain escaped text.
 The browser submits only an operation UUID, correction UUID, decision, and note. Private
 database code locks the employee using the clock/correction advisory-lock namespace,
 rechecks manager authorization after waits, then locks factual and request rows.
-Approval revalidates the original snapshot, employee membership, sole worksite,
-closed/past interval, and current factual overlaps. Stale or overlapping proposals
-remain pending without factual changes or decision audits. Reject them with an
-explanation so the employee can submit a new proposal.
+Approval revalidates original timestamps and the immutable factual-version snapshot,
+plus employee membership, sole worksite, closed/past interval, and current factual
+overlaps. A fact that changed and later returned to the same timestamps is still stale.
+Stale or overlapping proposals remain pending without factual changes or decision
+audits. Reject them with an explanation so the employee can submit a new proposal.
 
 One transaction applies the exact proposal, resolves the request, records an immutable
 operation outcome, and appends audits. Rejection appends only its status audit. Approval

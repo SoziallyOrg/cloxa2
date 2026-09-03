@@ -168,11 +168,12 @@ corrections, approvals, and exports remain outside time-clock RPC scope.
 ## Employee correction requests
 
 Correction rows contain employee claims, not approved facts. Adjustment requests target
-a closed own `time_entries` row and store immutable original start/end snapshots. Missed
-entry requests carry no target or snapshot. Composite foreign keys keep organization,
-employee membership, worksite, target entry, and resolver membership tenant consistent.
-Status constraints support `pending`, `withdrawn`, `approved`, and `rejected`; only
-submission, withdrawal, and manager decision functions can write them.
+a closed own `time_entries` row and store immutable original start/end and
+factual-version snapshots. Missed-entry requests carry no target or snapshot. Composite
+foreign keys keep organization, employee membership, worksite, target entry, and
+resolver membership tenant consistent. Status constraints support `pending`,
+`withdrawn`, `approved`, and `rejected`; only submission, withdrawal, and manager
+decision functions can write them.
 
 Authenticated employees may select only own requests while their membership,
 organization, Auth user, and session remain active. Live verified managers with exactly
@@ -215,14 +216,14 @@ profile text does not grant authorization.
 
 ## Manager decisions and factual application
 
-Migration `20260903094913_manager_correction_review.sql` adds request `manager_note` and
-`applied_time_entry_id`, factual `version`, immutable `origin`, and
-`last_correction_request_id`, plus private `manager_decision_operations`. Existing
-resolution fields hold database decision time, manager membership, and operation UUID.
-Manager identity/operation columns are excluded from authenticated column-level SELECT
-grants and employee RPC results. Service-role SELECT remains available for controlled
-local inspection; service role cannot invoke decision or review RPCs or write facts,
-claims, decision operations, or audits.
+Migration `20260903094913_manager_correction_review.sql` adds request `manager_note`,
+`applied_time_entry_id`, and `original_time_entry_version`; factual `version`, immutable
+`origin`, and `last_correction_request_id`; plus private `manager_decision_operations`.
+Existing resolution fields hold database decision time, manager membership, and
+operation UUID. Manager identity/operation columns are excluded from authenticated
+column-level SELECT grants and employee RPC results. Service-role SELECT remains
+available for controlled local inspection; service role cannot invoke decision or review
+RPCs or write facts, claims, decision operations, or audits.
 
 `get_manager_correction_requests()` accepts no input and returns every own-tenant
 pending request plus 50 recent terminal requests with name/code, original/proposed
@@ -251,12 +252,22 @@ use the same employee advisory lock before their factual/request rows. The decis
 never locks a correction row before that advisory lock. Manager Auth rows stay locked;
 authorization and session expiry are rechecked after waits before mutation or replay.
 
-Adjustment approval reloads the target and compares start/end to the immutable original
-snapshot. A changed or open target returns `stale_request`. Application rechecks finite,
-strictly ordered, entirely past proposed instants and overlap with all current employee
-facts, excluding the adjustment target. Stale, invalid, overlapping, or unavailable
-applications leave requests pending and facts/audits untouched. Rejection can resolve a
-stale or unavailable pending claim with a required explanation; it never changes facts.
+Phase 4 facts deterministically become version 1 before existing adjustment requests are
+backfilled from their tenant-bound targets. A kind-aware constraint is active for new
+writes during backfill, then validated; the scoped immutability trigger pause is
+restored inside the same migration transaction. New submissions capture target version
+while its factual row is locked. Missed-entry requests keep the snapshot null. Version
+history before this migration cannot be reconstructed: every Phase 4 fact starts at
+version 1. Phase 4 application roles had no path for changing a closed targeted fact;
+owner-side changes before versioning remain outside application integrity guarantees.
+
+Adjustment approval reloads the target and compares start/end and version to the
+immutable original snapshot. A changed, open, or ABA-restored target returns
+`stale_request`. Application rechecks finite, strictly ordered, entirely past proposed
+instants and overlap with all current employee facts, excluding the adjustment target.
+Stale, invalid, overlapping, or unavailable applications leave requests pending and
+facts/audits untouched. Rejection can resolve a stale or unavailable pending claim with
+a required explanation; it never changes facts.
 
 Approval changes the exact proposed timestamps or inserts one closed missed entry,
 resolves the request, records an operation, and appends audits in one transaction. The

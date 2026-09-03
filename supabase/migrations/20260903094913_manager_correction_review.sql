@@ -1,8 +1,14 @@
 -- Manager decisions apply the immutable employee proposal under the employee's
 -- existing clock lock. No application role gains direct mutation privileges.
+-- Phase 4 facts receive deterministic version 1 before request snapshots are backfilled.
+alter table public.time_entries
+  add column version integer not null default 1,
+  add constraint time_entries_version_check check (version >= 1);
+
 alter table public.correction_requests
   add column manager_note text,
   add column applied_time_entry_id uuid,
+  add column original_time_entry_version integer,
   add constraint correction_requests_tenant_employee_worksite_id_key
     unique (organization_id, employee_membership_id, worksite_id, id),
   add constraint correction_requests_applied_entry_fkey foreign key (
@@ -16,12 +22,33 @@ alter table public.correction_requests
       and pg_catalog.char_length(manager_note) between 1 and 500
     )
   ),
+  add constraint correction_requests_original_version_snapshot_check check (
+    (request_kind = 'adjustment' and original_time_entry_version is not null
+      and original_time_entry_version > 0)
+    or (request_kind = 'missed_entry' and original_time_entry_version is null)
+  ) not valid,
   add constraint correction_requests_decision_fields_check check (
     (status in ('pending', 'withdrawn') and manager_note is null and applied_time_entry_id is null)
     or (status = 'rejected' and manager_note is not null and applied_time_entry_id is null)
     or (status = 'approved' and applied_time_entry_id is not null
       and (request_kind = 'missed_entry' or applied_time_entry_id = target_time_entry_id))
   );
+
+-- Existing Phase 4 adjustment claims already have a tenant-bound factual target.
+-- Backfill under the migration transaction, with only the row immutability trigger
+-- paused; any failure rolls the trigger state and data back together.
+alter table public.correction_requests disable trigger correction_request_immutable;
+update public.correction_requests as request
+set original_time_entry_version = entry.version
+from public.time_entries as entry
+where request.request_kind = 'adjustment'
+  and entry.id = request.target_time_entry_id
+  and entry.organization_id = request.organization_id
+  and entry.membership_id = request.employee_membership_id
+  and entry.worksite_id = request.worksite_id;
+alter table public.correction_requests enable trigger correction_request_immutable;
+alter table public.correction_requests
+  validate constraint correction_requests_original_version_snapshot_check;
 
 create index correction_requests_review_queue_idx
   on public.correction_requests (organization_id, status, created_at, id);
@@ -31,10 +58,8 @@ create index correction_requests_applied_entry_idx
 
 alter table public.time_entries
   add constraint time_entries_tenant_membership_id_key unique (organization_id, membership_id, id),
-  add column version integer not null default 1,
   add column origin text not null default 'clock',
   add column last_correction_request_id uuid,
-  add constraint time_entries_version_check check (version >= 1),
   add constraint time_entries_origin_check check (origin in ('clock', 'approved_missed_entry')),
   add constraint time_entries_correction_state_check check (
     (last_correction_request_id is null and origin = 'clock')
@@ -182,6 +207,263 @@ grant select (
   withdrawal_request_id, created_at, withdrawn_at, resolved_at, manager_note, applied_time_entry_id
 ) on public.correction_requests to authenticated;
 
+create or replace function private.submit_employee_correction_request(
+  client_request_id uuid,
+  client_request_kind text,
+  client_target_time_entry_id uuid,
+  client_proposed_start_local text,
+  client_proposed_start_occurrence text,
+  client_proposed_end_local text,
+  client_proposed_end_occurrence text,
+  client_employee_reason text
+)
+returns table (
+  request_id uuid,
+  correction_request_id uuid,
+  result_code text,
+  request_status text,
+  did_create boolean
+)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  caller_id uuid := auth.uid();
+  session_expires_at timestamptz;
+  active_count bigint;
+  worksite_count bigint;
+  target_organization_id uuid;
+  target_membership_id uuid;
+  target_worksite_id uuid;
+  target_entry public.time_entries%rowtype;
+  prior_operation private.correction_request_operations%rowtype;
+  created_request public.correction_requests%rowtype;
+  operation_name text;
+  payload_hash bytea;
+  normalized_reason text;
+  proposed_start timestamptz;
+  proposed_end timestamptz;
+  operation_time timestamptz;
+begin
+  if client_request_id is null
+    or client_request_kind is null
+    or client_request_kind not in ('adjustment', 'missed_entry')
+    or client_employee_reason is null then
+    raise exception using errcode = '22023', message = 'correction_invalid_request';
+  end if;
+
+  if (client_request_kind = 'adjustment') <> (client_target_time_entry_id is not null) then
+    raise exception using errcode = '22023', message = 'correction_invalid_target';
+  end if;
+
+  normalized_reason := pg_catalog.btrim(client_employee_reason, E' \t\n\r\f\v');
+  if pg_catalog.char_length(normalized_reason) not between 1 and 500 then
+    raise exception using errcode = '22023', message = 'correction_invalid_reason';
+  end if;
+
+  begin
+    proposed_start := private.resolve_brussels_local(
+      client_proposed_start_local, client_proposed_start_occurrence
+    );
+  exception when sqlstate '22007' or sqlstate '22008' or sqlstate '22023' then
+    raise exception using errcode = sqlstate, message = sqlerrm, detail = 'proposed_start_local';
+  end;
+  begin
+    proposed_end := private.resolve_brussels_local(
+      client_proposed_end_local, client_proposed_end_occurrence
+    );
+  exception when sqlstate '22007' or sqlstate '22008' or sqlstate '22023' then
+    raise exception using errcode = sqlstate, message = sqlerrm, detail = 'proposed_end_local';
+  end;
+
+  if proposed_end <= proposed_start then
+    raise exception using errcode = '22023', message = 'correction_invalid_interval';
+  end if;
+
+  operation_name := case client_request_kind
+    when 'adjustment' then 'submit_adjustment'
+    else 'submit_missed_entry'
+  end;
+  payload_hash := pg_catalog.sha256(pg_catalog.convert_to(
+    pg_catalog.jsonb_build_array(
+      operation_name,
+      client_target_time_entry_id,
+      client_proposed_start_local,
+      client_proposed_start_occurrence,
+      client_proposed_end_local,
+      client_proposed_end_occurrence,
+      client_employee_reason
+    )::text,
+    'UTF8'
+  ));
+
+  select auth_session.not_after into session_expires_at
+  from auth.users as auth_user
+  join auth.sessions as auth_session on auth_session.user_id = auth_user.id
+  where auth_user.id = caller_id
+    and auth_user.email_confirmed_at is not null
+    and auth_user.deleted_at is null
+    and (auth_user.banned_until is null or auth_user.banned_until <= pg_catalog.clock_timestamp())
+    and auth_session.id::text = (auth.jwt() ->> 'session_id')
+    and (auth_session.not_after is null or auth_session.not_after > pg_catalog.clock_timestamp())
+  for share of auth_user, auth_session;
+  if caller_id is null or not found then
+    raise exception using errcode = '42501', message = 'Correctieaanvraag kan niet worden verwerkt.';
+  end if;
+
+  -- Same order as clock functions: Auth rows, caller advisory lock, memberships,
+  -- organization, worksites, idempotency row, then factual/request rows.
+  perform pg_catalog.pg_advisory_xact_lock(17031, pg_catalog.hashtext(caller_id::text));
+  perform membership.id from public.memberships as membership
+  where membership.user_id = caller_id order by membership.id for update;
+
+  select pg_catalog.count(*) into active_count
+  from public.memberships as membership
+  where membership.user_id = caller_id and membership.status = 'active';
+  if active_count <> 1 then
+    raise exception using errcode = '42501', message = 'Correctieaanvraag kan niet worden verwerkt.';
+  end if;
+
+  select membership.id, membership.organization_id
+  into target_membership_id, target_organization_id
+  from public.memberships as membership
+  where membership.user_id = caller_id
+    and membership.role = 'employee'
+    and membership.status = 'active';
+  if not found then
+    raise exception using errcode = '42501', message = 'Correctieaanvraag kan niet worden verwerkt.';
+  end if;
+
+  perform organization.id from public.organizations as organization
+  where organization.id = target_organization_id
+    and organization.lifecycle_status in ('research_pilot', 'paid_beta')
+  for share;
+  if not found then
+    raise exception using errcode = '42501', message = 'Correctieaanvraag kan niet worden verwerkt.';
+  end if;
+
+  perform worksite.id from public.worksites as worksite
+  where worksite.organization_id = target_organization_id
+  order by worksite.id for share;
+  select pg_catalog.count(*), (pg_catalog.array_agg(worksite.id order by worksite.id))[1]
+  into worksite_count, target_worksite_id
+  from public.worksites as worksite
+  where worksite.organization_id = target_organization_id;
+  if worksite_count <> 1 then
+    raise exception using errcode = '55000', message = 'Correctieaanvraag kan niet worden verwerkt.';
+  end if;
+
+  operation_time := pg_catalog.clock_timestamp();
+  if session_expires_at is not null and session_expires_at <= operation_time then
+    raise exception using errcode = '42501', message = 'Correctieaanvraag kan niet worden verwerkt.';
+  end if;
+
+  select operation.* into prior_operation
+  from private.correction_request_operations as operation
+  where operation.employee_membership_id = target_membership_id
+    and operation.request_id = client_request_id;
+  if found then
+    if prior_operation.operation <> operation_name
+      or prior_operation.payload_hash <> payload_hash then
+      raise exception using errcode = '22023', message = 'correction_request_id_reused';
+    end if;
+    return query select prior_operation.request_id,
+      prior_operation.correction_request_id, prior_operation.result_code,
+      'pending'::text, true;
+    return;
+  end if;
+
+  operation_time := pg_catalog.clock_timestamp();
+  if session_expires_at is not null and session_expires_at <= operation_time then
+    raise exception using errcode = '42501', message = 'Correctieaanvraag kan niet worden verwerkt.';
+  end if;
+  if proposed_end >= operation_time then
+    raise exception using errcode = '22023', message = 'correction_interval_not_past';
+  end if;
+
+  -- Advisory serialization matches time clock, then rows are locked before all
+  -- ownership, closed-state, overlap, and snapshot checks.
+  perform entry.id from public.time_entries as entry
+  where entry.membership_id = target_membership_id
+  order by entry.id for update;
+
+  if client_request_kind = 'adjustment' then
+    select entry.* into target_entry
+    from public.time_entries as entry
+    where entry.id = client_target_time_entry_id
+      and entry.organization_id = target_organization_id
+      and entry.membership_id = target_membership_id
+      and entry.worksite_id = target_worksite_id
+      and entry.ended_at is not null;
+    if not found then
+      raise exception using errcode = '22023', message = 'correction_invalid_target';
+    end if;
+    if proposed_start = target_entry.started_at and proposed_end = target_entry.ended_at then
+      raise exception using errcode = '22023', message = 'correction_unchanged';
+    end if;
+  else
+    target_entry := null;
+  end if;
+
+  if exists (
+    select 1 from public.time_entries as entry
+    where entry.membership_id = target_membership_id
+      and (client_target_time_entry_id is null or entry.id <> client_target_time_entry_id)
+      and entry.started_at < proposed_end
+      and coalesce(entry.ended_at, 'infinity'::timestamptz) > proposed_start
+  ) then
+    raise exception using errcode = '22023', message = 'correction_factual_overlap';
+  end if;
+
+  perform request.id from public.correction_requests as request
+  where request.employee_membership_id = target_membership_id
+  order by request.id for update;
+  if exists (
+    select 1 from public.correction_requests as request
+    where request.employee_membership_id = target_membership_id
+      and request.status = 'pending'
+      and (
+        request.target_time_entry_id = client_target_time_entry_id
+        or (request.proposed_started_at < proposed_end
+          and request.proposed_ended_at > proposed_start)
+      )
+  ) then
+    raise exception using errcode = '22023', message = 'correction_pending_conflict';
+  end if;
+
+  insert into public.correction_requests (
+    organization_id, employee_membership_id, worksite_id,
+    target_time_entry_id, request_kind, proposed_started_at,
+    proposed_ended_at, original_started_at, original_ended_at,
+    original_time_entry_version, employee_reason, submission_request_id, created_at
+  ) values (
+    target_organization_id, target_membership_id, target_worksite_id,
+    client_target_time_entry_id, client_request_kind, proposed_start,
+    proposed_end, target_entry.started_at, target_entry.ended_at,
+    target_entry.version, normalized_reason, client_request_id, operation_time
+  ) returning * into created_request;
+
+  insert into public.audit_events (
+    organization_id, actor_user_id, entity_type, entity_id, action, after_data
+  ) values (
+    target_organization_id, caller_id, 'correction_request', created_request.id,
+    'correction_request.submitted', '{"status":"pending"}'::jsonb
+  );
+
+  insert into private.correction_request_operations (
+    organization_id, employee_membership_id, request_id, operation,
+    payload_hash, correction_request_id, result_code, processed_at
+  ) values (
+    target_organization_id, target_membership_id, client_request_id,
+    operation_name, payload_hash, created_request.id, 'submitted', operation_time
+  );
+
+  return query select client_request_id, created_request.id, 'submitted'::text,
+    'pending'::text, true;
+end;
+$$;
+
 create function private.decide_correction_request(
   client_request_id uuid, client_correction_request_id uuid,
   client_decision text, client_manager_note text
@@ -309,7 +591,8 @@ begin
             and entry.worksite_id = sole_worksite_id for update;
         if not found or target_entry.ended_at is null
           or target_entry.started_at is distinct from target_request.original_started_at
-          or target_entry.ended_at is distinct from target_request.original_ended_at then
+          or target_entry.ended_at is distinct from target_request.original_ended_at
+          or target_entry.version is distinct from target_request.original_time_entry_version then
           outcome := 'stale_request';
         end if;
       end if;

@@ -476,6 +476,9 @@ select is(
   'adjustment leaves original factual entry unchanged'
 );
 reset role;
+select is((select original_time_entry_version from public.correction_requests
+    where submission_request_id = 'a7000000-0000-4000-8000-000000000040'),
+  1, 'adjustment atomically captures factual version snapshot');
 select is(
   (select count(*) from public.audit_events
     where action = 'correction_request.submitted'
@@ -560,6 +563,13 @@ select is(
   ),
   'overnight missed entry stores absolute instants without target snapshot'
 );
+reset role;
+select ok((select original_time_entry_version is null from public.correction_requests
+    where submission_request_id = 'a7000000-0000-4000-8000-000000000042'),
+  'missed-entry request stores no factual version snapshot');
+set local role authenticated;
+set local "request.jwt.claims" =
+  '{"sub":"a1000000-0000-4000-8000-000000000001","role":"authenticated","session_id":"a2000000-0000-4000-8000-000000000001"}';
 
 -- RLS exposes only employee own requests across tenants.
 select is((select count(*) from public.correction_requests), 2::bigint, 'employee reads own requests');
@@ -689,6 +699,7 @@ select throws_ok(format(
 ), '55000', 'correction_request_immutable', field || ' stays immutable')
 from (values
   ('original_started_at', 'original_started_at + interval ''1 second'''),
+  ('original_time_entry_version', 'original_time_entry_version + 1'),
   ('created_at', 'created_at + interval ''1 second'''),
   ('employee_reason', '''Owner rewrite'''),
   ('submission_request_id', 'gen_random_uuid()')

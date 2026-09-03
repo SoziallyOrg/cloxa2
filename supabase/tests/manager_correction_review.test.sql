@@ -41,7 +41,8 @@ select pg_temp.fixture_id(116, n), pg_temp.fixture_id(113, 1), pg_temp.fixture_i
 from unnest(array[1, 3, 4, 5, 6, 10]) as n;
 insert into public.correction_requests (id, organization_id, employee_membership_id, worksite_id,
   target_time_entry_id, request_kind, proposed_started_at, proposed_ended_at,
-  original_started_at, original_ended_at, employee_reason, submission_request_id)
+  original_started_at, original_ended_at, original_time_entry_version,
+  employee_reason, submission_request_id)
 select pg_temp.fixture_id(117, n), pg_temp.fixture_id(113, 1), pg_temp.fixture_id(115, 1), pg_temp.fixture_id(114, 1),
   case when n in (1, 3, 4, 6, 10) then pg_temp.fixture_id(116, n) end,
   case when n in (1, 3, 4, 6, 10) then 'adjustment' else 'missed_entry' end,
@@ -49,6 +50,7 @@ select pg_temp.fixture_id(117, n), pg_temp.fixture_id(113, 1), pg_temp.fixture_i
   '2010-01-01 10:00:00.654321Z'::timestamptz + (n - 1) * interval '1 day',
   case when n in (1, 3, 4, 6, 10) then '2010-01-01 08:00Z'::timestamptz + (n - 1) * interval '1 day' end,
   case when n in (1, 3, 4, 6, 10) then '2010-01-01 10:00Z'::timestamptz + (n - 1) * interval '1 day' end,
+  case when n in (1, 3, 4, 6, 10) then 1 end,
   'synthetic <b>employee claim</b>', gen_random_uuid() from generate_series(1, 10) as n;
 insert into public.correction_requests (id, organization_id, employee_membership_id, worksite_id,
   request_kind, proposed_started_at, proposed_ended_at, employee_reason, submission_request_id)
@@ -68,7 +70,7 @@ from unnest(array['anon','authenticated','service_role']) as role_name;
 select ok(not has_table_privilege('authenticated', table_name, 'INSERT,UPDATE,DELETE,TRUNCATE'), table_name || ' has no direct browser writes')
 from unnest(array['public.time_entries','public.correction_requests','public.audit_events']) as table_name;
 select ok(not has_column_privilege('authenticated', 'public.correction_requests', column_name, 'SELECT'), column_name || ' hidden from browser readers')
-from unnest(array['resolved_by_membership_id','resolution_request_id']) as column_name;
+from unnest(array['resolved_by_membership_id','resolution_request_id','original_time_entry_version']) as column_name;
 select ok(p.proowner = 'postgres'::regrole and p.prosecdef = expected.definer and p.proconfig = array['search_path=""']
   and (select array_agg(a.grantee::regrole::text order by a.grantee::regrole::text)
     from aclexplode(p.proacl) a) = array['authenticated','postgres'], expected.signature || ' exact owner, path, security, grants')
@@ -79,6 +81,12 @@ join pg_proc p on p.oid = expected.signature::regprocedure;
 select is((select pronargs::integer from pg_proc where oid = 'public.decide_correction_request(uuid,uuid,text,text)'::regprocedure), 4, 'browser submits only four decision fields');
 select is((select version from public.time_entries where id = pg_temp.fixture_id(116, 1)), 1, 'legacy rows have safe version default');
 select is((select origin from public.time_entries where id = pg_temp.fixture_id(116, 1)), 'clock', 'legacy rows keep clock origin');
+select col_type_is('public', 'correction_requests', 'original_time_entry_version', 'integer',
+  'factual version snapshot uses integer');
+select ok((select convalidated from pg_constraint
+    where conrelid = 'public.correction_requests'::regclass
+      and conname = 'correction_requests_original_version_snapshot_check'),
+  'factual version snapshot constraint is validated');
 
 set local role authenticated;
 select pg_temp.login(2);
@@ -150,6 +158,10 @@ select is((select started_at from public.time_entries where id = pg_temp.fixture
 select is((select ended_at from public.time_entries where id = pg_temp.fixture_id(116,1)), '2010-01-01 10:00:00.654321Z'::timestamptz, 'exact microsecond proposed end applied');
 select is((select version from public.time_entries where id = pg_temp.fixture_id(116,1)), 2, 'factual version increments once');
 select is((select original_started_at from public.correction_requests where id = pg_temp.fixture_id(117,1)), '2010-01-01 08:00Z'::timestamptz, 'immutable original snapshot retained');
+reset role;
+select is((select original_time_entry_version from public.correction_requests where id = pg_temp.fixture_id(117,1)), 1, 'immutable factual version snapshot retained');
+set local role authenticated;
+select pg_temp.login(2);
 select is((select manager_note from public.correction_requests where id = pg_temp.fixture_id(117,1)), 'synthetic manager note', 'manager note trimmed');
 select is((select result_code from public.decide_correction_request(pg_temp.fixture_id(118,1), pg_temp.fixture_id(117,1), 'approve', '  synthetic manager note  ')), 'approved', 'same UUID and exact payload replay original result');
 select throws_ok($$select * from public.decide_correction_request(pg_temp.fixture_id(118,1), pg_temp.fixture_id(117,1), 'approve', 'synthetic manager note')$$, '22023', 'decision_request_id_reused', 'changed raw note fails even if normalization matches');
@@ -166,6 +178,43 @@ select ok((select origin = 'approved_missed_entry' and version = 1 and ended_at 
 select is((select result_code from public.decide_correction_request(pg_temp.fixture_id(118,3), pg_temp.fixture_id(117,3), 'reject', 'synthetic rejection <script>text</script>')), 'rejected', 'manager rejects with explanation');
 select ok((select started_at = '2010-01-03 08:00Z'::timestamptz and ended_at = '2010-01-03 10:00Z'::timestamptz and version = 1
   from public.time_entries where id = pg_temp.fixture_id(116,3)), 'rejection changes no factual values/version');
+
+-- ABA timestamp restoration cannot make an old adjustment snapshot current again.
+reset role;
+update public.time_entries set started_at = started_at + interval '1 minute'
+  where id = pg_temp.fixture_id(116,10);
+update public.time_entries set started_at = '2010-01-10 08:00Z', ended_at = '2010-01-10 10:00Z'
+  where id = pg_temp.fixture_id(116,10);
+select ok((select entry.started_at = request.original_started_at
+    and entry.ended_at = request.original_ended_at
+    and entry.version = 3 and request.original_time_entry_version = 1
+  from public.time_entries as entry
+  join public.correction_requests as request on request.target_time_entry_id = entry.id
+  where request.id = pg_temp.fixture_id(117,10)),
+  'ABA restores timestamps while factual version records both changes');
+set local role authenticated;
+select pg_temp.login(2);
+select is((select result_code from public.decide_correction_request(
+  pg_temp.fixture_id(118,40), pg_temp.fixture_id(117,10), 'approve', '')),
+  'stale_request', 'ABA version mismatch returns stale request');
+select is((select status from public.correction_requests where id = pg_temp.fixture_id(117,10)),
+  'pending', 'ABA stale request remains pending');
+select ok((select started_at = '2010-01-10 08:00Z'::timestamptz
+    and ended_at = '2010-01-10 10:00Z'::timestamptz and version = 3
+  from public.time_entries where id = pg_temp.fixture_id(116,10)),
+  'ABA stale approval applies no proposed timestamp');
+select is((select count(*) from public.audit_events
+  where (entity_id = pg_temp.fixture_id(117,10) and action = 'correction_request.approved')
+    or (entity_id = pg_temp.fixture_id(116,10)
+      and action in ('time_entry.adjusted','time_entry.missed_entry_added'))),
+  0::bigint, 'ABA stale approval appends no decision or factual audit');
+select is((select result_code from public.decide_correction_request(
+  pg_temp.fixture_id(118,40), pg_temp.fixture_id(117,10), 'approve', '')),
+  'stale_request', 'ABA stale retry replays durable safe result');
+reset role;
+select is((select count(*) from private.manager_decision_operations
+  where request_id = pg_temp.fixture_id(118,40)), 1::bigint,
+  'ABA stale retry keeps one immutable operation outcome');
 
 reset role;
 update public.time_entries set ended_at = ended_at + interval '1 minute' where id = pg_temp.fixture_id(116,4);
@@ -260,6 +309,34 @@ select throws_ok($$insert into public.correction_requests (organization_id,emplo
   values(pg_temp.fixture_id(113,1),pg_temp.fixture_id(115,1),pg_temp.fixture_id(114,1),'missed_entry',
     '2010-03-01 08:00Z','2010-03-01 10:00Z','fixture',gen_random_uuid(),'rejected',clock_timestamp(),pg_temp.fixture_id(115,4),gen_random_uuid(),'fixture')$$,
   '23503', null, 'resolver must belong to request tenant');
+
+-- Adjustment version snapshots are positive and required; missed claims have none.
+insert into public.time_entries (id,organization_id,membership_id,worksite_id,started_at,ended_at)
+values(pg_temp.fixture_id(116,20),pg_temp.fixture_id(113,1),pg_temp.fixture_id(115,1),
+  pg_temp.fixture_id(114,1),'2010-04-01 08:00Z','2010-04-01 10:00Z');
+select throws_ok(format($sql$insert into public.correction_requests (
+  id,organization_id,employee_membership_id,worksite_id,target_time_entry_id,request_kind,
+  proposed_started_at,proposed_ended_at,original_started_at,original_ended_at,
+  original_time_entry_version,employee_reason,submission_request_id)
+values(%L,%L,%L,%L,%L,'adjustment','2010-04-01 08:15Z','2010-04-01 10:00Z',
+  '2010-04-01 08:00Z','2010-04-01 10:00Z',%s,'invalid version fixture',gen_random_uuid())$sql$,
+  pg_temp.fixture_id(117,40 + ordinal),pg_temp.fixture_id(113,1),pg_temp.fixture_id(115,1),
+  pg_temp.fixture_id(114,1),pg_temp.fixture_id(116,20),snapshot),
+  '23514', null, description)
+from (values (1,'null','adjustment version snapshot cannot be null'),
+  (2,'0','adjustment version snapshot cannot be zero'),
+  (3,'-1','adjustment version snapshot cannot be negative')) as cases(ordinal,snapshot,description);
+select throws_ok($$insert into public.correction_requests (
+  id,organization_id,employee_membership_id,worksite_id,request_kind,proposed_started_at,
+  proposed_ended_at,original_time_entry_version,employee_reason,submission_request_id)
+values(pg_temp.fixture_id(117,44),pg_temp.fixture_id(113,1),pg_temp.fixture_id(115,1),
+  pg_temp.fixture_id(114,1),'missed_entry','2010-04-02 08:00Z','2010-04-02 10:00Z',
+  1,'invalid missed version fixture',gen_random_uuid())$$,
+  '23514', null, 'missed entry cannot carry factual version snapshot');
+select throws_ok($$update public.correction_requests
+  set original_time_entry_version = original_time_entry_version + 1
+  where id = pg_temp.fixture_id(117,10)$$,
+  '55000','correction_request_immutable','submitted factual version snapshot is immutable');
 
 -- Safe no-op results are durable too, even when surrounding facts later change.
 set local role authenticated;

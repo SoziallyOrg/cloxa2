@@ -53,9 +53,11 @@ cover implemented database behavior; exports remain outside scope.
 constraints, owner/search paths/grants, safe browser column reads, and tenant-consistent
 foreign keys. It exercises manager and employee read boundaries, all unsupported caller
 states, service-role impersonation, exact microsecond application, missed-entry origin,
-version increments, rejection without factual change, stale/open/future/invalid/overlap
-outcomes, terminal immutability, replay payload/actor binding, and exactly-once audits.
-An injected audit failure proves request, fact, and operation rollback together.
+version capture and increments, rejection without factual change,
+stale/open/future/invalid/overlap outcomes, terminal immutability, replay payload/actor
+binding, and exactly-once audits. ABA coverage changes a fact, restores exact snapshot
+timestamps at a later version, and proves approval remains a durable audit-free stale
+result. An injected audit failure proves request, fact, and operation rollback together.
 Transaction-scoped owner fixtures exercise invalid states without changing migrations or
 weakening application grants.
 

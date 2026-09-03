@@ -59,6 +59,7 @@ export type Database = {
           organization_id: string;
           original_ended_at: string | null;
           original_started_at: string | null;
+          original_time_entry_version: number | null;
           proposed_ended_at: string;
           proposed_started_at: string;
           request_kind: string;
@@ -82,6 +83,7 @@ export type Database = {
           organization_id: string;
           original_ended_at?: string | null;
           original_started_at?: string | null;
+          original_time_entry_version?: number | null;
           proposed_ended_at: string;
           proposed_started_at: string;
           request_kind: string;
@@ -105,6 +107,7 @@ export type Database = {
           organization_id?: string;
           original_ended_at?: string | null;
           original_started_at?: string | null;
+          original_time_entry_version?: number | null;
           proposed_ended_at?: string;
           proposed_started_at?: string;
           request_kind?: string;
