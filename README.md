@@ -271,7 +271,67 @@ ledgers cannot be updated, deleted, or truncated by application roles.
 Employee correction history shows final status and explanation. Factual readers show
 approved adjustments and newly approved missed entries. Browser reads exclude manager
 membership and decision-operation identifiers. Historical claims remain stored beyond
-the UI's limits; full history pagination and exports are not implemented.
+the UI's limits; full correction-history pagination is not implemented.
+
+## Manager-confirmed time exports
+
+`/manager/exports` lets an active same-tenant manager select one inclusive Brussels
+calendar period of 1–31 days, preview current rows/versions/counts/warnings/blockers,
+explicitly confirm a fixed snapshot, download deterministic CSV or JSON, and inspect 20
+recent manifests. Preview is advisory: confirmation reruns selection and authorization
+inside the database while holding locks. Confirmation approves only captured factual
+versions for that export. It does not add a mutable approval flag to `time_entries`.
+
+Selection uses `[local start 00:00, day after local end 00:00)` converted through
+`Europe/Brussels`. A finite, closed, strictly ordered factual entry is assigned by its
+Brussels-local start date; its complete elapsed interval remains in that one period,
+including overnight work. Clock-origin, manager-adjusted, and approved missed-entry
+facts are eligible. Empty selections, future/invalid/over-31-day periods, more than
+10,000 rows, an overlapping open entry, a pending correction targeting a selected fact,
+an overlapping pending adjustment/missed-entry proposal, or a conservative 10 MiB
+artifact estimate block creation. Missing display names/codes stay null/empty and yield
+warnings.
+
+Migration `20260903141934_approved_time_exports.sql` adds tenant-owned read-only
+`public.time_exports`, private fixed `time_export_rows`, and private creation-operation
+outcomes. Creation takes a global operation UUID lock, then every existing tenant
+employee's `17031` clock/correction advisory lock in stable hash/UUID order, then
+membership, organization, worksite, factual, and correction row locks. Authorization is
+checked again after waits. One statement snapshot reads facts, names, codes, totals, and
+blockers consistently. Snapshot rows, manifest, dataset hash, exactly one
+`time_export.created` audit, and successful idempotency outcome commit together. A
+failure in snapshot or audit insertion rolls everything back. Identical operation UUID
+and raw payload retries return the original result; altered actor/period/confirmation
+reuse fails closed. Different UUIDs intentionally create separate history snapshots.
+
+Schema `cloxa.time-export.v1` manifest fields are `schema_version`, `export_id`,
+`organization_id`, `worksite_id`, `timezone`, inclusive
+`period_start_local`/`period_end_local`, database-controlled `created_at_utc`,
+`record_count`, `employee_count`, exact decimal-string `total_duration_microseconds`,
+`dataset_sha256`, and `selection_rule` (`brussels-start-date.v1`). Each ordered row
+stores `row_ordinal`, source entry ID and version, nullable employee code/name, worksite
+ID/name, UTC start/end with six fractional digits and `Z`, Brussels start/end with six
+fractional digits and explicit offset, decimal-string elapsed microseconds, factual
+origin, and nullable last correction reference. Ordinals derive from membership ID, UTC
+timestamps, and entry ID.
+
+Dataset SHA-256 hashes UTF-8 PostgreSQL `jsonb` text containing manifest inputs without
+`dataset_sha256` plus ordered row objects. JSON emits one `{manifest, records}` object
+with stable property order, explicit nulls, LF, and no BOM. CSV repeats manifest fields
+on each record, quotes every field, doubles quotes, uses UTF-8 BOM and CRLF. In employee
+code/name/worksite text, leading Unicode whitespace, control/format characters, or `=`,
+`+`, `-`, or `@` gets a deterministic leading apostrophe before CSV quoting. Commas,
+semicolons, quotes, CR/LF, accents, and remaining text are retained.
+
+Downloads use current Supabase session through a server Route Handler. Each request
+reauthorizes verified/non-banned/non-deleted Auth state, matching live session, exactly
+one active manager membership, active pilot/beta tenant, sole worksite, and tenant-owned
+export. Responses use ASCII-only filenames, accurate content type, attachment,
+private/no-store caching, `nosniff`, and an artifact SHA-256 header. No public/signed
+URL, service-role secret, Storage object, application log, or persistent temporary
+export is used. Only creation is audited; no download event is recorded. Retention and
+controlled deletion remain future work. Field definitions and canonical byte rules live
+in [export v1 contract](packages/database/TIME_EXPORT_V1.md).
 
 ## Verification
 
@@ -308,8 +368,11 @@ employee sessions for identical retries, conflicting pending intervals, withdraw
 races, and mixed clock/correction calls. Manager journeys cover approval/rejection
 persistence, employee outcomes and facts, concurrent manager tabs, eight-way retries,
 mixed clock/correction/decision calls, stale-target handling, generic retry failures,
-and session expiry after an advisory lock wait. Auth journey traces, screenshots, and
-videos stay disabled to avoid retaining credentials or email links.
+and session expiry after an advisory lock wait. Export journeys cover desktop and exact
+320px preview/confirmation, blocker navigation, fixed CSV/JSON reconciliation, formula
+neutralization, retries/history, role/tenant/session denial, correction/clock races, and
+authorization expiry after a lock wait. Auth journey traces, screenshots, and videos
+stay disabled to avoid retaining credentials or email links.
 
 `pnpm build` checks production browser bundles for server-secret exposure;
 `pnpm test:bundles` repeats that check on an existing build. Use `pnpm format` to fix
@@ -327,11 +390,12 @@ pnpm exec playwright install chromium
 - Invitation-only; no public signup or automatic billing.
 - No ORM, Redux, Redis, queues, realtime, storage, analytics, or microservices.
 - No offline mode or service worker. Manifest only.
-- No breaks, direct manual factual entries, exports, scheduling, billing, realtime
-  updates, or native app.
+- No breaks, direct manual factual entries, PDF/XLSX, scheduled or emailed export,
+  provider delivery, scheduling, billing, realtime updates, or native app.
 - No claim that Cloxa calculates payroll, satisfies Belgian employment rules, or is
   production-ready.
 - No remote Supabase connection, hosted deployment, or real employee data. Development
   and tests remain local and synthetic.
 
-Next task: approved factual exports.
+Exports are factual handoff files only. No social-secretariat mapping or delivery,
+payroll calculation, declaration, legal-compliance claim, or acceptance claim exists.

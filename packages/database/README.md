@@ -297,9 +297,74 @@ remain intact.
 
 UI history is bounded: all pending manager requests, 50 recent terminal manager
 requests, 50 recent employee requests, and 20 recent closed employee facts. Full history
-stays stored; pagination and export remain future work. Expired sessions, revoked
+stays stored; correction pagination remains future work. Expired sessions, revoked
 access, and ambiguous membership fail closed. Local tests use synthetic Auth users; no
 hosted Supabase project is linked or accessed.
+
+## Manager-confirmed factual exports
+
+Migration `20260903141934_approved_time_exports.sql` adds:
+
+- `public.time_exports`: tenant-owned manifest metadata with RLS and manager-only
+  SELECT;
+- `private.time_export_rows`: fixed ordered factual values with no browser/service-role
+  grants or policies;
+- `private.time_export_creation_operations`: global operation UUID, manager membership,
+  SHA-256 raw-payload binding, original safe outcome, and optional export reference.
+
+`preview_time_export(start,end)` is advisory.
+`create_time_export(operation,start,end, confirmed)` repeats all checks under locks.
+`get_manager_time_exports()` returns 20 recent manifests.
+`get_time_export_snapshot(export_id)` reauthorizes current access and returns fixed rows
+for server serialization. Public wrappers are invokers; private definers use empty
+search paths. Each endpoint independently requires effective `authenticated`,
+verified/non-banned/non-deleted Auth user, matching live unexpired session/JWT, exactly
+one active manager membership, active research-pilot/paid-beta organization, and exactly
+one worksite. Copied UUIDs remain tenant-scoped.
+
+Dates are exact `YYYY-MM-DD` Brussels dates. Ranges are inclusive and at most 31 days;
+their UTC interval is half-open from local start midnight through midnight after local
+end. Eligibility uses finite, closed, strictly positive `time_entries` whose Brussels
+local start falls in that interval. Complete overnight elapsed intervals remain assigned
+to start date. Pending correction targets and overlapping pending proposals block, as do
+overlapping open facts, empty selection, row limit, and conservative artifact-size
+estimate. Rejected/withdrawn/approved corrections do not block; their resulting current
+facts are selected.
+
+Snapshot ordinals order membership ID, start, end, and entry ID. Rows preserve source
+entry ID/version, optional code/name, worksite ID/name, canonical UTC/local timestamps,
+exact decimal microseconds, origin, and nullable last correction reference. Manifest
+schema is `cloxa.time-export.v1`; selection rule is `brussels-start-date.v1`. Dataset
+SHA-256 covers UTF-8 canonical `jsonb` text of manifest inputs without hash plus ordered
+rows. Exact totals and row durations leave RPCs as decimal strings, avoiding JavaScript
+floating-point arithmetic.
+
+Creation lock order is manager Auth/session, operation namespace `17051`, every tenant
+employee's existing namespace `17031` ordered by hash/UUID, memberships, organization,
+worksites, facts by ID, then corrections by ID. Manager authorization runs again after
+waits. A single statement snapshot reads selected rows, names, codes, totals, and
+blockers; the private STABLE selection helper shares that statement snapshot. Thus
+correction approval either finishes before a final-version snapshot or stays pending and
+blocks creation; clock-out similarly finishes first or leaves an open-entry blocker.
+Manifest, rows, hash, safe audit, and operation outcome share one transaction.
+
+All three tables reject UPDATE, DELETE, and TRUNCATE through owner-side accident guards.
+Database owners can alter/disable triggers, so this is application/database-role
+protection, not tamper-proof external storage. Later profile/code/membership/fact
+changes do not rewrite captured values. Retention/deletion policy remains future work.
+
+Server CSV uses UTF-8 BOM, CRLF, quote-all RFC 4180-style fields, doubled quotes, and a
+leading apostrophe for user text beginning with Unicode whitespace, control/format
+characters, or `=`, `+`, `-`, `@`. JSON uses stable keys, LF, explicit nulls, and exact
+strings. Both repeat/reconcile manifest identity and dataset hash. Download Route
+Handler reauthorizes through snapshot RPC, caps bytes at 10 MiB, and returns
+attachment/no-store/nosniff plus artifact SHA-256. No download audit is recorded; only
+actual snapshot creation uses `time_export.created`, with safe manifest summary and no
+PII/free text.
+
+See [export v1 contract](TIME_EXPORT_V1.md) for exact fields, canonical bytes, formats,
+limits, and interpretation. Server validation recomputes the dataset hash before
+serving.
 
 ## Schema decisions and limits
 
@@ -338,6 +403,5 @@ hosted Supabase project is linked or accessed.
 Hosted Supabase connections, deployment, paid resources, and real personal or customer
 data remain prohibited. Development and tests use local synthetic data only. This phase
 does not establish production readiness or implement breaks, direct manual factual
-records, exports, billing, or product dashboards.
-
-Next phase: approved factual exports.
+records, billing, social-secretariat delivery, payroll/declaration logic, or broad
+product dashboards.

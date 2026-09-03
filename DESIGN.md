@@ -321,6 +321,12 @@ controls stack below 640px. Names, employee codes, reasons, and notes wrap withi
 available width. Protected dialogs retain 1rem viewport gutters and scroll within 90dvh
 so long decisions remain reachable on compact screens.
 
+Export period fields, counts, and download actions stack at 320px; date fields pair at
+640px, while manifest metadata grows from one to two to four columns at existing
+breakpoints. Keep timestamps, source identifiers, versions, and dataset hashes inside
+available width. Long hashes break anywhere; record disclosure remains
+keyboard-scrollable.
+
 **The One Dossier Rule.** Lead each shell with one broad bordered document; use internal
 rules and fields instead of a scatter of equal cards.
 
@@ -497,6 +503,39 @@ adding a new elevation style.
   the dialog and focuses visible result feedback.
 - **Compact layout:** maximum width is 36rem; viewport gutters remain 1rem. Dialog
   scrolls within 90dvh. Controls stack on mobile, and confirmation copy can wrap.
+
+### Factual Export Dossier
+
+Manager export extends the ruled role shell without new palette, type, imagery, or
+elevation. Dutch task copy stays centralized. Paper date fields lead into a flat Pressed
+Paper preview, explicit confirmation, then unboxed snapshot history separated by rules.
+
+- **Period:** native date inputs label both endpoints as inclusive Brussels calendar
+  dates. Both reference `export-period-help`, which explains the 31-day limit and
+  whole-record selection by local start date. Changing dates clears stale preview and
+  success state; preview remains advisory rather than approval of displayed versions.
+- **Preview:** condensed heading precedes record count, employee count, exact duration,
+  and exclusive-end UTC window. Correction Red identifies blockers; Amber Ink identifies
+  warnings. Keep explanations textual, with a route to pending corrections. Blockers
+  remove confirmation action; warnings remain visible without blocking it.
+- **Factual rows:** native disclosure reveals ordered records in a bounded scroll region
+  with keyboard focus. Show source ID and version, full Brussels interval, exact
+  duration, factual origin, and last correction when present. Wrap identifiers and
+  timestamps.
+- **Confirmation:** reuse the protected native dialog's paper, backdrop, 36rem maximum
+  width, 90dvh scroll limit, and stacked mobile actions. Consequence copy explains that
+  confirmation reselects current facts and blockers, fixes those versions, and requires
+  a new export for later changes. It does not promise the advisory preview is locked.
+- **Pending / recovery:** both forms expose `aria-busy`; pending controls are disabled.
+  Confirmation announces progress and blocks dismissal or duplicate submission while
+  saving. Idle Cancel or Escape restores trigger focus. Failures retain dialog context
+  and focus alert feedback; success closes it and focuses visible status feedback.
+- **Ready / history:** show period, Brussels creation time, record/employee counts,
+  schema, and wrapping monospace SHA-256 beneath ruled section headings. CSV and JSON
+  links reference the same fixed snapshot; 44px minimum targets stack on mobile. Visible
+  links do not establish download authorization or completion: requests still enforce
+  manager access. Keep empty history distinct from failed history loading. Copy
+  describes factual exports, never payroll calculations or compliance approval.
 
 ### Status State
 

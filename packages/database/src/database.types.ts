@@ -398,6 +398,69 @@ export type Database = {
           },
         ];
       };
+      time_exports: {
+        Row: {
+          created_at: string;
+          dataset_sha256: string;
+          employee_count: number;
+          id: string;
+          organization_id: string;
+          period_end_local: string;
+          period_start_local: string;
+          record_count: number;
+          schema_version: string;
+          selection_rule: string;
+          timezone: string;
+          total_duration_microseconds: number;
+          worksite_id: string;
+        };
+        Insert: {
+          created_at: string;
+          dataset_sha256: string;
+          employee_count: number;
+          id: string;
+          organization_id: string;
+          period_end_local: string;
+          period_start_local: string;
+          record_count: number;
+          schema_version: string;
+          selection_rule: string;
+          timezone: string;
+          total_duration_microseconds: number;
+          worksite_id: string;
+        };
+        Update: {
+          created_at?: string;
+          dataset_sha256?: string;
+          employee_count?: number;
+          id?: string;
+          organization_id?: string;
+          period_end_local?: string;
+          period_start_local?: string;
+          record_count?: number;
+          schema_version?: string;
+          selection_rule?: string;
+          timezone?: string;
+          total_duration_microseconds?: number;
+          worksite_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "time_exports_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "time_exports_worksite_fkey";
+            columns: ["organization_id", "worksite_id"];
+            isOneToOne: false;
+            referencedRelation: "worksites";
+            referencedColumns: ["organization_id", "id"];
+          },
+        ];
+      };
       worksites: {
         Row: {
           created_at: string;
@@ -471,6 +534,20 @@ export type Database = {
         };
         Returns: string;
       };
+      create_time_export: {
+        Args: {
+          confirmed: boolean;
+          period_end_local: string;
+          period_start_local: string;
+          request_id: string;
+        };
+        Returns: {
+          did_create: boolean;
+          export_id: string;
+          manifest: Json;
+          result_code: string;
+        }[];
+      };
       decide_correction_request: {
         Args: {
           correction_request_id: string;
@@ -499,6 +576,12 @@ export type Database = {
       get_employee_invitation_state: { Args: never; Returns: string };
       get_employee_time_clock: { Args: never; Returns: Json };
       get_manager_correction_requests: { Args: never; Returns: Json };
+      get_manager_time_exports: { Args: never; Returns: Json };
+      get_time_export_snapshot: { Args: { export_id: string }; Returns: Json };
+      preview_time_export: {
+        Args: { period_end_local: string; period_start_local: string };
+        Returns: Json;
+      };
       submit_employee_correction_request: {
         Args: {
           employee_reason: string;

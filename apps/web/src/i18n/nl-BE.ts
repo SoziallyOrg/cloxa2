@@ -243,6 +243,81 @@ export const nlBE = {
     timezone:
       "Alle tijden: Europe/Brussels. De UTC-offset onderscheidt herhaalde wintertijduren.",
   },
+  managerExports: {
+    title: "Tijdregistraties exporteren",
+    open: "Exports openen",
+    description:
+      "Bekijk feiten en blokkeringen, bevestig daarna een vaste momentopname voor CSV of JSON.",
+    back: "Terug naar manager",
+    periodHelp:
+      "Kies maximaal 31 Brusselse kalenderdagen. Een afgesloten registratie hoort bij de periode waarin haar lokale startdatum valt; een nachtregistratie blijft volledig in die ene periode.",
+    startLabel: "Startdatum (inclusief)",
+    endLabel: "Einddatum (inclusief)",
+    preview: "Voorbeeld controleren",
+    previewing: "Voorbeeld laden…",
+    previewReady: "Voorbeeld bijgewerkt. Controleer aantallen en meldingen.",
+    previewFailure:
+      "Het exportvoorbeeld kon niet worden geladen. Controleer de periode en probeer opnieuw.",
+    invalidPeriod:
+      "Kies een geldige periode van maximaal 31 dagen die niet in de toekomst eindigt.",
+    previewTitle: "Feiten op dit moment",
+    previewRecords: "Bekijk feitelijke registraties en versies",
+    previewRecordsHelp:
+      "Dit voorbeeld is een momentopname. Bij bevestiging controleert de databank opnieuw alle feiten en blokkeringen en legt zij de dan geldende versies vast.",
+    missingName: "Naam ontbreekt",
+    missingCode: "Personeelscode ontbreekt",
+    sourceVersion: "Bronregistratie / versie",
+    factualInterval: "Volledig interval (Brussel)",
+    factualOrigin: "Feitelijke oorsprong",
+    originClock: "Klokregistratie",
+    originMissed: "Goedgekeurde ontbrekende registratie",
+    lastCorrection: "Laatste correctie",
+    records: "Registraties",
+    employees: "Medewerkers",
+    total: "Exacte totale duur",
+    utcWindow: "UTC-selectievenster (einde exclusief):",
+    blockersTitle: "Bevestigen is nu niet mogelijk",
+    warningsTitle: "Let op",
+    blockers: {
+      noRecords: "Deze periode bevat geen geschikte afgesloten registraties.",
+      openEntry: "Een open registratie overlapt deze periode.",
+      pendingCorrection:
+        "Een correctie in afwachting raakt een geselecteerd feit of deze periode.",
+      rowLimit: "Deze selectie overschrijdt de grens van 10.000 registraties.",
+      artifactTooLarge: "Deze selectie overschrijdt de veilige bestandsgrootte.",
+    },
+    warnings: {
+      missingEmployeeCode:
+        "Minstens één registratie heeft geen medewerkerscode; het veld blijft leeg.",
+      missingDisplayName:
+        "Minstens één registratie heeft geen weergavenaam; het veld blijft leeg.",
+    },
+    openCorrections: "Open correcties",
+    confirm: "Deze momentopname bevestigen",
+    confirmTitle: "Exacte momentopname bevestigen?",
+    confirmHelp:
+      "Je bevestigt exact de feitelijke versies die de databank opnieuw selecteert. Deze momentopname blijft vast. Een latere correctie vraagt een nieuwe export.",
+    confirmCreate: "Momentopname maken",
+    creating: "Momentopname maken…",
+    cancel: "Annuleren",
+    created: "Exportmomentopname gemaakt. CSV en JSON zijn nu beschikbaar.",
+    createFailure:
+      "De export kon niet worden bevestigd. Controleer het nieuwe voorbeeld en probeer opnieuw.",
+    readyTitle: "Export beschikbaar",
+    readyHelp:
+      "Beide bestanden komen uit dezelfde vaste momentopname en delen dezelfde gegevenshash.",
+    downloadCsv: "CSV downloaden",
+    downloadJson: "JSON downloaden",
+    historyTitle: "Recente exports",
+    historyHelp: "De 20 meest recente bevestigde momentopnamen.",
+    historyFailure: "De exportgeschiedenis kon niet worden geladen.",
+    noHistory: "Er zijn nog geen bevestigde exports.",
+    period: "Periode",
+    createdAt: "Gemaakt op",
+    counts: "Registraties · medewerkers",
+    schema: "Schema",
+    datasetHash: "SHA-256 van canonieke gegevens",
+  },
   auth: {
     email: "E-mailadres",
     password: "Wachtwoord",

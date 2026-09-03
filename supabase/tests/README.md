@@ -47,7 +47,7 @@ mutations with SQLSTATE `55000` (`audit_events are append-only`).
 
 Keep new fixtures synthetic and transaction-scoped. Run against local Docker services
 only; do not connect to hosted Supabase or import real personal or customer data. Tests
-cover implemented database behavior; exports remain outside scope.
+cover implemented database behavior, including manager-confirmed factual snapshots.
 
 `manager_correction_review.test.sql` checks exact private-ledger columns, indexes,
 constraints, owner/search paths/grants, safe browser column reads, and tenant-consistent
@@ -68,3 +68,24 @@ session holds the employee advisory lock while manager authorization expires; th
 blocked decision is observed in `pg_stat_activity`, then denied after release with no
 fact or resolution. Browser checks cover final employee status/explanation, applied
 facts, escaping, focus/error/status semantics, duplicate-submit controls, and 320px.
+
+`manager_time_exports.test.sql` covers export table/column/index/constraint contracts,
+owners, search paths, grants, RLS, private helper denial, immutable row/operation
+guards, and independent preview/creation/history/download authorization. Invented
+fixtures test Brussels midnight, adjacent dates, overnight shifts, spring-forward and
+autumn-repeat offsets, microseconds, missing optional identity fields, pending/open
+blockers, approved adjustments and missed entries, rejected/withdrawn proposals, exact
+retry and changed actor/payload denial. Stored snapshots survive
+source/profile/code/worksite/membership changes. Tests recompute the canonical hash,
+inspect safe creation audits, inject snapshot/audit failures, and enforce 10,000 rows
+and conservative 10 MiB bounds.
+
+`apps/web/e2e/manager-exports.spec.mts` supplies real creation-retry,
+correction-decision, clock-stop, and authorization-after-lock-wait races. Desktop and
+exact 320px journeys exercise preview, factual versions, dialog focus, confirmation,
+CSV/JSON browser downloads and byte reconciliation, malicious textual cells, history
+reload, and copied UUID denial for employee/other-tenant/expired callers. Additional
+mobile coverage checks pending-correction errors, focus, navigation, and overflow.
+Downloads remain in memory except browser-managed transient downloads, deleted
+immediately by tests; no generated export files or credentials are written to tracked
+files.

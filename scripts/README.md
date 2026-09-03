@@ -58,8 +58,8 @@ the UUID while retrying an unchanged payload after a generic transport failure.
 
 Manager queue includes every pending request and 50 recent terminal requests. Employee
 history retains its 50-request/20-closed-entry reader limits. Older records and
-immutable audit evidence stay stored; there is no export or full-history pagination
-interface.
+immutable audit evidence stay stored. Manager-confirmed time exports have their own
+bounded 31-day selection and 20-export history; full-history pagination remains absent.
 
 For local UI review only, `CLOXA_CAPTURE_REVIEW=1` captures the correction page after
 its synthetic journey into ignored `.impeccable/review/desktop.png` and `mobile.png`.
@@ -69,3 +69,13 @@ capture disabled; review images never enter Git.
 The manager journey uses the same opt-in capture variable and saves manager queue and
 approval-dialog screenshots at desktop and exact 320px widths. Review fixtures contain
 escaped HTML-like text deliberately; no scripts execute and no real identities appear.
+
+`apps/web/e2e/manager-exports.spec.mts` uses the same local-only fixture infrastructure.
+Normal sessions create and download exports. CSV/JSON bytes are reconciled in memory;
+browser-managed transient downloads are deleted immediately, never saved as artifacts.
+Database-owner helpers only inspect synthetic audit/ledger outcomes or hold local locks
+and expire synthetic sessions for race tests. Opt-in review captures show export preview
+and confirmation at desktop and exact 320px. No new environment variables or hosted
+resources are required. Run the complete production suite with
+`CLOXA_E2E_PRODUCTION=1 pnpm test:e2e` (PowerShell: set `$env:CLOXA_E2E_PRODUCTION='1'`
+before `pnpm test:e2e`). Keep capture opt-in unset during normal verification.
