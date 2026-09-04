@@ -6,6 +6,7 @@ const valid = {
   current_started_at: "2026-09-02T08:00:00.000Z",
   entries: [
     {
+      breaks: [],
       ended_at: null,
       id: "10000000-0000-4000-8000-000000000001",
       started_at: "2026-09-02T08:00:00.000Z",
@@ -24,6 +25,7 @@ describe("time-clock RPC model", () => {
       currentStartedAt: valid.current_started_at,
       entries: [
         {
+          breaks: [],
           endedAt: null,
           id: valid.entries[0]!.id,
           startedAt: valid.entries[0]!.started_at,
@@ -49,6 +51,7 @@ describe("time-clock RPC model", () => {
       entries: [
         {
           ...valid.entries[0],
+          breaks: [],
           ended_at: "2026-09-02T07:59:59.000Z",
         },
       ],

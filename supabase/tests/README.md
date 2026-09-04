@@ -89,3 +89,23 @@ mobile coverage checks pending-correction errors, focus, navigation, and overflo
 Downloads remain in memory except browser-managed transient downloads, deleted
 immediately by tests; no generated export files or credentials are written to tracked
 files.
+
+## Phase 7 coverage
+
+`employee_live_breaks.test.sql` adds synthetic transactional coverage for live
+start/end, clock-out refusal, retry/actor/intent binding, tenant reads, direct-write
+denial, immutable history, microseconds, authorization states, fact/audit rollback,
+correction containment and durable conflict outcomes, and zero-output v1 export
+blockers.
+
+`employee-live-breaks.spec.mts` supplies production-browser journeys at desktop and
+exact 320px, simultaneous tabs, eight same-ID starts across two live sessions,
+end/clock-out and start/clock-out races, and authorization expiry while waiting on
+namespace 17031. It also compares existing v1 CSV/JSON download bytes and artifact
+hashes before and after new break-bearing facts cause preview/creation blocking.
+Captures are opt-in, synthetic, and saved only under ignored `.impeccable/review/`.
+
+These descriptions identify authored coverage, not executed results. Run the complete
+README gate sequence on a working local Docker Linux engine. No hosted fallback, real
+employee data, payroll/statutory-rest assumptions, or production-readiness claim
+applies.

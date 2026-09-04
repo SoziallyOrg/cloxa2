@@ -137,15 +137,17 @@ function PreviewSummary({ preview }: { preview: TimeExportPreview }) {
               <li key={blocker}>
                 {
                   copy.blockers[
-                    blocker === "no_records"
-                      ? "noRecords"
-                      : blocker === "open_entry"
-                        ? "openEntry"
-                        : blocker === "pending_correction"
-                          ? "pendingCorrection"
-                          : blocker === "row_limit"
-                            ? "rowLimit"
-                            : "artifactTooLarge"
+                    blocker === "break_data_requires_v2"
+                      ? "breakDataRequiresV2"
+                      : blocker === "no_records"
+                        ? "noRecords"
+                        : blocker === "open_entry"
+                          ? "openEntry"
+                          : blocker === "pending_correction"
+                            ? "pendingCorrection"
+                            : blocker === "row_limit"
+                              ? "rowLimit"
+                              : "artifactTooLarge"
                   ]
                 }
                 {blocker === "pending_correction" ? (

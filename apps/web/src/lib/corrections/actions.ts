@@ -180,6 +180,13 @@ export async function submitCorrectionRequestAction(
       return databaseSubmissionFailure(error.message, error.details);
     }
     if (
+      row?.request_id === input.requestId &&
+      row.result_code === "break_conflict" &&
+      row.did_create === false &&
+      row.correction_request_id === null
+    )
+      return submissionFailure(nlBE.breaks.conflict);
+    if (
       !row ||
       row.request_id !== input.requestId ||
       row.result_code !== "submitted" ||

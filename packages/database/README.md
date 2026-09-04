@@ -39,8 +39,8 @@ helpers derive identity from `auth.uid()` and require an active membership in an
 organization whose lifecycle is `research_pilot` or `paid_beta`. They do not trust
 metadata, email addresses, route names, or browser state as proof of tenant access.
 
-All eight application tables have RLS enabled. This matrix describes direct access
-through `anon` and `authenticated` database roles:
+All application tables have RLS enabled. This matrix describes direct access through
+`anon` and `authenticated` database roles:
 
 | Table                 | Anonymous | Active employee               | Active manager                                                                                    | Invited, inactive, absent membership, or suspended organization | Direct browser writes                                                                                      |
 | --------------------- | --------- | ----------------------------- | ------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
@@ -366,6 +366,51 @@ See [export v1 contract](TIME_EXPORT_V1.md) for exact fields, canonical bytes, f
 limits, and interpretation. Server validation recomputes the dataset hash before
 serving.
 
+## Live unpaid break facts
+
+Migration `20260903230921_employee_live_breaks.sql` adds tenant-bound
+`public.time_breaks` and private immutable `time_break_operations`. Composite foreign
+keys bind organization, employee membership, worksite, and parent entry. Partial unique
+indexes allow one open break per employee and parent. Insertion requires an open
+version-1 fact; normal mutation only closes it and increments version. Closed updates,
+identity/start/origin rewrites, deletion, and truncation fail. Guards also reject
+nonpositive/nonfinite intervals, overlapping breaks, closed-parent starts, and parent
+changes that would invalidate break containment. Owners can disable guards; this is not
+tamper-proof storage.
+
+`start_break(uuid)` and `end_break(uuid)` are public invoker wrappers around private
+`change_live_break`. They derive ownership from verified/non-banned/non-deleted Auth
+state, matching live session and JWT expiry, exactly one active employee membership,
+active pilot/beta organization, and exactly one worksite. Both application roles lack
+direct writes; employees read only their own facts and authorized managers read their
+tenant's facts. The private ledger has no application read/write grants.
+
+Lock order: Auth/session, operation UUID namespace `17061`, employee namespace `17031`,
+memberships, organization, worksite, parent entry, break rows. Authorization is checked
+after waits and before replay or mutation. UUID outcomes bind employee, operation type,
+and SHA-256 of the exact allowed payload (authenticated actor and intent; UUID is the
+ledger key). Identical retries return the fixed result; changed actor/intent fails.
+Start/end fact, result, and `time_break.started`/`time_break.ended` audit commit
+together. Audit JSON contains only factual IDs, status, timestamps, and version.
+
+Clock-out joins the same break-row lock order and persists `open_break` refusal. An
+identical blocked UUID remains blocked after the break ends; a new intent uses a new
+UUID. Correction submission allows a nullable private claim reference only for durable
+`break_conflict`; no claim is created. Approval adds the same result to its existing
+ledger and leaves conflicting requests pending. Both inspect locked breaks, never edit
+break facts, and append no factual/approval audit for refusal.
+
+Read models add ordered break intervals. UI totals use integer microseconds: completed
+shift gross minus completed contained breaks equals net. Open gross/net stay unknown;
+open breaks never acquire an invented end. These are factual unpaid intervals, not
+statutory-rest or payroll calculations. Historical break creation and break corrections
+remain unimplemented.
+
+Export selection adds a break blocker within the same creation statement snapshot.
+Creation also locks tenant break rows after entries and before corrections. Existing
+canonical snapshot/hash/serializer/download functions are unchanged. New v1 creation
+intentionally refuses break-bearing selected facts until separately reviewed v2.
+
 ## Schema decisions and limits
 
 - Organization foreign keys use `ON DELETE RESTRICT`, including audit history.
@@ -402,6 +447,6 @@ serving.
 
 Hosted Supabase connections, deployment, paid resources, and real personal or customer
 data remain prohibited. Development and tests use local synthetic data only. This phase
-does not establish production readiness or implement breaks, direct manual factual
-records, billing, social-secretariat delivery, payroll/declaration logic, or broad
-product dashboards.
+does not establish production readiness or implement historical breaks, break
+corrections, direct manual factual records, billing, social-secretariat delivery,
+payroll/declaration logic, or broad product dashboards.

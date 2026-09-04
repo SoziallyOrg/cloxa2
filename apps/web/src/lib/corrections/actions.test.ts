@@ -356,3 +356,21 @@ describe("employee correction withdrawal action", () => {
     });
   });
 });
+
+it("shows durable submission break conflict without claiming creation", async () => {
+  mocks.rpc.mockResolvedValue({
+    data: [
+      {
+        request_id: requestId,
+        correction_request_id: null,
+        result_code: "break_conflict",
+        request_status: null,
+        did_create: false,
+      },
+    ],
+    error: null,
+  });
+  expect(
+    await submitCorrectionRequestAction(initialCorrectionActionState, submissionForm()),
+  ).toMatchObject({ status: "error", message: nlBE.breaks.conflict });
+});

@@ -26,8 +26,8 @@ separately forbids Redux; no replacement client state library is assumed.
 Cloxa will reduce time spent collecting, correcting, approving, and handing off factual
 work-time records while preserving a visible history of changes. Current pilot scope
 supports invitation authentication, employee clock-in/out, employee correction requests,
-manager approval/rejection with controlled factual application, and manager-confirmed
-factual CSV/JSON snapshots.
+manager approval/rejection with controlled factual application, live unpaid breaks, and
+manager-confirmed factual CSV/JSON snapshots.
 
 ## Positioning
 
@@ -51,10 +51,20 @@ authorized later, run beside the customer’s existing official process.
   Immutable claims, versioned factual records, and append-only audits preserve history.
 - Export confirmation approves only exact factual versions captured in that snapshot.
   Later fact/profile/code changes require a new export and do not rewrite prior rows.
+- Live unpaid breaks use server start/end timestamps on the employee's open shift.
+  Clock-out requires ending the current break first. Gross, completed-break, and net
+  durations preserve exact microseconds; open intervals have no invented end.
+- Adjustment submission and approval must contain every recorded break. Conflicting
+  approval stays pending and does not modify facts or append approval audits.
+- New v1 exports intentionally block break-bearing facts until a separately reviewed v2.
+  Existing v1 snapshots keep their original bytes, hashes, and download authorization.
+- Breaks are factual unpaid intervals, not statutory-rest or payroll calculations.
+  Manual historical breaks and break correction requests remain unimplemented.
 - Public signup and automatic billing remain disabled.
-- No breaks, direct manual factual entries, scheduled exports, delivery integration,
-  payroll calculations, billing, realtime, native app, ORM, Redux, Redis, queues,
-  storage, analytics, microservices, or offline service worker.
+- No historical break creation, break corrections, direct manual factual entries,
+  scheduled exports, delivery integration, payroll calculations, billing, realtime,
+  native app, ORM, Redux, Redis, queues, storage, analytics, microservices, or offline
+  service worker.
 - Hosted Supabase access, real employee data, customer outreach, spending, and
   deployment are out of scope.
 - One organization and one worksite remain explicit pilot constraints.
