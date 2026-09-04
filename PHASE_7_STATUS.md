@@ -1,7 +1,7 @@
 # Phase 7 verification report
 
-Status: repair tested for draft review; Phase 7 remains blocked on final dependency
-audit.
+Status: dependency audit gate cleared; PR remains draft for final independent
+verification.
 
 Branch: `feat/employee-live-breaks`. Existing draft PR:
 https://github.com/SoziallyOrg/cloxa2/pull/7. Repair began with clean working tree and
@@ -66,18 +66,43 @@ Final gate pass then ran in order:
 - Complete production Playwright: 63 passed, 3 existing project-specific skips (66
   total), including 12 break test runs. Desktop-only export races and mobile-only
   exact-320px dialog coverage account for those existing skips.
-- Production dependency audit: blocked after two sequential 30-second attempts of the
-  existing official-registry command, both timing out. Earlier preflight returned exit 0
-  and "No known vulnerabilities found", but does not replace the unsuccessful final
-  gate. No ignore-errors option or dependency edits used; rerun when registry access is
-  stable.
+- Production dependency audit: passed in fresh clean-room run against exact repair
+  commit on separate VPS network; exit 0, "No known vulnerabilities found". Evidence
+  below replaces final local timeout blocker, independently of earlier preflight.
 - Scoped credential scan: 38 Phase 7 files, zero findings.
 - Browser-bundle secret scan: 20 production bundle files, no server secret.
 
 Earlier WSL/Docker outage and registry timeout are historical interruptions, not passing
 evidence. User restored Docker before final verification. All database/browser work used
-synthetic local data only. No hosted resources, real data, merge, deployment, or paid
-resources were used. Existing PR remains draft, never marked ready.
+synthetic local data only. Subsequent audit used existing VPS temporary directory;
+hosted websites and services were unchanged. No real employee data, merge, or deployment
+was involved. Existing PR remains draft, never marked ready.
+
+## Clean-room dependency audit clearance
+
+- Audited commit: `7129cda20ea60ddf756ba3fbf105b6e8c279d511`, verified with
+  `git rev-parse HEAD` after public HTTPS clone and detached checkout.
+- Runner: Hostinger VPS clean-room runner; disposable directory outside hosted websites,
+  with isolated home, configuration, and tooling caches.
+- Run started: `2026-09-04T08:02:07Z`. Audit started: `2026-09-04T08:02:14Z`; finished:
+  `2026-09-04T08:02:33Z`.
+- Node `v24.18.0`; Corepack `0.35.0`; pnpm `11.25.0`, matching declared `pnpm@11.25.0`.
+  Corepack shim and package-manager cache stayed in temporary directory.
+- Registry: `https://registry.npmjs.org/`.
+- Exact command: `pnpm audit --prod --audit-level high`.
+- One attempt, externally bounded to 180 seconds; audit exit code **0**; result: **No
+  known vulnerabilities found**. No suppression or cached/preflight result substituted
+  for this run.
+- Clone remained clean and lockfile hash unchanged. No application dependencies,
+  lifecycle scripts, npm lockfile, dependency updates, app, database, Docker services,
+  web server, or port changes. No local secrets, environment files, or data copied.
+- Cleanup trap removed disposable directory; separate SSH check confirmed directory
+  absent and exited 0. Later SSH-wrapper CRLF error (wrapper exit 2) did not affect
+  captured audit result (exit 0).
+- Local branch and remote still matched audited commit with clean working tree before
+  documentation update. Only this report changes in clearance commit; PR description
+  receives matching evidence. Documentation formatting and diff checks only; prior
+  database, unit, build, and browser suites were not rerun.
 
 ## Phase 7 behavior and limits
 
