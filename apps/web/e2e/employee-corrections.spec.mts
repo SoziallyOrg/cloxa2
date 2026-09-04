@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { createRequire } from "node:module";
 
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
@@ -47,6 +47,26 @@ function localAdmin() {
 
 async function createSyntheticEmployee(projectName: string) {
   const admin = localAdmin();
+  // Stable test scope isolates concurrent projects; sequence preserves prior run facts.
+  const codePrefix =
+    "COR-" +
+    createHash("sha256")
+      .update(`${test.info().testId}:${test.info().repeatEachIndex}`)
+      .digest("hex")
+      .slice(0, 18) +
+    "-";
+  const previousCode = await admin
+    .from("memberships")
+    .select("employee_code")
+    .eq("organization_id", localFixture.organization.id)
+    .like("employee_code", `${codePrefix}%`)
+    .order("employee_code", { ascending: false })
+    .limit(1);
+  if (previousCode.error) throw new Error("Synthetic employee code lookup failed.");
+  const sequence = Number(previousCode.data[0]?.employee_code.slice(-9) ?? "0") + 1;
+  if (!Number.isSafeInteger(sequence) || sequence > 999_999_999)
+    throw new Error("Synthetic employee code sequence exhausted.");
+  const employeeCode = codePrefix + String(sequence).padStart(9, "0");
   const email = requireFictionalEmail(
     `correction.${projectName.replaceAll(/[^a-z0-9]/gu, ".")}.${randomUUID().slice(0, 20)}@example.test`,
   );
@@ -64,7 +84,7 @@ async function createSyntheticEmployee(projectName: string) {
   const membership = await admin
     .from("memberships")
     .insert({
-      employee_code: "E2E-CORRECTION",
+      employee_code: employeeCode,
       organization_id: localFixture.organization.id,
       role: "employee",
       status: "active",

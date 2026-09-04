@@ -1,5 +1,18 @@
 # `@cloxa/database`
 
+## Phase 9 manager administration
+
+[Manager team contract](MANAGER_TEAM.md) documents exact read/mutation RPC keys and
+codes, authorization, private ledger, normalization, audit exclusions and lock order.
+New namespace 17081 serializes all manager-administration request UUIDs; existing 17031
+coordinates employees and exports, and 17022 coordinates reactivation admission. No
+browser table-update grants or coworker profile policies are added. Suspended
+memberships lose organization access without disabling Auth. Prior v1/v2 artifacts stay
+byte-identical. Legacy optional invitation-code collisions leave code unassigned for
+manager review, preserving invitation authorization and local-only email boundaries.
+
+## Generated types and local database
+
 This package exports TypeScript types generated from the local Supabase `public` schema.
 Do not hand-edit `src/database.types.ts` or maintain duplicate database interfaces.
 Next.js request clients stay in `apps/web` because they depend on request cookies.

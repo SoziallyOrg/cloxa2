@@ -812,6 +812,15 @@ export type Database = {
         };
         Returns: Json;
       };
+      change_employee_membership_status: {
+        Args: {
+          action: string;
+          confirmed: boolean;
+          request_id: string;
+          target_membership_id: string;
+        };
+        Returns: Json;
+      };
       clock_in: {
         Args: { request_id: string };
         Returns: {
@@ -907,6 +916,7 @@ export type Database = {
       get_employee_invitation_state: { Args: never; Returns: string };
       get_employee_time_clock: { Args: never; Returns: Json };
       get_manager_correction_requests: { Args: never; Returns: Json };
+      get_manager_team: { Args: { request_id: string }; Returns: Json };
       get_manager_time_exports: { Args: never; Returns: Json };
       get_time_export_snapshot: { Args: { export_id: string }; Returns: Json };
       get_time_export_v2_snapshot: {
@@ -945,6 +955,23 @@ export type Database = {
           request_status: string;
           result_code: string;
         }[];
+      };
+      update_employee_profile: {
+        Args: {
+          display_name: string;
+          employee_code: string;
+          request_id: string;
+          target_membership_id: string;
+        };
+        Returns: Json;
+      };
+      update_pilot_settings: {
+        Args: {
+          organization_name: string;
+          request_id: string;
+          worksite_name: string;
+        };
+        Returns: Json;
       };
       withdraw_employee_correction_request: {
         Args: { correction_request_id: string; request_id: string };

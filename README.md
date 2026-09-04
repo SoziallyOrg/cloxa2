@@ -11,6 +11,26 @@ claims. Managers review their own organization's proposals, approve exact interv
 reject with an explanation. Approval updates factual history atomically; employees see
 final decisions and manager explanations.
 
+## Manager team administration (Phase 9)
+
+`/manager` links to `/manager/team`: pilot names, bounded roster, invitation status,
+employee name/code edits and explicit access confirmations. Open shifts/breaks block
+suspension; pending corrections stay stored and reviewable. Reactivation restores same
+membership, never a second one. Access relies on active membership, not session logout.
+
+Edits affect future reads/exports only; existing v1/v2 snapshots and CSV/JSON bytes stay
+fixed. No Auth manipulation, resend, production mail, role changes, deletion, tenant
+switching or second worksite. Conflicting optional invitation codes remain unassigned
+for manager review. Local-only delivery boundary remains unchanged.
+
+See [manager RPC/access/lock contract](packages/database/MANAGER_TEAM.md) and
+[Phase 9 verification](PHASE_9_STATUS.md). Focused production journey:
+
+```powershell
+$env:CLOXA_E2E_PRODUCTION = '1'
+pnpm exec playwright test apps/web/e2e/manager-team.spec.mts
+```
+
 ## Workspace
 
 ```text

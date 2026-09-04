@@ -1,5 +1,15 @@
 # Database tests
 
+Phase 9 `manager_team_administration.test.sql` covers strict safe roster projection, all
+unsupported actor classes, unique normalized codes, protected direct writes,
+UUID/action/actor/target binding, suspension blockers, same-membership reactivation,
+complete history preservation, audit rollback and immutable ledger guards. Existing
+Phase 1–8 files remain unchanged. Production `manager-team.spec.mts` supplies
+real-session profile/UUID, clock/suspension, export/settings and post-wait expiry races,
+plus desktop and exact 320px team journeys. Local teardown removes only each synthetic
+test tenant; it never authorizes application behavior. No hosted resources or real
+identities apply.
+
 Run authorization, invitation, employee time-clock, and correction-request tests against
 the local Supabase database:
 

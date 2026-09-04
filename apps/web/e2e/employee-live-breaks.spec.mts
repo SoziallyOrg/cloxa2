@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { createRequire } from "node:module";
 import { execFileSync, spawn } from "node:child_process";
 import { mkdir } from "node:fs/promises";
@@ -85,7 +85,16 @@ async function createAccount(organizationId: string, role: "manager" | "employee
       user_id: userId,
       role,
       status: "active",
-      employee_code: "SYNREVIEW1234567890123456789012345",
+      // One employee per fresh test organization; managers need no employee code.
+      employee_code:
+        role === "employee"
+          ? createHash("sha256")
+              .update(
+                `${organizationId}:${test.info().testId}:${test.info().repeatEachIndex}`,
+              )
+              .digest("hex")
+              .slice(0, 32)
+          : null,
     })
     .select("id")
     .single();
