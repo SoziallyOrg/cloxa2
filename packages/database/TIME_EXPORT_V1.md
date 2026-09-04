@@ -148,3 +148,11 @@ tampering is outside this application guarantee. Snapshot protection is not a ma
 claim of tamper-proof storage or legal/payroll suitability. Retention, controlled
 deletion, and export redaction remain future work; no social-secretariat delivery is
 implemented.
+
+## Compatibility note: live breaks
+
+From Phase 7, new previews and creations return `break_data_requires_v2` when any
+selected time entry has break facts. Creation persists and replays this safe blocker
+without export metadata, snapshot rows, audit, or artifact. Break-aware exports require
+a separately reviewed v2. Existing v1 snapshots retain exactly their original fields,
+meaning, bytes, hashes, and download behavior; no v1 duration silently subtracts breaks.

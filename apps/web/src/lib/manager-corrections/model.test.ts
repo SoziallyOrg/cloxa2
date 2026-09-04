@@ -6,6 +6,7 @@ const id = "30000000-0000-4000-8000-000000000001";
 const entryId = "40000000-0000-4000-8000-000000000001";
 export const requestFixture = {
   id,
+  breaks: [],
   request_kind: "adjustment",
   target_time_entry_id: entryId,
   employee_display_name: "Fictieve medewerker",

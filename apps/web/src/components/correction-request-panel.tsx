@@ -4,6 +4,7 @@ import { CheckCircle2, FilePenLine, History, Plus, X } from "lucide-react";
 import Link from "next/link";
 import { useActionState, useEffect, useRef, useState } from "react";
 
+import { BreakSummary } from "@/components/break-summary";
 import { Button } from "@/components/ui/button";
 import { nlBE } from "@/i18n/nl-BE";
 import {
@@ -96,6 +97,13 @@ function CorrectionForm({
         </Button>
       </div>
 
+      {entry && entry.breaks.length > 0 ? (
+        <BreakSummary
+          breaks={entry.breaks}
+          start={entry.startedAt}
+          end={entry.endedAt}
+        />
+      ) : null}
       <form
         action={action}
         aria-busy={pending}

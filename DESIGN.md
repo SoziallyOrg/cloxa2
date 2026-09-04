@@ -424,9 +424,28 @@ at 320px, time ranges and supporting copy wrap while the action remains full-wid
 - **Primary action:** full-width, 4rem minimum height, 1.125rem control type, and
   existing button focus, disabled, and pending behavior.
 - **Today's ledger:** unboxed list under a ruled heading; entries use Hairline Rule
-  separators, factual time ranges, and cobalt only for the open registration.
+  separators, factual time ranges, and cobalt only for the open registration. Date sits
+  beneath the heading. Open-entry subtitle follows working or on-break state.
 - **Feedback:** success stays within current field; errors receive a contained paper
   strip with Correction Red text and an alert role.
+
+### Live Break State and Factual Totals
+
+Live unpaid breaks extend the same cobalt clock field. Secondary "Start pauze" sits
+beneath "Stop werk". During a break, heading reads "Je bent met pauze" and "Beëindig
+pauze" is available. Disabled clock-out references its visible Dutch explanation. Both
+controls share pending state; result feedback receives keyboard focus.
+
+Entry rows show ordered unpaid break intervals followed by stacked Bruto, Afgeronde
+pauzes, and Netto gewerkt labels and values. Tabular numerals preserve exact six-digit
+fractional seconds; open gross/net values and break ends read "Nog open". Machine
+timestamps retain UTC while visible intervals use Europe/Brussels. Keep labels above
+values at all widths, including 320px, rather than introducing a wide totals table.
+
+Correction forms show existing intervals and factual totals before editable claim
+fields. Manager comparisons put the original shift interval before "Onbetaalde pauzes"
+inside the original-facts field; break intervals remain read-only in both surfaces.
+Dutch help identifies live factual unpaid intervals and their limited meaning.
 
 ### Inputs / Fields
 
@@ -517,7 +536,9 @@ Paper preview, explicit confirmation, then unboxed snapshot history separated by
 - **Preview:** condensed heading precedes record count, employee count, exact duration,
   and exclusive-end UTC window. Correction Red identifies blockers; Amber Ink identifies
   warnings. Keep explanations textual, with a route to pending corrections. Blockers
-  remove confirmation action; warnings remain visible without blocking it.
+  remove confirmation action; warnings remain visible without blocking it. New v1
+  exports containing breaks show an explicit unsupported-break blocker; existing
+  snapshot history and download contracts remain unchanged.
 - **Factual rows:** native disclosure reveals ordered records in a bounded scroll region
   with keyboard focus. Show source ID and version, full Brussels interval, exact
   duration, factual origin, and last correction when present. Wrap identifiers and

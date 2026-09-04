@@ -96,6 +96,22 @@ export const nlBE = {
       "Start en stop je werk op deze werkplek. Tijdstippen komen rechtstreeks van de beveiligde databank.",
     status: "Aangemeld",
   },
+  breaks: {
+    onBreak: "Je bent met pauze",
+    start: "Start pauze",
+    end: "Beëindig pauze",
+    started: "Pauze gestart.",
+    ended: "Pauze beëindigd.",
+    interlock: "Beëindig eerst je pauze om het werk te stoppen.",
+    failure: "Pauze kon niet worden verwerkt. Vernieuw de pagina en probeer opnieuw.",
+    summary: "Onbetaalde pauzes",
+    gross: "Bruto",
+    completed: "Afgeronde pauzes",
+    net: "Netto gewerkt",
+    open: "Nog open",
+    conflict: "Het voorgestelde tijdvak moet alle geregistreerde pauzes bevatten.",
+    help: "Alleen live start en einde. Dit zijn feitelijke onbetaalde intervallen, geen wettelijke rust- of loonberekening.",
+  },
   timeClock: {
     working: "Je bent aan het werk",
     notWorking: "Je bent niet aan het werk",
@@ -279,6 +295,8 @@ export const nlBE = {
     blockersTitle: "Bevestigen is nu niet mogelijk",
     warningsTitle: "Let op",
     blockers: {
+      breakDataRequiresV2:
+        "Deze selectie bevat pauzes. Export met pauzegegevens is nog niet beschikbaar; hiervoor is een afzonderlijk beoordeelde v2 nodig.",
       noRecords: "Deze periode bevat geen geschikte afgesloten registraties.",
       openEntry: "Een open registratie overlapt deze periode.",
       pendingCorrection:

@@ -1,6 +1,8 @@
+import { parseBreaks, type TimeBreak } from "@/lib/time-clock/breaks";
 import { BELGIUM_TIME_ZONE } from "@/lib/time-clock/model";
 
 export type CorrectionEntry = {
+  breaks: TimeBreak[];
   endedAt: string;
   id: string;
   startedAt: string;
@@ -11,6 +13,7 @@ export type CorrectionRequestKind = "adjustment" | "missed_entry";
 export type CorrectionRequestStatus = "pending" | "withdrawn" | "approved" | "rejected";
 
 export type EmployeeCorrectionRequest = {
+  breaks: TimeBreak[];
   appliedTimeEntryId: string | null;
   createdAt: string;
   employeeReason: string;
@@ -99,7 +102,10 @@ function parseEntry(value: unknown): CorrectionEntry | null {
     return null;
   }
 
+  const breaks = parseBreaks(value.breaks);
+  if (!breaks) return null;
   return {
+    breaks,
     endedAt: value.ended_at,
     id: value.id,
     startedAt: value.started_at,
@@ -145,7 +151,10 @@ export function parseCorrectionRequest(
     return null;
   }
 
+  const breaks = parseBreaks(value.breaks);
+  if (!breaks) return null;
   return {
+    breaks,
     appliedTimeEntryId: value.applied_time_entry_id,
     createdAt: value.created_at,
     employeeReason: value.employee_reason,

@@ -230,3 +230,13 @@ describe("employee time-clock action", () => {
     },
   );
 });
+
+it("explains durable open-break clock-out refusal", async () => {
+  mocks.rpc.mockResolvedValue({
+    data: [{ request_id: requestId, result_code: "open_break", did_transition: false }],
+    error: null,
+  });
+  expect(
+    await submitTimeClockAction(initialTimeClockActionState, clockForm("clock_out")),
+  ).toMatchObject({ status: "error", message: nlBE.breaks.interlock });
+});

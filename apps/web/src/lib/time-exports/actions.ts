@@ -79,15 +79,17 @@ export async function previewTimeExportAction(
 
 function blockerMessage(blocker: TimeExportBlocker) {
   const copy = nlBE.managerExports;
-  return blocker === "no_records"
-    ? copy.blockers.noRecords
-    : blocker === "open_entry"
-      ? copy.blockers.openEntry
-      : blocker === "pending_correction"
-        ? copy.blockers.pendingCorrection
-        : blocker === "row_limit"
-          ? copy.blockers.rowLimit
-          : copy.blockers.artifactTooLarge;
+  return blocker === "break_data_requires_v2"
+    ? copy.blockers.breakDataRequiresV2
+    : blocker === "no_records"
+      ? copy.blockers.noRecords
+      : blocker === "open_entry"
+        ? copy.blockers.openEntry
+        : blocker === "pending_correction"
+          ? copy.blockers.pendingCorrection
+          : blocker === "row_limit"
+            ? copy.blockers.rowLimit
+            : copy.blockers.artifactTooLarge;
 }
 
 export async function createTimeExportAction(
@@ -133,6 +135,7 @@ export async function createTimeExportAction(
           "pending_correction",
           "row_limit",
           "artifact_too_large",
+          "break_data_requires_v2",
         ].includes(row.result_code)
       )
         return { status: "error", message: copy.createFailure };

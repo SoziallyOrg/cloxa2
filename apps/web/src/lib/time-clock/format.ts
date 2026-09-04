@@ -1,3 +1,4 @@
+import { exactMicroseconds } from "./breaks";
 import { BELGIUM_TIME_ZONE } from "@/lib/time-clock/model";
 
 const timeFormatter = new Intl.DateTimeFormat("nl-BE", {
@@ -23,12 +24,12 @@ export function formatBelgianDate(timestamp: string) {
 }
 
 export function formatDuration(startedAt: string, endedAt: string) {
-  const milliseconds = Math.max(0, Date.parse(endedAt) - Date.parse(startedAt));
-  const totalMinutes = Math.floor(milliseconds / 60_000);
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
+  const duration = exactMicroseconds(endedAt) - exactMicroseconds(startedAt);
+  const totalMinutes = (duration < 0n ? 0n : duration) / 60_000_000n;
+  const hours = totalMinutes / 60n;
+  const minutes = totalMinutes % 60n;
 
-  if (hours === 0) {
+  if (hours === 0n) {
     return `${minutes} min`;
   }
 

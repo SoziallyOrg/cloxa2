@@ -14,6 +14,7 @@ const durationPattern = /^(?:0|[1-9]\d{0,29})$/u;
 const hashPattern = /^[0-9a-f]{64}$/u;
 
 export type TimeExportBlocker =
+  | "break_data_requires_v2"
   | "no_records"
   | "open_entry"
   | "pending_correction"
@@ -354,6 +355,7 @@ export function parseTimeExportPreview(value: unknown): TimeExportPreview | null
     "pending_correction",
     "row_limit",
     "artifact_too_large",
+    "break_data_requires_v2",
   ]);
   const warningValues = new Set<TimeExportWarning>([
     "missing_employee_code",

@@ -1,6 +1,13 @@
+import {
+  exactMicroseconds,
+  parseBreaks,
+  validTimestamp,
+  type TimeBreak,
+} from "./breaks";
 export const BELGIUM_TIME_ZONE = "Europe/Brussels";
 
 export type TimeClockEntry = {
+  breaks: TimeBreak[];
   endedAt: string | null;
   id: string;
   startedAt: string;
@@ -11,7 +18,7 @@ export type TimeClockView = {
   currentStartedAt: string | null;
   entries: TimeClockEntry[];
   serverTime: string;
-  status: "working" | "not_working";
+  status: "working" | "not_working" | "on_break";
   timezone: typeof BELGIUM_TIME_ZONE;
   worksiteId: string;
 };
@@ -39,7 +46,7 @@ function isUuid(value: unknown): value is string {
 }
 
 function isTimestamp(value: unknown): value is string {
-  return typeof value === "string" && Number.isFinite(Date.parse(value));
+  return validTimestamp(value);
 }
 
 function parseEntry(value: unknown): TimeClockEntry | null {
@@ -55,12 +62,27 @@ function parseEntry(value: unknown): TimeClockEntry | null {
 
   if (
     value.ended_at !== null &&
-    Date.parse(value.ended_at) < Date.parse(value.started_at)
+    exactMicroseconds(value.ended_at) < exactMicroseconds(value.started_at)
   ) {
     return null;
   }
 
+  const breaks = parseBreaks(value.breaks);
+  if (
+    !breaks ||
+    breaks.some(
+      (b) =>
+        exactMicroseconds(b.startedAt) <
+          exactMicroseconds(value.started_at as string) ||
+        (value.ended_at !== null &&
+          (b.endedAt === null ||
+            exactMicroseconds(b.endedAt) >
+              exactMicroseconds(value.ended_at as string))),
+    )
+  )
+    return null;
   return {
+    breaks,
     endedAt: value.ended_at,
     id: value.id,
     startedAt: value.started_at,
@@ -72,7 +94,7 @@ function parseEntry(value: unknown): TimeClockEntry | null {
 export function parseTimeClockView(value: unknown): TimeClockView | null {
   if (
     !isRecord(value) ||
-    (value.status !== "working" && value.status !== "not_working") ||
+    !["working", "not_working", "on_break"].includes(String(value.status)) ||
     value.timezone !== BELGIUM_TIME_ZONE ||
     !isUuid(value.worksite_id) ||
     !isTimestamp(value.server_time) ||
@@ -82,7 +104,10 @@ export function parseTimeClockView(value: unknown): TimeClockView | null {
     return null;
   }
 
-  if ((value.status === "working") !== (typeof value.current_started_at === "string")) {
+  if (
+    (value.status !== "not_working") !==
+    (typeof value.current_started_at === "string")
+  ) {
     return null;
   }
 
@@ -92,11 +117,19 @@ export function parseTimeClockView(value: unknown): TimeClockView | null {
     return null;
   }
 
+  const openBreaks = entries
+    .flatMap((entry) => entry!.breaks)
+    .filter((b) => b.endedAt === null);
+  if (
+    (value.status === "on_break") !== (openBreaks.length === 1) ||
+    openBreaks.length > 1
+  )
+    return null;
   return {
     currentStartedAt: value.current_started_at,
     entries: entries as TimeClockEntry[],
     serverTime: value.server_time,
-    status: value.status,
+    status: value.status as TimeClockView["status"],
     timezone: BELGIUM_TIME_ZONE,
     worksiteId: value.worksite_id,
   };

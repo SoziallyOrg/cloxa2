@@ -69,6 +69,7 @@ export async function decideCorrectionRequestAction(
       }
       if (row.request_status === "pending") {
         if (row.result_code === "stale_request") return fail(copy.stale);
+        if (row.result_code === "break_conflict") return fail(nlBE.breaks.conflict);
         if (row.result_code === "overlap") return fail(copy.overlap);
         if (row.result_code === "invalid_interval") return fail(copy.invalidInterval);
         if (row.result_code === "unavailable") return fail(copy.unavailable);

@@ -333,6 +333,30 @@ export is used. Only creation is audited; no download event is recorded. Retenti
 controlled deletion remain future work. Field definitions and canonical byte rules live
 in [export v1 contract](packages/database/TIME_EXPORT_V1.md).
 
+## Live unpaid breaks
+
+Employees can start and end a live unpaid break on their currently open shift. Each
+operation accepts only a client UUID; ownership and timestamps come from locked server
+state. Clock-out refuses an open break and never closes it automatically. Dutch clock
+screens show working/break state, ordered intervals, and exact gross, completed-break,
+and net durations. Open intervals stay labelled open. Europe/Brussels display retains
+UTC timestamps and all six fractional digits; no timer writes to the database.
+
+Adjustment submission and manager approval inspect locked break facts. Proposals must
+contain every completed break. `break_conflict` is durable on retry; a failed approval
+keeps the request pending without approval/factual audits. Correction context shows
+break intervals but offers no break-editing fields.
+
+New `cloxa.time-export.v1` previews and creations block any selected fact with breaks
+using `break_data_requires_v2`. Blocked creation stores only its private retry outcome:
+no export metadata, snapshot rows, audit, or artifact. Existing snapshots and their
+CSV/JSON bytes and hashes are unchanged. Break-aware v2 needs separate review.
+
+Breaks are factual unpaid intervals, not statutory-rest or payroll calculations. Only
+live start/end is supported. Manual historical breaks, break corrections, automatic
+breaks, and statutory-rest rules remain unimplemented. No compliance or production
+readiness claim is made.
+
 ## Verification
 
 Run this sequence in order against the local stack. These commands describe the
@@ -390,8 +414,9 @@ pnpm exec playwright install chromium
 - Invitation-only; no public signup or automatic billing.
 - No ORM, Redux, Redis, queues, realtime, storage, analytics, or microservices.
 - No offline mode or service worker. Manifest only.
-- No breaks, direct manual factual entries, PDF/XLSX, scheduled or emailed export,
-  provider delivery, scheduling, billing, realtime updates, or native app.
+- No historical break creation, break corrections, direct manual factual entries,
+  PDF/XLSX, scheduled or emailed export, provider delivery, scheduling, billing,
+  realtime updates, or native app.
 - No claim that Cloxa calculates payroll, satisfies Belgian employment rules, or is
   production-ready.
 - No remote Supabase connection, hosted deployment, or real employee data. Development

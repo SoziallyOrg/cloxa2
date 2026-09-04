@@ -3,6 +3,7 @@
 import { CheckCircle2, Clock3 } from "lucide-react";
 import { useActionState, useEffect, useRef } from "react";
 
+import { BreakSummary } from "@/components/break-summary";
 import { Button } from "@/components/ui/button";
 import { nlBE } from "@/i18n/nl-BE";
 import { submitTimeClockAction } from "@/lib/time-clock/actions";
@@ -27,14 +28,20 @@ export function TimeClockPanel({ clock }: { clock: TimeClockView | null }) {
       requestIdInput.current.value = crypto.randomUUID();
     }
   };
-  const working = clock?.status === "working";
+  const feedback = useRef<HTMLParagraphElement>(null);
+  const lastIntent = useRef("");
+  const onBreak = clock?.status === "on_break";
+  const working = clock?.status === "working" || onBreak;
+  useEffect(() => {
+    if (state.message) feedback.current?.focus();
+  }, [state]);
   const operation = working ? "clock_out" : "clock_in";
 
   useEffect(() => {
     if (requestIdInput.current) {
       requestIdInput.current.value = crypto.randomUUID();
     }
-  }, [operation]);
+  }, [operation, onBreak, state.requestId]);
 
   if (!clock) {
     return (
@@ -75,7 +82,11 @@ export function TimeClockPanel({ clock }: { clock: TimeClockView | null }) {
               }`}
               id="time-clock-title"
             >
-              {working ? nlBE.timeClock.working : nlBE.timeClock.notWorking}
+              {onBreak
+                ? nlBE.breaks.onBreak
+                : working
+                  ? nlBE.timeClock.working
+                  : nlBE.timeClock.notWorking}
             </h2>
           </div>
         </div>
@@ -102,9 +113,16 @@ export function TimeClockPanel({ clock }: { clock: TimeClockView | null }) {
           action={action}
           aria-busy={pending}
           className="mt-6"
-          onSubmitCapture={ensureRequestId}
+          onSubmitCapture={(event) => {
+            const submitter = (event.nativeEvent as SubmitEvent)
+              .submitter as HTMLButtonElement | null;
+            const intent = submitter?.value ?? operation;
+            if (lastIntent.current !== intent && requestIdInput.current)
+              requestIdInput.current.value = crypto.randomUUID();
+            lastIntent.current = intent;
+            ensureRequestId();
+          }}
         >
-          <input name="operation" type="hidden" value={operation} />
           <input
             defaultValue=""
             key={operation}
@@ -113,9 +131,15 @@ export function TimeClockPanel({ clock }: { clock: TimeClockView | null }) {
             type="hidden"
           />
           <Button
-            aria-describedby="clock-state-description"
+            aria-describedby={
+              onBreak
+                ? "clock-state-description break-interlock"
+                : "clock-state-description"
+            }
             className="min-h-16 w-full text-lg"
-            disabled={pending}
+            disabled={pending || onBreak}
+            name="operation"
+            value={operation}
             onClick={ensureRequestId}
             size="large"
             type="submit"
@@ -127,7 +151,33 @@ export function TimeClockPanel({ clock }: { clock: TimeClockView | null }) {
                 ? nlBE.timeClock.stop
                 : nlBE.timeClock.start}
           </Button>
+          {working ? (
+            <Button
+              className="mt-3 min-h-14 w-full"
+              disabled={pending}
+              name="operation"
+              value={onBreak ? "end_break" : "start_break"}
+              type="submit"
+              variant="secondary"
+            >
+              {pending
+                ? nlBE.timeClock.pending
+                : onBreak
+                  ? nlBE.breaks.end
+                  : nlBE.breaks.start}
+            </Button>
+          ) : null}
+          {onBreak ? (
+            <p className="mt-3 text-sm text-primary-foreground" id="break-interlock">
+              {nlBE.breaks.interlock}
+            </p>
+          ) : null}
         </form>
+        <p
+          className={`mt-4 text-sm ${working ? "text-primary-foreground-muted" : "text-muted"}`}
+        >
+          {nlBE.breaks.help}
+        </p>
 
         {state.message ? (
           <p
@@ -138,6 +188,8 @@ export function TimeClockPanel({ clock }: { clock: TimeClockView | null }) {
                   ? "text-primary-foreground"
                   : "text-ink"
             }`}
+            ref={feedback}
+            tabIndex={-1}
             role={state.status === "error" ? "alert" : "status"}
           >
             {state.message}
@@ -148,15 +200,15 @@ export function TimeClockPanel({ clock }: { clock: TimeClockView | null }) {
       <section aria-labelledby="today-title">
         <div className="flex items-end justify-between gap-4 border-b border-rule-strong pb-3">
           <div>
-            <p className="text-sm font-semibold text-muted capitalize">
-              {formatBelgianDate(clock.serverTime)}
-            </p>
             <h2
               className="font-display text-3xl font-semibold tracking-[-0.02em] text-ink"
               id="today-title"
             >
               {nlBE.timeClock.today}
             </h2>
+            <p className="mt-1 text-sm font-semibold text-muted capitalize">
+              {formatBelgianDate(clock.serverTime)}
+            </p>
           </div>
           <span className="font-display text-2xl font-semibold text-primary">
             {clock.entries.length}
@@ -192,8 +244,15 @@ export function TimeClockPanel({ clock }: { clock: TimeClockView | null }) {
                   <p className="mt-1 text-sm text-muted">
                     {entry.endedAt
                       ? `${nlBE.timeClock.completed} · ${nlBE.timeClock.duration} ${formatDuration(entry.startedAt, entry.endedAt)}`
-                      : nlBE.timeClock.working}
+                      : entry.breaks.some((item) => item.endedAt === null)
+                        ? nlBE.breaks.onBreak
+                        : nlBE.timeClock.working}
                   </p>
+                  <BreakSummary
+                    breaks={entry.breaks}
+                    start={entry.startedAt}
+                    end={entry.endedAt}
+                  />
                 </div>
               </li>
             ))}

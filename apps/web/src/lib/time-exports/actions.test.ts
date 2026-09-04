@@ -163,3 +163,26 @@ describe("time export actions", () => {
     ).toBe("error");
   });
 });
+
+it("explains break-aware export blocker without artifact", async () => {
+  mocks.rpc.mockResolvedValue({
+    data: [
+      {
+        result_code: "break_data_requires_v2",
+        did_create: false,
+        export_id: null,
+        manifest: null,
+      },
+    ],
+    error: null,
+  });
+  expect(
+    await createTimeExportAction(
+      form({ ...dates, request_id: requestId, confirmed: "true" }),
+    ),
+  ).toEqual({
+    status: "error",
+    message: nlBE.managerExports.blockers.breakDataRequiresV2,
+  });
+  expect(mocks.revalidate).not.toHaveBeenCalled();
+});

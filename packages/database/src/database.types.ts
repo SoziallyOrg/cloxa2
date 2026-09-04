@@ -327,6 +327,77 @@ export type Database = {
         };
         Relationships: [];
       };
+      time_breaks: {
+        Row: {
+          created_at: string;
+          employee_membership_id: string;
+          ended_at: string | null;
+          id: string;
+          organization_id: string;
+          origin: string;
+          started_at: string;
+          time_entry_id: string;
+          version: number;
+          worksite_id: string;
+        };
+        Insert: {
+          created_at: string;
+          employee_membership_id: string;
+          ended_at?: string | null;
+          id?: string;
+          organization_id: string;
+          origin?: string;
+          started_at: string;
+          time_entry_id: string;
+          version?: number;
+          worksite_id: string;
+        };
+        Update: {
+          created_at?: string;
+          employee_membership_id?: string;
+          ended_at?: string | null;
+          id?: string;
+          organization_id?: string;
+          origin?: string;
+          started_at?: string;
+          time_entry_id?: string;
+          version?: number;
+          worksite_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "time_breaks_organization_id_employee_membership_id_fkey";
+            columns: ["organization_id", "employee_membership_id"];
+            isOneToOne: false;
+            referencedRelation: "memberships";
+            referencedColumns: ["organization_id", "id"];
+          },
+          {
+            foreignKeyName: "time_breaks_organization_id_employee_membership_id_worksit_fkey";
+            columns: [
+              "organization_id",
+              "employee_membership_id",
+              "worksite_id",
+              "time_entry_id",
+            ];
+            isOneToOne: false;
+            referencedRelation: "time_entries";
+            referencedColumns: [
+              "organization_id",
+              "membership_id",
+              "worksite_id",
+              "id",
+            ];
+          },
+          {
+            foreignKeyName: "time_breaks_organization_id_worksite_id_fkey";
+            columns: ["organization_id", "worksite_id"];
+            isOneToOne: false;
+            referencedRelation: "worksites";
+            referencedColumns: ["organization_id", "id"];
+          },
+        ];
+      };
       time_entries: {
         Row: {
           created_at: string;
@@ -564,6 +635,7 @@ export type Database = {
           time_entry_id: string;
         }[];
       };
+      end_break: { Args: { request_id: string }; Returns: Json };
       get_auth_context: {
         Args: never;
         Returns: {
@@ -582,6 +654,7 @@ export type Database = {
         Args: { period_end_local: string; period_start_local: string };
         Returns: Json;
       };
+      start_break: { Args: { request_id: string }; Returns: Json };
       submit_employee_correction_request: {
         Args: {
           employee_reason: string;

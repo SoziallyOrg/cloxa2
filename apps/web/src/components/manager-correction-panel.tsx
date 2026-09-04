@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
+import { BreakSummary } from "@/components/break-summary";
 import { Button } from "@/components/ui/button";
 import { nlBE } from "@/i18n/nl-BE";
 import { formatBelgianDateTime, toBrusselsLocalInput } from "@/lib/corrections/format";
@@ -119,6 +120,9 @@ export function ManagerCorrectionPanel({
                 ) : (
                   <p className="mt-2 text-sm leading-6 text-muted">{copy.noOriginal}</p>
                 )}
+                {request.breaks.length > 0 ? (
+                  <BreakSummary breaks={request.breaks} />
+                ) : null}
               </div>
               <div className="min-w-0 bg-primary-soft p-4">
                 <h3 className="font-semibold text-primary-strong">{copy.proposal}</h3>

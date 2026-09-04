@@ -5,6 +5,7 @@ import { parseEmployeeCorrectionsView } from "@/lib/corrections/model";
 const valid = {
   entries: [
     {
+      breaks: [],
       ended_at: "2026-08-10T10:00:00.000Z",
       id: "10000000-0000-4000-8000-000000000001",
       started_at: "2026-08-10T08:00:00.000Z",
@@ -18,6 +19,7 @@ const valid = {
       id: "30000000-0000-4000-8000-000000000001",
       proposed_ended_at: "2026-08-10T10:00:00.000Z",
       proposed_started_at: "2026-08-10T08:15:00.000Z",
+      breaks: [],
       request_kind: "adjustment",
       status: "pending",
       target_time_entry_id: "10000000-0000-4000-8000-000000000001",
@@ -52,6 +54,7 @@ describe("employee correction RPC model", () => {
     expect(parseEmployeeCorrectionsView(valid)).toEqual({
       entries: [
         {
+          breaks: [],
           endedAt: valid.entries[0]!.ended_at,
           id: valid.entries[0]!.id,
           startedAt: valid.entries[0]!.started_at,
@@ -71,6 +74,7 @@ describe("employee correction RPC model", () => {
           withdrawnAt: null,
           managerNote: null,
           resolvedAt: null,
+          breaks: [],
           appliedTimeEntryId: null,
         },
       ],

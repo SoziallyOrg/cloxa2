@@ -175,3 +175,23 @@ describe("manager decision server action", () => {
     });
   });
 });
+
+it("keeps approval pending on break conflict", async () => {
+  mocks.rpc.mockResolvedValue({
+    data: [
+      {
+        ...validResult,
+        result_code: "break_conflict",
+        request_status: "pending",
+        did_decide: false,
+        time_entry_id: null,
+      },
+    ],
+    error: null,
+  });
+  expect(await decideCorrectionRequestAction(form())).toEqual({
+    status: "error",
+    message: nlBE.breaks.conflict,
+  });
+  expect(mocks.revalidate).not.toHaveBeenCalled();
+});

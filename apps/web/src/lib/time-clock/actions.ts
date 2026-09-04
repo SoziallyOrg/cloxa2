@@ -1,5 +1,6 @@
 "use server";
 
+import { submitBreakAction } from "./break-actions";
 import { revalidatePath } from "next/cache";
 
 import { nlBE } from "@/i18n/nl-BE";
@@ -56,6 +57,9 @@ export async function submitTimeClockAction(
   const requestId = readText(formData, "request_id");
   const operation = readText(formData, "operation");
 
+  if (operation === "start_break" || operation === "end_break")
+    return submitBreakAction(_previous, formData);
+
   if (!isRequestId(requestId) || !isClockOperation(operation)) {
     return failureState();
   }
@@ -72,6 +76,15 @@ export async function submitTimeClockAction(
       request_id: requestId,
     });
     const row = Array.isArray(data) && data.length === 1 ? data[0] : null;
+    if (
+      !error &&
+      row?.request_id === requestId &&
+      row.result_code === "open_break" &&
+      row.did_transition === false
+    ) {
+      revalidatePath("/employee");
+      return { status: "error", message: nlBE.breaks.interlock, requestId };
+    }
     const message = row
       ? successMessage(operation, row.result_code, row.did_transition)
       : null;
