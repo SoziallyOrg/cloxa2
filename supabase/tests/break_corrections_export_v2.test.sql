@@ -37,6 +37,10 @@ insert into public.time_breaks(id,organization_id,employee_membership_id,worksit
 values(pg_temp.bid(908,1),pg_temp.bid(903,1),pg_temp.bid(905,1),pg_temp.bid(904,1),pg_temp.bid(906,1),'2010-01-01 10:00Z','2010-01-01 10:00Z');
 update public.time_breaks set ended_at='2010-01-01 10:15Z' where id=pg_temp.bid(908,1);
 update public.time_entries set ended_at='2010-01-01 16:00:00.000001Z' where id=pg_temp.bid(906,1);
+insert into public.time_entries(id,organization_id,membership_id,worksite_id,started_at,ended_at,created_at)
+values
+  (pg_temp.bid(906,60),pg_temp.bid(903,1),pg_temp.bid(905,1),pg_temp.bid(904,1),'2010-01-04 08:00Z','2010-01-04 16:00Z','2010-01-04 08:00Z'),
+  (pg_temp.bid(906,61),pg_temp.bid(903,1),pg_temp.bid(905,1),pg_temp.bid(904,1),'2010-01-05 08:00Z','2010-01-05 16:00Z','2010-01-05 08:00Z');
 create function pg_temp.submit(n integer,k text default 'missed_break',target uuid default null,bv integer default null,pv integer default 2,
   start_local text default '2010-01-01T13:00:00.000001',end_local text default '2010-01-01T13:30:00.000002') returns jsonb language sql as $$
   select public.change_break_correction(pg_temp.bid(907,n),k,pg_temp.bid(906,1),target,pv,bv,
@@ -58,6 +62,61 @@ from unnest(array['anon','authenticated','service_role']) r cross join unnest(ar
 cross join unnest(array['INSERT','UPDATE','DELETE','TRUNCATE']) p;
 select ok(not has_table_privilege(r,t,'SELECT'),r||' cannot read ledger/snapshot')
 from unnest(array['anon','authenticated','service_role']) r cross join unnest(array['private.break_correction_request_operations','private.break_correction_decision_operations','private.time_export_v2_snapshots','private.time_export_v2_operations']) t;
+
+-- V1 maps a selected pending break dispute to its existing pending-correction result.
+set local role authenticated;
+select pg_temp.login(1);
+select is(public.change_break_correction(pg_temp.bid(907,120),'missed_break',pg_temp.bid(906,60),null,1,null,
+  '2010-01-04T12:00','','2010-01-04T12:30','','Fictieve v1-interlock')->>'result_code','submitted','selected break claim pending');
+select pg_temp.login(2);
+select ok(public.preview_time_export('2010-01-04','2010-01-04')->'blockers' ? 'pending_correction','v1 preview maps pending break claim');
+reset role;
+create temp table v1_pending_before as select
+  (select count(*) from public.time_exports) as exports,
+  (select count(*) from private.time_export_rows) as snapshots,
+  (select count(*) from public.audit_events where action='time_export.created') as audits;
+set local role authenticated;
+select pg_temp.login(2);
+create temp table blocked_v1 as select * from public.create_time_export(pg_temp.bid(907,121),'2010-01-04','2010-01-04',true);
+select is((select result_code from blocked_v1),'pending_correction','v1 creation maps pending break claim');
+select ok(not (select did_create from blocked_v1),'pending break creates no v1 export');
+select is((select export_id from blocked_v1),null::uuid,'blocked v1 has no export id');
+select is((select to_jsonb(retry) from public.create_time_export(pg_temp.bid(907,121),'2010-01-04','2010-01-04',true) retry),
+  (select to_jsonb(saved) from blocked_v1 saved),'v1 pending-break result replays exactly');
+reset role;
+select is((select count(*) from public.time_exports),(select exports from v1_pending_before),'blocked v1 writes no metadata');
+select is((select count(*) from private.time_export_rows),(select snapshots from v1_pending_before),'blocked v1 writes no snapshot');
+select is((select count(*) from public.audit_events where action='time_export.created'),(select audits from v1_pending_before),'blocked v1 writes no creation audit');
+set local role authenticated;
+select pg_temp.login(1);
+select is(pg_temp.withdraw(122,120)->>'result_code','withdrawn','v1 interlock claim withdrawn');
+select pg_temp.login(2);
+select is((select result_code from public.create_time_export(pg_temp.bid(907,123),'2010-01-04','2010-01-04',true)),'created','withdrawn break claim no longer blocks v1');
+
+-- Pending claims outside selection stay invisible; rejection alone creates no break history.
+select pg_temp.login(1);
+select is(public.change_break_correction(pg_temp.bid(907,124),'missed_break',pg_temp.bid(906,61),null,1,null,
+  '2010-01-05T12:00','','2010-01-05T12:30','','Fictieve buitenperiode')->>'result_code','submitted','outside-period break claim pending');
+select pg_temp.login(2);
+select ok(not (public.preview_time_export('2010-01-04','2010-01-04')->'blockers' ? 'pending_correction'),'outside break claim does not block v1 preview');
+select is((select result_code from public.create_time_export(pg_temp.bid(907,125),'2010-01-04','2010-01-04',true)),'created','outside break claim does not block v1 creation');
+select is(pg_temp.decide(124,124,'reject')->>'result_code','rejected','outside break claim rejected');
+select is((select result_code from public.create_time_export(pg_temp.bid(907,126),'2010-01-05','2010-01-05',true)),'created','rejected break claim with no fact permits v1');
+
+-- Approval creates permanent v1 break history; a later tombstone cannot reopen v1.
+select pg_temp.login(1);
+select is(public.change_break_correction(pg_temp.bid(907,130),'missed_break',pg_temp.bid(906,61),null,1,null,
+  '2010-01-05T13:00','','2010-01-05T13:30','','Fictieve goedkeuring')->>'result_code','submitted','new missed break submitted after rejection');
+select pg_temp.login(2);
+select is(pg_temp.decide(130,130)->>'result_code','approved','breakless entry receives approved revision');
+select is((select result_code from public.create_time_export(pg_temp.bid(907,131),'2010-01-05','2010-01-05',true)),'break_data_requires_v2','approved break history blocks v1');
+select pg_temp.login(1);
+select is(public.change_break_correction(pg_temp.bid(907,132),'removal',pg_temp.bid(906,61),
+  (select logical_break_id from public.break_correction_requests where id=pg_temp.claim(130)),1,1,null,null,null,null,'Fictieve verwijdering')->>'result_code','submitted','approved break removal submitted');
+select pg_temp.login(2);
+select is(pg_temp.decide(132,132)->>'result_code','approved','approved removal appends tombstone');
+select is((select result_code from public.create_time_export(pg_temp.bid(907,133),'2010-01-05','2010-01-05',true)),'break_data_requires_v2','tombstoned break history keeps v1 blocked');
+
 set local role authenticated;
 select pg_temp.login(1);
 select is(pg_temp.submit(1)->>'result_code','submitted','missed request');
@@ -78,14 +137,15 @@ select is(public.create_time_export_v2(pg_temp.bid(907,5),'2010-01-01','2010-01-
 select is((select manifest->>'total_gross_duration_microseconds' from public.time_exports_v2),'28800000001','exact gross');
 select is((select manifest->>'total_unpaid_break_duration_microseconds' from public.time_exports_v2),'2700000001','exact unpaid');
 select is((select manifest->>'total_net_worked_duration_microseconds' from public.time_exports_v2),'26100000000','exact net');
-select is((select count(*)::int from public.time_break_revisions),1,'one revision');
+select is((select count(*)::int from public.time_break_revisions where time_entry_id=pg_temp.bid(906,1)),1,'one revision');
 reset role;
 create temp table saved_snapshot as select * from private.time_export_v2_snapshots;
 select ok(not (select records->0 ? 'duration_microseconds' from saved_snapshot),'v2 removes ambiguous v1 duration key');
 select is((select version from private.effective_time_breaks(pg_temp.bid(906,1)) where logical_break_id=pg_temp.bid(908,1)),2,'original live initial version');
 select is((select count(*)::int from private.effective_time_breaks(pg_temp.bid(906,1)) where not removed),2,'resolver combines original and missed');
 select is((select count(*)::int from public.time_exports_v2),1,'blocked creation no metadata');
-select is((select count(*)::int from public.audit_events where action='time_export.created' and organization_id=pg_temp.bid(903,1)),1,'blocked creation no audit');
+select is((select count(*)::int from public.audit_events where action='time_export.created' and organization_id=pg_temp.bid(903,1)
+  and after_data->>'schema_version'='cloxa.time-export.v2'),1,'blocked v2 creation no audit');
 select ok(not exists(select 1 from public.audit_events where action like 'break_correction_request.%' and after_data - 'status' <> '{}'::jsonb),'request audits minimal');
 select ok(not exists(select 1 from public.audit_events where action like 'time_break_revision.%' and (after_data::text like '%Fictieve%' or before_data::text like '%Fictieve%')),'revision audits omit reason/note');
 set local role authenticated;

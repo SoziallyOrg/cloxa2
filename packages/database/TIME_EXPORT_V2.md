@@ -177,3 +177,10 @@ identity, version, parent reference and origin. Reasons/notes are excluded.
 
 New v1 exports fail closed whenever any selected entry has ever had a live break or
 revision, including a fully removed history. V1 artifacts are never regenerated as v2.
+Before any break history exists, a pending break request bound to a valid selected
+closed entry contributes to v1's existing `pending_correction` blocker and creation
+result. V1 exposes no new result code. Creation locks tenant break requests after
+entries, live breaks, and time-correction requests, then repeats authorization checks.
+Blocked outcomes remain durable and create no v1 metadata, snapshot, or audit. A
+withdrawn or rejected request alone does not block v1, and a pending request outside the
+selected Brussels-start-date period does not affect it.

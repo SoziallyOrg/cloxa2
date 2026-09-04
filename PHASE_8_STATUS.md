@@ -1,12 +1,34 @@
 # Phase 8 verification report
 
-Status: implementation and local verification complete. Dependency audit remains an
-external registry blocker after pnpm exhausted all retries. Branch remains unmerged and
-undeployed; draft review is required.
+Status: focused repair and local verification complete. Official npm registry audit
+reports no known vulnerabilities. Branch remains unmerged and undeployed; draft review
+is required.
 
 Branch: `feat/break-corrections-export-v2`. Required baseline, local `main`, and
 `origin/main` all resolved to `2220c01ab63c082e5617541313a2793203ebdda6` before work.
 Work used synthetic local data only.
+
+## Focused review repair
+
+Repair started from Phase 8 review head `4f33bc6892cc558bc566ef30af28ec5990cbdcf0`. V1
+preview and creation now treat a pending break request bound to a valid selected closed
+entry as existing `pending_correction`. V1 result keys and codes remain unchanged.
+Creation locks break requests after entries, live breaks, and time-correction requests,
+then repeats manager authorization. Blocked retries return the same durable result
+without metadata, snapshot, or audit. Withdrawal or rejection alone reopens v1
+eligibility when no break fact exists; approval and later tombstoning remain permanently
+fail-closed as `break_data_requires_v2`. Pending requests outside the selected period do
+not block it.
+
+`parseV2Creation` now requires submitted start and end dates. A `created` result is
+accepted only when both manifest dates match those claims in addition to existing
+exact-key, request UUID, schema, arithmetic, and compatibility checks. Mismatched or
+malformed results remain uncertain, preserve browser operation UUID, and do not
+revalidate export UI.
+
+Focused verification: 65 v2 model/action tests passed; focused Phase 8 pgTAP passed 225
+assertions. Relevant production export/correction journeys passed 11 with 3 expected
+project-specific skips before the complete production suite.
 
 ## Delivered behavior
 
@@ -130,22 +152,24 @@ and snapshot bytes remain identical afterward, and confirms new v1 creation retu
 ## Final sequential verification
 
 - Clean local Supabase reset: passed.
-- Complete pgTAP: 10 files, 1,255 assertions passed; 203 Phase 8 assertions included.
+- Complete pgTAP: 10 files, 1,277 assertions passed; 225 Phase 8 assertions included.
 - Database lint: passed; public/private schemas report no errors.
 - Generated database-type freshness: passed.
 - Prettier and `git diff --check`: passed.
 - ESLint: passed with zero warnings.
 - TypeScript: all three workspace projects passed.
-- Unit/integration: 42 files, 783 tests passed; zero skipped.
+- Unit/integration: 42 files, 785 tests passed; zero skipped.
 - Production build: passed; 20 application routes generated.
 - Complete production Playwright: 69 passed, 3 expected project-specific skips, zero
   failures. Phase 8 contributes six passing desktop/mobile runs.
-- Production dependency audit: external blocker. `pnpm audit --prod --audit-level high`
-  retried registry bulk-advisory request three times, then exited 1 with
-  `TimeoutError: The operation was aborted due to timeout`. Dependencies were not
-  changed and no vulnerability result is available.
-- Credential scan: passed across 41 changed files; no environment/key files, configured
-  secret values, or credential patterns found.
+- Production dependency audit at initial Phase 8 head: external blocker.
+  `pnpm audit --prod --audit-level high` retried registry bulk-advisory request three
+  times, then exited 1 with `TimeoutError: The operation was aborted due to timeout`.
+  Dependencies were not changed at that point.
+- Focused repair dependency audit: passed once against official npm registry with
+  `No known vulnerabilities found`; dependency files remained byte-identical.
+- Initial Phase 8 credential scan: passed across 41 changed files; no environment/key
+  files, configured secret values, or credential patterns found.
 - Browser-bundle scan: passed across 22 production browser bundles; no server secret
   found.
 
@@ -171,5 +195,3 @@ real personal data, merge, deployment, or VPS access is part of this phase.
 - Database owners who disable triggers remain outside application-history guarantees.
 - V2 conservative size estimate can reject fewer than 10,000 rows; actual download bytes
   are independently capped at 10 MiB.
-- Production dependency vulnerability status remains unknown until npm registry audit
-  endpoint responds successfully.

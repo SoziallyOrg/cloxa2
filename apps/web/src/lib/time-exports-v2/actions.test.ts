@@ -33,6 +33,17 @@ it("confirmed creation retires UUID and refreshes", async () => {
   expect((await exportV2Action(request)).requestId).toBe(request.request_id);
   expect(mocks.refresh).toHaveBeenCalledWith("/manager/exports-v2");
 });
+it.each([{ period_start_local: "2010-10-30" }, { period_end_local: "2010-11-01" }])(
+  "different manifest period remains uncertain %#",
+  async (period) => {
+    mocks.rpc.mockResolvedValue({
+      data: { ...result, manifest: { ...v2.manifest, ...period } },
+      error: null,
+    });
+    expect((await exportV2Action(request)).requestId).toBeUndefined();
+    expect(mocks.refresh).not.toHaveBeenCalled();
+  },
+);
 it.each([
   null,
   {},

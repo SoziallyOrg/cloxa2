@@ -47,7 +47,7 @@ export async function exportV2Action(value: unknown): Promise<V2ActionState> {
             message: "Exportvoorbeeld kon niet worden gecontroleerd. Probeer opnieuw.",
           };
     }
-    const result = parseV2Creation(data, v.request_id);
+    const result = parseV2Creation(data, v.request_id, v.start, v.end);
     if (!result)
       return {
         message: "Export niet bevestigd. Probeer opnieuw met dezelfde gegevens.",

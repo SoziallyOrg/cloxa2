@@ -247,7 +247,12 @@ export function parseV2Preview(
   }
   return v;
 }
-export function parseV2Creation(value: unknown, requestId: string) {
+export function parseV2Creation(
+  value: unknown,
+  requestId: string,
+  start: string,
+  end: string,
+) {
   const p = z
     .object({
       request_id: uuid,
@@ -260,7 +265,11 @@ export function parseV2Creation(value: unknown, requestId: string) {
   if (!p.success || p.data.request_id !== requestId) return null;
   const r = p.data;
   return r.result_code === "created"
-    ? r.did_create && r.manifest && parseV2Manifest(r.manifest)
+    ? r.did_create &&
+      r.manifest &&
+      r.manifest.period_start_local === start &&
+      r.manifest.period_end_local === end &&
+      parseV2Manifest(r.manifest)
       ? r
       : null
     : !r.did_create && r.manifest === null

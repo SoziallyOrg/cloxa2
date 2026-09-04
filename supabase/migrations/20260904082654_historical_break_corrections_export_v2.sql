@@ -1134,6 +1134,20 @@ begin
         ))
         or (request.proposed_started_at < utc_end and request.proposed_ended_at > utc_start)
       )
+  ) or exists (
+    select 1
+    from public.break_correction_requests as request
+    join public.time_entries as entry on entry.id = request.time_entry_id
+      and entry.organization_id = request.organization_id
+      and entry.membership_id = request.employee_membership_id
+      and entry.worksite_id = request.worksite_id
+    where request.organization_id = target_organization_id
+      and request.worksite_id = target_worksite_id
+      and request.status = 'pending'
+      and entry.ended_at is not null
+      and entry.ended_at > entry.started_at
+      and pg_catalog.isfinite(entry.started_at) and pg_catalog.isfinite(entry.ended_at)
+      and entry.started_at >= utc_start and entry.started_at < utc_end
   ) into has_pending;
 
   select coalesce(pg_catalog.jsonb_agg(code order by ordinal), '[]'::jsonb)
@@ -1308,6 +1322,10 @@ begin
   where correction.organization_id = target_organization_id
     and correction.worksite_id = target_worksite_id
   order by correction.id for share;
+  perform request.id from public.break_correction_requests as request
+  where request.organization_id = target_organization_id
+    and request.worksite_id = target_worksite_id
+  order by request.id for share;
   if private.manager_review_organization() is distinct from target_organization_id then
     raise exception using errcode = '42501', message = 'Export kan niet worden bevestigd.';
   end if;
@@ -1334,23 +1352,39 @@ begin
       and entry.ended_at is null and entry.started_at < utc_end
    ),
     exists (
-    select 1 from public.correction_requests as request
-    where request.organization_id = target_organization_id
-      and request.worksite_id = target_worksite_id and request.status = 'pending'
-      and (
-        (request.target_time_entry_id is not null and exists (
-          select 1 from public.time_entries as entry
-          where entry.id = request.target_time_entry_id
-            and entry.organization_id = target_organization_id
-            and entry.worksite_id = target_worksite_id
-            and entry.ended_at is not null
-            and entry.ended_at > entry.started_at
-            and pg_catalog.isfinite(entry.started_at) and pg_catalog.isfinite(entry.ended_at)
-            and entry.started_at >= utc_start and entry.started_at < utc_end
-        ))
-        or (request.proposed_started_at < utc_end and request.proposed_ended_at > utc_start)
-      )
-   ),
+      select 1 from public.correction_requests as request
+      where request.organization_id = target_organization_id
+        and request.worksite_id = target_worksite_id and request.status = 'pending'
+        and (
+          (request.target_time_entry_id is not null and exists (
+            select 1 from public.time_entries as entry
+            where entry.id = request.target_time_entry_id
+              and entry.organization_id = target_organization_id
+              and entry.worksite_id = target_worksite_id
+              and entry.ended_at is not null
+              and entry.ended_at > entry.started_at
+              and pg_catalog.isfinite(entry.started_at) and pg_catalog.isfinite(entry.ended_at)
+              and entry.started_at >= utc_start and entry.started_at < utc_end
+          ))
+          or (request.proposed_started_at < utc_end and request.proposed_ended_at > utc_start)
+        )
+    ) or exists (
+      select 1
+      from public.break_correction_requests as request
+      join public.time_entries as selected_entry on selected_entry.id = request.time_entry_id
+        and selected_entry.organization_id = request.organization_id
+        and selected_entry.membership_id = request.employee_membership_id
+        and selected_entry.worksite_id = request.worksite_id
+      where request.organization_id = target_organization_id
+        and request.worksite_id = target_worksite_id
+        and request.status = 'pending'
+        and selected_entry.ended_at is not null
+        and selected_entry.ended_at > selected_entry.started_at
+        and pg_catalog.isfinite(selected_entry.started_at)
+        and pg_catalog.isfinite(selected_entry.ended_at)
+        and selected_entry.started_at >= utc_start
+        and selected_entry.started_at < utc_end
+    ),
     case when pg_catalog.count(*) <= 10000 and coalesce(pg_catalog.sum(
       2048 + 6 * (
         pg_catalog.octet_length(coalesce(membership.employee_code, ''))

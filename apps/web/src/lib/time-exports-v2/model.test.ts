@@ -47,27 +47,41 @@ it.each(Object.keys(v2.manifest))("requires manifest key %s", (key) => {
   expect(parseV2Snapshot({ ...data, request_id: id }, id)).toBeNull();
 });
 it("creation strict compatibility and correlation", () => {
+  const parse = (value: unknown) =>
+    parseV2Creation(
+      value,
+      id,
+      v2.manifest.period_start_local,
+      v2.manifest.period_end_local,
+    );
   const result = {
     request_id: id,
     result_code: "created",
     did_create: true,
     manifest: v2.manifest,
   };
-  expect(parseV2Creation(result, id)).not.toBeNull();
-  expect(parseV2Creation({ ...result, did_create: false }, id)).toBeNull();
+  expect(parse(result)).not.toBeNull();
+  expect(parse({ ...result, did_create: false })).toBeNull();
+  expect(parse({ ...result, result_code: "pending_break_correction" })).toBeNull();
   expect(
-    parseV2Creation({ ...result, result_code: "pending_break_correction" }, id),
+    parse({
+      ...result,
+      manifest: { ...v2.manifest, period_start_local: "2010-10-30" },
+    }),
   ).toBeNull();
   expect(
-    parseV2Creation(
-      {
-        ...result,
-        result_code: "pending_break_correction",
-        did_create: false,
-        manifest: null,
-      },
-      id,
-    ),
+    parse({
+      ...result,
+      manifest: { ...v2.manifest, period_end_local: "2010-11-01" },
+    }),
+  ).toBeNull();
+  expect(
+    parse({
+      ...result,
+      result_code: "pending_break_correction",
+      did_create: false,
+      manifest: null,
+    }),
   ).not.toBeNull();
 });
 it("history denies duplicate exports", () => {
