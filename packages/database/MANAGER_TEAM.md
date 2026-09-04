@@ -109,6 +109,16 @@ history. Existing admission lock coordinates invitation acceptance and reactivat
 already-active no-op creates no access; existing role resolution still rejects ambiguous
 active contexts. Safety never depends on best-effort session revocation.
 
+Existing pending time and break corrections remain approvable or rejectable for the old
+tenant's authorized manager while employee membership stays suspended. Active targets
+still require exactly one active membership. A suspended historical target may have
+another active membership elsewhere without blocking review of its old tenant's request.
+Review never reactivates membership, changes identity/role/tenant, or creates or revokes
+Auth sessions. Suspended employees still cannot read old-tenant rows, submit or withdraw
+requests. Invited/inactive targets remain unavailable for approval; existing rejection
+of unavailable claims is unchanged. Stale/version, interval, overlap, break-containment,
+replay, locking, audit and manager authorization checks still apply.
+
 ### `update_pilot_settings(request_id uuid, organization_name text, worksite_name text)`
 
 Both names update in one transaction. Exact response keys:

@@ -1,5 +1,106 @@
 # Phase 9 verification report
 
+## Focused suspended-correction repair
+
+Starting branch `feat/manager-team-administration`, HEAD
+`65991ea4e18eb4d040773d7794d01df1ec9f97f4`, clean tree, unchanged main/base
+`4c368bbad711d5628269f84a6fcb343ba2f55b98` and open draft PR #9 verified before edits.
+
+Additive migration `20260904132424_suspended_correction_review.sql` replaces only
+`private.decide_correction_request` and `private.decide_break_correction`. Approval
+accepts tenant-bound active/suspended employee targets. Active targets retain exactly
+one active membership; suspended historical targets may have another active membership
+elsewhere. Existing rejection behavior stays unchanged. No reactivation, membership/
+Auth/session mutation, public signature/wrapper/grant/RLS/result-code change, or earlier
+migration edit. Employee old-tenant reads/submissions/withdrawals remain denied.
+
+Targeted production workflow tests: 4 passed (33.5 seconds), both correction families on
+desktop and exact 320px. Real employee submission, manager suspension, manager-page
+approval, terminal status, factual/revision application, minimal audit and continued
+employee route/clock/organization denial were checked. Full membership row stays equal
+before/after approval. No production application changes were needed.
+
+First targeted run had 2 passes and 2 failures: a new test incorrectly used service-role
+SELECT on protected break-history tables, and one worker failed local CLI lookup before
+test body. Test inspection now uses existing authenticated manager read grants; no grant
+was widened. An ignored, credential-redacting observer recorded successful overlapping
+worker CLI discovery on corrected targeted run. Original underlying lookup error was
+discarded by existing helper; cause remains unconfirmed. No retries, sleeps, skips,
+suite serialization or committed harness instrumentation were added. Failed worker:
+desktop break case in `suspended-correction-review.spec.mts`, reported test duration 0
+ms (failure before test body, not measured CLI duration). Discovery command:
+`node node_modules/supabase/dist/supabase.js status --output json`. Complete retained
+helper error: `Local Supabase is unavailable. Start Docker and pnpm supabase:start.` The
+discarded provider stderr cannot be reconstructed.
+
+Independent static review confirmed exactly two private replacements; only approval
+availability predicates differ from Phase 8 bodies. Public contracts, grants, locking,
+authorization, factual safeguards, replay and audits remain unchanged.
+
+Targeted pgTAP passed 153 assertions. Tests cover both decision families, exact replay
+and payload binding, other-active-tenant isolation, active ambiguity, denied historical
+tenant access, unchanged membership/Auth/session rows, minimal audit payloads and
+rollback after audit insertion failure. Invited/inactive approvals remain unavailable;
+existing rejection behavior for unavailable claims stays unchanged.
+
+The first unit run used filesystem sandboxing: 921 tests passed and five local-stack
+checks could not start. An isolated diagnostic captured CLI exit 1 after
+`FileSystem.writeFile` failed with `EPERM` on its local telemetry temporary file (442 ms
+isolated probe). The same unit gate passed with local filesystem permission: 44 files,
+926 tests. This explains that unit-run failure, not the earlier browser lookup failure.
+The repository helper still contains provider errors; diagnostic output stays ignored.
+
+Repair inventory (six files):
+
+- `supabase/migrations/20260904132424_suspended_correction_review.sql`
+- `supabase/tests/suspended_correction_review.test.sql`
+- `apps/web/e2e/suspended-correction-review.spec.mts`
+- `packages/database/MANAGER_TEAM.md`
+- `packages/database/README.md`
+- `PHASE_9_STATUS.md`
+
+All 30 unrelated baseline paths remain HEAD-identical, unstaged and LF in the index and
+working tree. Repository-local `core.autocrlf=false` remains uncommitted; global Git
+settings, `.gitattributes`, Prettier, dependencies, lockfile, earlier migrations,
+generated types, `next-env.d.ts` and test harness have no repair diff. Build-generated
+`next-env.d.ts` path drift was restored to its original content.
+
+### Repair verification gates
+
+| Gate                                    | Result                                                                   |
+| --------------------------------------- | ------------------------------------------------------------------------ |
+| 1. Clean local Supabase reset           | Passed; additive repair migration applied                                |
+| 2. Complete pgTAP                       | 12 files, 1,649 assertions passed; includes 153 new assertions           |
+| 3. Database lint                        | Public/private schemas: zero errors                                      |
+| 4. Generated types                      | Regenerated; freshness check passed; zero tracked changes                |
+| 5. Formatting and diff                  | Passed; only new status prose needed formatting; no baseline changes     |
+| 6. ESLint                               | Passed with zero warnings                                                |
+| 7. TypeScript                           | All three workspaces passed                                              |
+| 8. Unit/integration                     | 44 files, 926 tests passed after local filesystem permission correction  |
+| 9. Production build                     | Passed; 21 page-generation tasks completed                               |
+| 10. Focused production journeys         | 32 passed, zero skips/failures (1.4 minutes)                             |
+| 11. Complete production browser suite   | One run: 83 passed, 3 existing skips, zero failures (2.3 minutes)        |
+| 12. Production dependency audit         | One official npm registry request; no known vulnerabilities              |
+| 13. Credential and browser-secret scans | Six repair files: zero findings; 24 production bundles: no server secret |
+
+Focused journeys cover manager team, manager time corrections, break corrections and the
+new suspended-review spec. Complete suite discovers 86 cases: original 82 plus four new
+desktop/mobile cases. Three existing export viewport skips remain unchanged: desktop
+skips the mobile-only focus journey; mobile skips the two desktop export
+concurrency/expiry journeys. Both final production runs had no CLI lookup failure. Tests
+kept two workers, zero retries and unchanged assertions in all older specs.
+
+Decisions preserve employee suspension and old-tenant access denial throughout review.
+Existing export capture/serialization logic and stored v1/v2 snapshot, hash, CSV and
+JSON bytes remain unchanged; future exports can include approved corrections through
+existing fact/revision rules. No new dependencies, production application changes, RLS
+changes, hosted access, deployment or merge. Existing draft PR #9 remains the review
+target.
+
+Original Phase 9 delivery evidence follows unchanged.
+
+## Original Phase 9 delivery
+
 Status: all final gates passed; prepared for draft PR review. No merge, deployment,
 hosted Supabase or VPS access. Synthetic local data only.
 

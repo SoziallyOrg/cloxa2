@@ -251,9 +251,14 @@ with empty search paths and authenticated-only execution grants. The manager hel
 checks effective authenticated role, Auth identity, verified email, ban/deletion,
 matching live session, optional JWT expiry, exactly one active membership, manager role,
 and active organization. It uses current database clock time and runs again after waits.
-Employee target membership must still be active, unambiguous, in the same tenant, and
-associated with the sole worksite before approval. Employee direct factual reads now
-share the same exactly-one-membership boundary as employee correction reads.
+Employee target membership must be active or suspended, in the same tenant, and
+associated with the sole worksite before approval. Active targets still require exactly
+one active membership. Suspended historical targets remain reviewable even with another
+active membership elsewhere; decisions never reactivate old-tenant access or alter
+membership/Auth state. Invited/inactive targets remain unavailable for approval.
+Employee direct factual reads and submissions/withdrawals retain their active,
+exactly-one-membership boundary. Phase 9 repair replaces only the two private decision
+implementations; public wrappers, grants, result shapes and codes stay unchanged.
 
 Lock order: manager Auth rows; read immutable request references without row locks;
 global decision UUID advisory lock (`17041`); target employee's existing advisory lock
