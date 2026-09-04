@@ -1,4 +1,5 @@
 import { FileDown } from "lucide-react";
+import Link from "next/link";
 import type { Metadata } from "next";
 import { ManagerExportPanel } from "@/components/manager-export-panel";
 import { RoleShell } from "@/components/role-shell";
@@ -18,6 +19,15 @@ export default async function ManagerExportsPage() {
       icon={FileDown}
       status={nlBE.manager.status}
     >
+      <p className="mt-5">
+        <Link
+          className="text-primary underline underline-offset-4"
+          href="/manager/exports-v2"
+        >
+          Export met pauzes (v2)
+        </Link>{" "}
+        — V1 blijft beschikbaar voor werkperiodes zonder pauzehistoriek.
+      </p>
       <ManagerExportPanel history={history} />
     </RoleShell>
   );

@@ -23,7 +23,7 @@ const keys = [
 ] as const;
 
 // Reject calendar normalization, loose Date.parse inputs, and sub-microsecond precision.
-function timestamp(value: unknown): value is string {
+export function timestamp(value: unknown): value is string {
   if (typeof value !== "string") return false;
   const match =
     /^(\d{4})-(\d{2})-(\d{2})T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d{1,6})?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/u.exec(

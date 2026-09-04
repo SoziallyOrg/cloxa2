@@ -558,6 +558,65 @@ Paper preview, explicit confirmation, then unboxed snapshot history separated by
   manager access. Keep empty history distinct from failed history loading. Copy
   describes factual exports, never payroll calculations or compliance approval.
 
+### Historical Break Corrections
+
+Historical break correction stays inside the ruled role dossier as one linear employee
+or manager workflow. A cobalt underlined return link leads the panel; shared status
+feedback follows it and receives focus when an operation returns a message. Loading
+failure uses an alert, while empty facts and empty request history use plain copy.
+
+- **Employee facts:** choose one closed work period, then show its current parent
+  version, Brussels interval, exact Bruto / Onbetaalde pauzes / Netto gewerkt totals,
+  and every break version inside a flat section bounded by Hairline Rules. Totals use a
+  one-column definition list below 640px and three equal columns from 640px. Removed
+  breaks explicitly say that they no longer count while earlier versions remain.
+- **Request form:** one select chooses missed, adjustment, or removal intent. Adjustment
+  and removal add a current-break selector; missed and adjustment requests show paired
+  start/end fields from 640px. Wall-time fields accept `dd/mm/jjjj uu:mm`, optional
+  seconds through six fractional digits, and separate first/second occurrence selects
+  for repeated winter time. Removal hides time fields. Every request requires a reason
+  of at most 500 characters.
+- **History:** requests remain unboxed rows separated by Hairline Rules. Each row keeps
+  submitted parent version, work period, original break snapshot, proposal, reason,
+  decision note, applied revision identifier, and decision time readable with wrapping
+  text. Employee pending rows expose a secondary withdrawal action.
+- **Manager review:** show employee identity plus current parent and current break facts
+  between rules before the proposal. Pending review is an inline fieldset with decision
+  select, required rejection note or optional approval note, mandatory factual
+  confirmation checkbox, and one submit action. A stale request shows Correction Red
+  copy and disables approval while still allowing rejection.
+- **Pending / recovery:** disabling the fieldset prevents competing edits. Repeated
+  submissions reuse the payload-specific request identifier until a matching response
+  returns. Status feedback stays outside request rows so a completed transition cannot
+  remove its focus target.
+
+### Break-Aware Export V2
+
+Export v2 uses the same flat paper fields and ruled records. Navigation keeps both the
+manager workspace and v1 export visible; nearby muted copy explains that any historical
+break fact, including a removed break, prevents a new v1 export.
+
+- **Period:** two required native date fields represent an inclusive Brussels period of
+  1–31 days through today. They share a two-column grid from 640px. Changing either date
+  clears prior feedback, and the filled cobalt action loads a fresh preview.
+- **Preview:** a flat section bounded by Hairline Rules shows record count, employee
+  count, and selected dates. Correction Red lists blockers; muted copy reports missing
+  employee names or codes. A native disclosure reveals each source version, Brussels
+  interval, exact Bruto / Pauzes / Netto gewerkt totals, and every effective break
+  version in ruled, wrapping rows.
+- **Confirmation:** confirmation remains inline beneath disclosed facts. A checkbox
+  states that factual versions will be fixed and rechecked; the cobalt confirmation
+  action is disabled while blockers exist. Creation also requires a preview whose dates
+  still match the fields and the checked confirmation. These failures return focused
+  status copy instead of opening another surface.
+- **Ready / history:** a successful manifest exposes secondary CSV and JSON download
+  actions. History remains an unboxed ruled list with inclusive period, Brussels
+  creation time, record count, exact gross/break/net totals, and a native
+  dataset-control disclosure whose SHA-256 value may break anywhere. Empty history and
+  failed loading remain distinct states.
+- **Pending / recovery:** the enclosing fieldset disables during preview or creation.
+  Uncertain responses keep the same payload-specific request identifier for retry.
+
 ### Status State
 
 Loading, error, not-found, and unauthorized states share a centered paper panel with

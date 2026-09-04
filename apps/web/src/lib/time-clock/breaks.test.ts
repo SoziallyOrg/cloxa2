@@ -36,13 +36,16 @@ describe("live break facts", () => {
   it.each([
     undefined,
     {},
-    [{ ...pause, version: 1 }],
+    [{ ...pause, version: 0 }],
     [{ ...pause, ended_at: pause.started_at }],
     [{ ...pause, started_at: "infinity" }],
     [pause, pause],
     [pause, { ...pause, id: "20000000-0000-4000-8000-000000000001" }],
   ])("rejects missing, invalid, duplicate or overlapping break facts %#", (value) => {
     expect(parseBreaks(value)).toBeNull();
+  });
+  it.each([1, 3, 4])("reads effective revision version %s", (version) => {
+    expect(parseBreaks([{ ...pause, version }])?.[0]?.version).toBe(version);
   });
   it("requires break state to match contained open fact", () => {
     const view = {

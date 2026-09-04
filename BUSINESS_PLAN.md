@@ -46,6 +46,11 @@ Complete these in order. None authorises real employee data, customer outreach b
 
 ### Product facts
 
+- Phase 8 adds historical unpaid-break requests, manager review, append-only revisions
+  and break-aware v2 factual snapshots in local source. Gate evidence and remaining
+  limits are recorded in `PHASE_8_STATUS.md`; this does not authorize hosted use,
+  real employee data, payroll acceptance or commercial claims.
+
 - Local synthetic testing covers login, clock-in/out, manual records, correction requests, manager approval, CSV/JSON exports, tenant isolation, record-chain verification, employee blocking, and session revocation.
 - Local database and browser gates pass, including 212 database assertions, five concurrency tests, a 50-writer load check, a 17-check synthetic restore drill, local password recovery, and the critical browser journey.
 - Current manual records can contain breaks. The live clock-out journey does not yet capture break start and end events.

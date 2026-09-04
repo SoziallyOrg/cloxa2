@@ -56,15 +56,18 @@ authorized later, run beside the customer’s existing official process.
   durations preserve exact microseconds; open intervals have no invented end.
 - Adjustment submission and approval must contain every recorded break. Conflicting
   approval stays pending and does not modify facts or append approval audits.
-- New v1 exports intentionally block break-bearing facts until a separately reviewed v2.
+- Break-aware v2 exports capture exact gross, unpaid-break and net-worked durations. New
+  v1 exports block every selected entry with any live-break or revision history.
   Existing v1 snapshots keep their original bytes, hashes, and download authorization.
 - Breaks are factual unpaid intervals, not statutory-rest or payroll calculations.
-  Manual historical breaks and break correction requests remain unimplemented.
+  Historical missed-break, adjustment and removal requests require manager review.
+  Approval appends a version or tombstone; original live facts and prior versions
+  remain.
 - Public signup and automatic billing remain disabled.
-- No historical break creation, break corrections, direct manual factual entries,
-  scheduled exports, delivery integration, payroll calculations, billing, realtime,
-  native app, ORM, Redux, Redis, queues, storage, analytics, microservices, or offline
-  service worker.
+- Historical break inputs use Brussels wall times and explicit DST occurrences.
+- No direct manual factual entries, scheduled exports, delivery integration, payroll
+  calculations, billing, realtime, native app, ORM, Redux, Redis, queues, storage,
+  analytics, microservices, or offline service worker.
 - Hosted Supabase access, real employee data, customer outreach, spending, and
   deployment are out of scope.
 - One organization and one worksite remain explicit pilot constraints.

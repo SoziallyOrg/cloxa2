@@ -109,3 +109,17 @@ These descriptions identify authored coverage, not executed results. Run the com
 README gate sequence on a working local Docker Linux engine. No hosted fallback, real
 employee data, payroll/statutory-rest assumptions, or production-readiness claim
 applies.
+
+`break_corrections_export_v2.test.sql` covers all claim kinds, withdrawal, approval,
+rejection and durable replay; original/revision/tombstone resolution; stale parent ABA;
+containment, overlap and permitted touching; Brussels DST gaps/occurrences; RLS and role
+denial; mutation/TRUNCATE guards; approval-audit and snapshot fault rollback; v1
+blocking after removal; exact v2 arithmetic, canonical hash, immutable snapshots, row
+and byte bounds. Fixtures roll back. Production `break-corrections-v2.spec.mts` adds
+separate-session decision, shift-correction, clock/export races and expiry after
+advisory waits, plus desktop/320px journeys and authenticated artifact checks.
+
+New browser fixtures explicitly clean their synthetic tenant and Auth accounts. Local
+teardown uses connection-scoped trigger bypass to remove circular protected fixture
+history; it is never used to authorize or execute application operations. Existing
+full-suite fixtures are discarded by local resets as documented in earlier phases.

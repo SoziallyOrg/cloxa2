@@ -21,7 +21,13 @@ export default async function ManagerPage() {
       status={nlBE.manager.status}
       title={nlBE.manager.title}
     >
-      <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+      <div className="mt-6 flex flex-col flex-wrap gap-3 sm:flex-row">
+        <Button asChild variant="secondary">
+          <Link href="/manager/break-corrections">Pauzeaanvragen beoordelen</Link>
+        </Button>
+        <Button asChild variant="secondary">
+          <Link href="/manager/exports-v2">Export met pauzes (v2)</Link>
+        </Button>
         <Button asChild className="w-full sm:w-auto">
           <Link href="/manager/corrections">{nlBE.managerCorrections.title}</Link>
         </Button>
