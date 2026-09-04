@@ -38,7 +38,7 @@ export function TimeClockPanel({ clock }: { clock: TimeClockView | null }) {
   const operation = working ? "clock_out" : "clock_in";
 
   useEffect(() => {
-    if (requestIdInput.current) {
+    if (requestIdInput.current && (state.requestId || !requestIdInput.current.value)) {
       requestIdInput.current.value = crypto.randomUUID();
     }
   }, [operation, onBreak, state.requestId]);

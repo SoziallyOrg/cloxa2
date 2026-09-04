@@ -102,6 +102,12 @@ export const nlBE = {
     end: "Beëindig pauze",
     started: "Pauze gestart.",
     ended: "Pauze beëindigd.",
+    blockers: {
+      no_open_shift: "Je hebt geen open werkregistratie. Je overzicht is bijgewerkt.",
+      already_on_break: "Je was al met pauze. Je overzicht is bijgewerkt.",
+      no_open_break: "Je hebt geen open pauze. Je overzicht is bijgewerkt.",
+      invalid_interval: "Dit pauzetijdstip kan niet worden verwerkt. Probeer opnieuw.",
+    },
     interlock: "Beëindig eerst je pauze om het werk te stoppen.",
     failure: "Pauze kon niet worden verwerkt. Vernieuw de pagina en probeer opnieuw.",
     summary: "Onbetaalde pauzes",

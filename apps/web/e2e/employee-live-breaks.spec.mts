@@ -151,6 +151,64 @@ test.beforeEach(async ({ context }) => {
   await protect(context);
 });
 
+test("stale tabs recover from confirmed break blockers without reload", async ({
+  context,
+  page,
+}) => {
+  const fixture = await team();
+  await login(page, fixture.employee.email, "employee");
+  await page.getByRole("button", { name: "Start werk", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Start pauze", exact: true }),
+  ).toBeVisible();
+  const stale = await context.newPage();
+  await stale.goto("/employee");
+  await page.getByRole("button", { name: "Start pauze", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Je bent met pauze" })).toBeVisible();
+  await stale.getByRole("button", { name: "Start pauze", exact: true }).click();
+  await expect(stale.getByRole("heading", { name: "Je bent met pauze" })).toBeVisible();
+  await expect(
+    stale.getByText("Je was al met pauze. Je overzicht is bijgewerkt."),
+  ).toBeFocused();
+  const employeeId = assertLocalUuid(fixture.employee.membershipId);
+  const blockedStart = ownerSql(
+    `select request_id from private.time_break_operations where employee_membership_id='${employeeId}' and result->>'result_code'='already_on_break'`,
+  );
+  expect(blockedStart).toMatch(/^[0-9a-f-]{36}$/u);
+  await expect(stale.locator('input[name="request_id"]')).not.toHaveValue(blockedStart);
+
+  await page.getByRole("button", { name: "Beëindig pauze", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Je bent aan het werk" }),
+  ).toBeVisible();
+  await stale.getByRole("button", { name: "Beëindig pauze", exact: true }).click();
+  await expect(
+    stale.getByRole("heading", { name: "Je bent aan het werk" }),
+  ).toBeVisible();
+  await expect(
+    stale.getByText("Je hebt geen open pauze. Je overzicht is bijgewerkt."),
+  ).toBeFocused();
+  const blockedEnd = ownerSql(
+    `select request_id from private.time_break_operations where employee_membership_id='${employeeId}' and result->>'result_code'='no_open_break'`,
+  );
+  expect(blockedEnd).toMatch(/^[0-9a-f-]{36}$/u);
+  await expect(stale.locator('input[name="request_id"]')).not.toHaveValue(blockedEnd);
+  await stale.getByRole("button", { name: "Start pauze", exact: true }).click();
+  await expect(stale.getByRole("status")).toHaveText("Pauze gestart.");
+  await expect(stale.getByRole("heading", { name: "Je bent met pauze" })).toBeVisible();
+  expect(
+    ownerSql(
+      `select count(*) from private.time_break_operations where employee_membership_id='${employeeId}' and result->>'result_code'='started' and request_id not in ('${blockedStart}','${blockedEnd}')`,
+    ),
+  ).toBe("2");
+  await stale.getByRole("button", { name: "Beëindig pauze", exact: true }).click();
+  await expect(stale.getByRole("status")).toHaveText("Pauze beëindigd.");
+  await stale.getByRole("button", { name: "Stop werk", exact: true }).click();
+  await expect(
+    stale.getByRole("heading", { name: "Je bent niet aan het werk" }),
+  ).toBeVisible();
+});
+
 test("live pauze met twee tabs, toetsenbord en exacte 320px", async ({
   context,
   page,

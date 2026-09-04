@@ -5,6 +5,7 @@ import { nlBE } from "@/i18n/nl-BE";
 import { getAuthContext } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { isRequestId, type TimeClockActionState } from "./model";
+import { parseBreakResponse } from "./break-response";
 
 export async function submitBreakAction(
   _previous: TimeClockActionState,
@@ -31,14 +32,18 @@ export async function submitBreakAction(
     const context = await getAuthContext(supabase);
     if (context.state !== "authorized" || context.role !== "employee") return fail();
     const { data, error } = await supabase.rpc(operation, { request_id: id });
-    if (error || !data || typeof data !== "object" || Array.isArray(data))
-      return fail();
+    if (error) return fail();
+    const result = parseBreakResponse(data, id, operation);
+    if (!result) return fail();
     revalidatePath("/employee");
-    if (
-      data.did_transition !== true ||
-      data.result_code !== (operation === "start_break" ? "started" : "ended")
-    )
-      return fail();
+    if (!result.didTransition) {
+      return {
+        status: "error",
+        message:
+          nlBE.breaks.blockers[result.resultCode as keyof typeof nlBE.breaks.blockers],
+        requestId: id,
+      };
+    }
     return {
       status: "success",
       message: operation === "start_break" ? nlBE.breaks.started : nlBE.breaks.ended,

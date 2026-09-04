@@ -151,7 +151,8 @@ begin
     if prior.employee_membership_id <> employee_id or prior.operation <> intent or prior.payload_hash <> operation_hash then
       raise exception using errcode = '22023', message = 'break_request_id_reused';
     end if;
-    return prior.result;
+    -- Preserve existing immutable outcomes while supplying the public correlation UUID.
+    return prior.result || jsonb_build_object('request_id', client_request_id);
   end if;
   select * into fact from public.time_entries where membership_id = employee_id and ended_at is null for update;
   perform b.id from public.time_breaks b where b.employee_membership_id = employee_id order by b.id for update;
@@ -173,7 +174,7 @@ begin
     update public.time_breaks set ended_at = instant where id = pause.id returning * into pause;
     outcome := 'ended';
   end if;
-  result := jsonb_build_object('result_code', outcome, 'did_transition', outcome in ('started', 'ended'),
+  result := jsonb_build_object('request_id', client_request_id, 'result_code', outcome, 'did_transition', outcome in ('started', 'ended'),
     'break_id', pause.id, 'time_entry_id', fact.id, 'started_at', pause.started_at,
     'ended_at', pause.ended_at, 'version', pause.version);
   if outcome in ('started', 'ended') then

@@ -52,6 +52,9 @@ select throws_ok($$select public.end_break(pg_temp.bid(807,3))$$,'22023','break_
 select is((select result_code from public.clock_out(pg_temp.bid(807,5))),'open_break','clock out refuses open break');
 select is(public.end_break(pg_temp.bid(807,6))->>'result_code','ended','end break');
 select is(public.end_break(pg_temp.bid(807,6))->>'result_code','ended','end replay');
+select is(public.start_break(pg_temp.bid(807,3)), public.start_break(pg_temp.bid(807,3)), 'complete start result replays identically');
+select is(public.end_break(pg_temp.bid(807,6)), public.end_break(pg_temp.bid(807,6)), 'complete end result replays identically');
+select is(public.start_break(pg_temp.bid(807,4))->>'request_id', pg_temp.bid(807,4)::text, 'blocker replay echoes submitted UUID');
 select is((select result_code from public.clock_out(pg_temp.bid(807,5))),'open_break','clock blocker stays durable after break ends');
 select is((select result_code from public.clock_out(pg_temp.bid(807,7))),'stopped','new clock operation stops');
 select is(public.start_break(pg_temp.bid(807,8))->>'result_code','no_open_shift','cannot start after clock out');
@@ -71,6 +74,10 @@ select throws_ok($$select public.start_break(pg_temp.bid(807,20))$$,'42501','Pau
 reset role;
 select is((select count(*)::int from public.audit_events where action like 'time_break.%'),2,'exactly one start and end audit');
 select is((select count(*)::int from private.time_break_operations),5,'durable success and safe blocker outcomes once');
+select ok(not exists(select 1 from private.time_break_operations where result->>'request_id' is distinct from request_id::text), 'every persisted result contains matching request UUID');
+select ok(not exists(select 1 from private.time_break_operations where
+  (select array_agg(k order by k) from jsonb_object_keys(result) k) is distinct from
+  array['break_id','did_transition','ended_at','request_id','result_code','started_at','time_entry_id','version']::text[]), 'persisted response has exact public keys');
 select ok(not exists(select 1 from public.audit_events where action like 'time_break.%'
   and (after_data - array['break_id','time_entry_id','status','started_at','ended_at','version']) <> '{}'::jsonb),'audit contains only factual fields');
 select throws_ok($$update public.time_breaks set started_at=started_at-interval '1 minute'$$,'55000','time_break_history_required','closed break immutable');
