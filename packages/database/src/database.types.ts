@@ -48,6 +48,124 @@ export type Database = {
           },
         ];
       };
+      break_correction_requests: {
+        Row: {
+          applied_revision_id: string | null;
+          created_at: string;
+          decided_at: string | null;
+          decided_by_membership_id: string | null;
+          employee_membership_id: string;
+          employee_reason: string;
+          id: string;
+          logical_break_id: string;
+          manager_note: string | null;
+          organization_id: string;
+          original_snapshot: Json | null;
+          parent_ended_at: string;
+          parent_started_at: string;
+          parent_version: number;
+          proposed_ended_at: string | null;
+          proposed_started_at: string | null;
+          request_kind: string;
+          status: string;
+          submission_request_id: string;
+          time_entry_id: string;
+          worksite_id: string;
+        };
+        Insert: {
+          applied_revision_id?: string | null;
+          created_at?: string;
+          decided_at?: string | null;
+          decided_by_membership_id?: string | null;
+          employee_membership_id: string;
+          employee_reason: string;
+          id?: string;
+          logical_break_id: string;
+          manager_note?: string | null;
+          organization_id: string;
+          original_snapshot?: Json | null;
+          parent_ended_at: string;
+          parent_started_at: string;
+          parent_version: number;
+          proposed_ended_at?: string | null;
+          proposed_started_at?: string | null;
+          request_kind: string;
+          status?: string;
+          submission_request_id: string;
+          time_entry_id: string;
+          worksite_id: string;
+        };
+        Update: {
+          applied_revision_id?: string | null;
+          created_at?: string;
+          decided_at?: string | null;
+          decided_by_membership_id?: string | null;
+          employee_membership_id?: string;
+          employee_reason?: string;
+          id?: string;
+          logical_break_id?: string;
+          manager_note?: string | null;
+          organization_id?: string;
+          original_snapshot?: Json | null;
+          parent_ended_at?: string;
+          parent_started_at?: string;
+          parent_version?: number;
+          proposed_ended_at?: string | null;
+          proposed_started_at?: string | null;
+          request_kind?: string;
+          status?: string;
+          submission_request_id?: string;
+          time_entry_id?: string;
+          worksite_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "break_correction_requests_organization_id_decided_by_membe_fkey";
+            columns: ["organization_id", "decided_by_membership_id"];
+            isOneToOne: false;
+            referencedRelation: "memberships";
+            referencedColumns: ["organization_id", "id"];
+          },
+          {
+            foreignKeyName: "break_correction_requests_organization_id_employee_member_fkey1";
+            columns: [
+              "organization_id",
+              "employee_membership_id",
+              "worksite_id",
+              "time_entry_id",
+              "logical_break_id",
+              "applied_revision_id",
+            ];
+            isOneToOne: false;
+            referencedRelation: "time_break_revisions";
+            referencedColumns: [
+              "organization_id",
+              "employee_membership_id",
+              "worksite_id",
+              "time_entry_id",
+              "logical_break_id",
+              "id",
+            ];
+          },
+          {
+            foreignKeyName: "break_correction_requests_organization_id_employee_members_fkey";
+            columns: [
+              "organization_id",
+              "employee_membership_id",
+              "worksite_id",
+              "time_entry_id",
+            ];
+            isOneToOne: false;
+            referencedRelation: "time_entries";
+            referencedColumns: [
+              "organization_id",
+              "membership_id",
+              "worksite_id",
+              "id",
+            ];
+          },
+        ];
+      };
       correction_requests: {
         Row: {
           applied_time_entry_id: string | null;
@@ -327,6 +445,79 @@ export type Database = {
         };
         Relationships: [];
       };
+      time_break_revisions: {
+        Row: {
+          correction_request_id: string;
+          created_at: string;
+          employee_membership_id: string;
+          ended_at: string | null;
+          id: string;
+          logical_break_id: string;
+          organization_id: string;
+          origin: string;
+          removed: boolean;
+          started_at: string | null;
+          superseded_snapshot: Json | null;
+          time_entry_id: string;
+          version: number;
+          worksite_id: string;
+        };
+        Insert: {
+          correction_request_id: string;
+          created_at?: string;
+          employee_membership_id: string;
+          ended_at?: string | null;
+          id?: string;
+          logical_break_id: string;
+          organization_id: string;
+          origin: string;
+          removed: boolean;
+          started_at?: string | null;
+          superseded_snapshot?: Json | null;
+          time_entry_id: string;
+          version: number;
+          worksite_id: string;
+        };
+        Update: {
+          correction_request_id?: string;
+          created_at?: string;
+          employee_membership_id?: string;
+          ended_at?: string | null;
+          id?: string;
+          logical_break_id?: string;
+          organization_id?: string;
+          origin?: string;
+          removed?: boolean;
+          started_at?: string | null;
+          superseded_snapshot?: Json | null;
+          time_entry_id?: string;
+          version?: number;
+          worksite_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "time_break_revisions_organization_id_employee_membership_i_fkey";
+            columns: [
+              "organization_id",
+              "employee_membership_id",
+              "worksite_id",
+              "time_entry_id",
+              "logical_break_id",
+              "correction_request_id",
+            ];
+            isOneToOne: false;
+            referencedRelation: "break_correction_requests";
+            referencedColumns: [
+              "organization_id",
+              "employee_membership_id",
+              "worksite_id",
+              "time_entry_id",
+              "logical_break_id",
+              "id",
+            ];
+          },
+        ];
+      };
       time_breaks: {
         Row: {
           created_at: string;
@@ -532,6 +723,38 @@ export type Database = {
           },
         ];
       };
+      time_exports_v2: {
+        Row: {
+          created_at: string;
+          id: string;
+          manifest: Json;
+          organization_id: string;
+          worksite_id: string;
+        };
+        Insert: {
+          created_at: string;
+          id: string;
+          manifest: Json;
+          organization_id: string;
+          worksite_id: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          manifest?: Json;
+          organization_id?: string;
+          worksite_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "time_exports_v2_organization_id_worksite_id_fkey";
+            columns: ["organization_id", "worksite_id"];
+            isOneToOne: false;
+            referencedRelation: "worksites";
+            referencedColumns: ["organization_id", "id"];
+          },
+        ];
+      };
       worksites: {
         Row: {
           created_at: string;
@@ -573,6 +796,22 @@ export type Database = {
     };
     Functions: {
       accept_employee_invitation: { Args: never; Returns: string };
+      change_break_correction: {
+        Args: {
+          end_local: string;
+          end_occurrence: string;
+          entry_id: string;
+          expected_break_version: number;
+          expected_parent_version: number;
+          intent: string;
+          reason: string;
+          request_id: string;
+          start_local: string;
+          start_occurrence: string;
+          target_id: string;
+        };
+        Returns: Json;
+      };
       clock_in: {
         Args: { request_id: string };
         Returns: {
@@ -619,6 +858,25 @@ export type Database = {
           result_code: string;
         }[];
       };
+      create_time_export_v2: {
+        Args: {
+          confirmed: boolean;
+          period_end_local: string;
+          period_start_local: string;
+          request_id: string;
+        };
+        Returns: Json;
+      };
+      decide_break_correction: {
+        Args: {
+          confirmed: boolean;
+          correction_request_id: string;
+          decision: string;
+          manager_note: string;
+          request_id: string;
+        };
+        Returns: Json;
+      };
       decide_correction_request: {
         Args: {
           correction_request_id: string;
@@ -644,14 +902,28 @@ export type Database = {
           organization_id: string;
         }[];
       };
+      get_break_corrections: { Args: { request_id: string }; Returns: Json };
       get_employee_correction_requests: { Args: never; Returns: Json };
       get_employee_invitation_state: { Args: never; Returns: string };
       get_employee_time_clock: { Args: never; Returns: Json };
       get_manager_correction_requests: { Args: never; Returns: Json };
       get_manager_time_exports: { Args: never; Returns: Json };
       get_time_export_snapshot: { Args: { export_id: string }; Returns: Json };
+      get_time_export_v2_snapshot: {
+        Args: { export_id: string; request_id: string };
+        Returns: Json;
+      };
+      get_time_exports_v2: { Args: { request_id: string }; Returns: Json };
       preview_time_export: {
         Args: { period_end_local: string; period_start_local: string };
+        Returns: Json;
+      };
+      preview_time_export_v2: {
+        Args: {
+          period_end_local: string;
+          period_start_local: string;
+          request_id: string;
+        };
         Returns: Json;
       };
       start_break: { Args: { request_id: string }; Returns: Json };

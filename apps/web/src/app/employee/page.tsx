@@ -24,7 +24,10 @@ export default async function EmployeePage() {
       status={nlBE.employee.status}
       title={nlBE.employee.title}
     >
-      <div className="mt-7 flex justify-start">
+      <div className="mt-7 flex flex-wrap justify-start gap-3">
+        <Button asChild variant="secondary">
+          <Link href="/employee/break-corrections">Pauzes corrigeren</Link>
+        </Button>
         <Button asChild variant="secondary">
           <Link href="/employee/corrections">
             <FilePenLine aria-hidden="true" />

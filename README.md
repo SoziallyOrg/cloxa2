@@ -350,12 +350,13 @@ break intervals but offers no break-editing fields.
 New `cloxa.time-export.v1` previews and creations block any selected fact with breaks
 using `break_data_requires_v2`. Blocked creation stores only its private retry outcome:
 no export metadata, snapshot rows, audit, or artifact. Existing snapshots and their
-CSV/JSON bytes and hashes are unchanged. Break-aware v2 needs separate review.
+CSV/JSON bytes and hashes are unchanged. Phase 8 adds break-aware v2 as a separate
+schema and workflow below.
 
-Breaks are factual unpaid intervals, not statutory-rest or payroll calculations. Only
-live start/end is supported. Manual historical breaks, break corrections, automatic
-breaks, and statutory-rest rules remain unimplemented. No compliance or production
-readiness claim is made.
+Breaks are factual unpaid intervals, not statutory-rest or payroll calculations. Live
+start/end remains server-owned. Historical changes use the separately reviewed request
+and revision workflow described below; automatic breaks and statutory-rest rules remain
+unimplemented. No compliance or production readiness claim is made.
 
 ## Verification
 
@@ -414,9 +415,8 @@ pnpm exec playwright install chromium
 - Invitation-only; no public signup or automatic billing.
 - No ORM, Redux, Redis, queues, realtime, storage, analytics, or microservices.
 - No offline mode or service worker. Manifest only.
-- No historical break creation, break corrections, direct manual factual entries,
-  PDF/XLSX, scheduled or emailed export, provider delivery, scheduling, billing,
-  realtime updates, or native app.
+- No direct manual factual entries, PDF/XLSX, scheduled or emailed export, provider
+  delivery, scheduling, billing, realtime updates, or native app.
 - No claim that Cloxa calculates payroll, satisfies Belgian employment rules, or is
   production-ready.
 - No remote Supabase connection, hosted deployment, or real employee data. Development
@@ -424,3 +424,23 @@ pnpm exec playwright install chromium
 
 Exports are factual handoff files only. No social-secretariat mapping or delivery,
 payroll calculation, declaration, legal-compliance claim, or acceptance claim exists.
+
+## Historical break corrections and export v2
+
+Employees use `/employee/break-corrections` for missed unpaid breaks, interval
+adjustments, removals and pending-request withdrawal on recent closed shifts. Managers
+use `/manager/break-corrections` to compare original and current versions, inspect stale
+claims and confirm approval or rejection. Dutch Brussels-local inputs preserve six
+fractional digits and require explicit fall-back occurrence choices. Approvals append
+revisions; removal stops a break counting without erasing its history.
+
+`/manager/exports-v2` previews and confirms `cloxa.time-export.v2` snapshots with exact
+gross, unpaid-break and net-worked durations and ordered effective break records. CSV
+and JSON downloads reauthorize the current manager and verify the dataset hash. Existing
+v1 exports remain available at `/manager/exports`; new v1 exports refuse any selected
+entry with live-break or revision history, even after removal.
+
+See [v2 contract](packages/database/TIME_EXPORT_V2.md) for exact schemas, RPCs, result
+codes, lock namespaces, canonical bytes, bounds, audit actions and limitations, and
+[Phase 8 status](PHASE_8_STATUS.md) for verification results. All work remains local and
+synthetic; no merge, deployment or real employee-data use is authorized.

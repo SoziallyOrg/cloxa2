@@ -403,8 +403,8 @@ break facts, and append no factual/approval audit for refusal.
 Read models add ordered break intervals. UI totals use integer microseconds: completed
 shift gross minus completed contained breaks equals net. Open gross/net stay unknown;
 open breaks never acquire an invented end. These are factual unpaid intervals, not
-statutory-rest or payroll calculations. Historical break creation and break corrections
-remain unimplemented.
+statutory-rest or payroll calculations. Historical changes use the additive Phase 8
+request and revision model below.
 
 Export selection adds a break blocker within the same creation statement snapshot.
 Creation also locks tenant break rows after entries and before corrections. Existing
@@ -447,6 +447,22 @@ intentionally refuses break-bearing selected facts until separately reviewed v2.
 
 Hosted Supabase connections, deployment, paid resources, and real personal or customer
 data remain prohibited. Development and tests use local synthetic data only. This phase
-does not establish production readiness or implement historical breaks, break
-corrections, direct manual factual records, billing, social-secretariat delivery,
-payroll/declaration logic, or broad product dashboards.
+does not establish production readiness or implement direct manual factual records,
+billing, social-secretariat delivery, payroll/declaration logic, statutory-rest rules,
+automatic breaks, or broad product dashboards.
+
+## Phase 8 historical break corrections
+
+Migration `20260904082654_historical_break_corrections_export_v2.sql` adds tenant-bound
+`break_correction_requests`, `time_break_revisions`, `time_exports_v2`, private request
+and decision UUID ledgers, and private v2 snapshots/operations. Application roles have
+no direct factual or ledger writes. Employee reads are own-only; manager reads remain
+same-organization. Private `effective_time_breaks` is the single latest-state resolver,
+including removal tombstones. Existing factual readers project its non-removed states.
+
+[Time export v2](TIME_EXPORT_V2.md) documents exact tables, functions, result codes,
+lock order, schemas, precision, serialization and audit. V1 stored facts, artifact
+bytes, hashes and download routes remain unchanged. New v1 creation is fail-closed for
+every entry with any break history. Owners able to disable triggers can bypass history
+guards; these guards prevent application writes and accidental normal owner edits, not
+administrator tampering.

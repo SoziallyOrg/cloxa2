@@ -24,7 +24,9 @@ export function parseBreaks(value: unknown): TimeBreak[] | null {
       ) ||
       !validTimestamp(item.started_at) ||
       !(item.ended_at === null || validTimestamp(item.ended_at)) ||
-      item.version !== (item.ended_at === null ? 1 : 2)
+      (item.ended_at === null
+        ? item.version !== 1
+        : !Number.isSafeInteger(item.version) || item.version < 1)
     )
       return null;
     if (
