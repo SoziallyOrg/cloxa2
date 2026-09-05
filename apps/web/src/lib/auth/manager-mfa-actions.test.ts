@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   verify: vi.fn(),
   rpc: vi.fn(),
   redirect: vi.fn(),
+  requireAuthFlow: vi.fn(),
 }));
 
 vi.mock("server-only", () => ({}));
@@ -19,10 +20,16 @@ vi.mock("@/lib/supabase/server", () => ({
   createSupabaseServerClient: mocks.createServerClient,
 }));
 vi.mock("@/lib/auth/session", () => ({ getAuthContext: mocks.getAuthContext }));
+vi.mock("@/lib/auth/flow-intent", () => ({
+  requireAuthFlow: mocks.requireAuthFlow,
+}));
 
 import {
+  completeManagerMfaRecoveryEnrollmentAction,
   completeManagerMfaEnrollmentAction,
+  startManagerMfaRecoveryEnrollmentAction,
   startManagerMfaEnrollmentAction,
+  verifyManagerMfaPasswordRecoveryAction,
   verifyManagerMfaAction,
 } from "./manager-mfa-actions";
 
@@ -53,6 +60,19 @@ const readyContext = {
   organizationId: "organization-one",
   role: "manager",
 };
+const recoveryCaseId = "123e4567-e89b-42d3-a456-426614174010";
+const candidateId = "123e4567-e89b-42d3-a456-426614174011";
+const recoveryContext = {
+  state: "manager_mfa_recovery_required",
+  userId: "manager-one",
+  organizationId: "organization-one",
+  role: "manager",
+  recovery: {
+    state: "active",
+    caseId: recoveryCaseId,
+    expiresAt: "2026-09-05T12:15:00Z",
+  },
+};
 const idle = { status: "idle", message: "" } as const;
 
 function form(fields: Record<string, string> = {}) {
@@ -81,6 +101,7 @@ beforeEach(() => {
   mocks.redirect.mockImplementation((path: string) => {
     throw new Error(`NEXT_REDIRECT:${path}`);
   });
+  mocks.requireAuthFlow.mockResolvedValue(true);
 });
 
 describe("manager TOTP enrollment", () => {
@@ -230,4 +251,121 @@ describe("manager TOTP verification", () => {
       expect(mocks.redirect).not.toHaveBeenCalled();
     },
   );
+});
+
+describe("controlled manager TOTP recovery candidate", () => {
+  it("enrolls only during an active operator window", async () => {
+    mocks.getAuthContext.mockResolvedValue(recoveryContext);
+    await expect(startManagerMfaRecoveryEnrollmentAction(idle)).resolves.toEqual({
+      enrollment: { factorId, qrCode, secret },
+      message: nlBE.managerMfa.recoveryEnrollmentReady,
+      status: "ready",
+    });
+    expect(mocks.enroll).toHaveBeenCalledExactlyOnceWith({
+      factorType: "totp",
+      friendlyName: "Cloxa manager herstel",
+      issuer: "Cloxa",
+    });
+
+    mocks.getAuthContext.mockResolvedValue({
+      ...recoveryContext,
+      recovery: { state: "expired" },
+    });
+    await expect(startManagerMfaRecoveryEnrollmentAction(idle)).resolves.toEqual({
+      message: nlBE.managerMfa.genericFailure,
+      status: "error",
+    });
+  });
+
+  it("records a database-derived verified candidate without granting access", async () => {
+    mocks.getAuthContext.mockResolvedValue(recoveryContext);
+    mocks.rpc.mockResolvedValue({ data: candidateId, error: null });
+
+    await expect(
+      completeManagerMfaRecoveryEnrollmentAction(
+        idle,
+        form({ caseId: recoveryCaseId, code: "123456", factorId }),
+      ),
+    ).resolves.toEqual({
+      candidateId,
+      message: nlBE.managerMfa.recoveryAwaitingOperator,
+      status: "awaiting_operator",
+    });
+    expect(mocks.verify).toHaveBeenCalledExactlyOnceWith({
+      challengeId: "challenge-one",
+      code: "123456",
+      factorId,
+    });
+    expect(mocks.rpc).toHaveBeenCalledExactlyOnceWith(
+      "record_manager_mfa_recovery_candidate",
+      { target_case_id: recoveryCaseId },
+    );
+    expect(mocks.redirect).not.toHaveBeenCalled();
+  });
+
+  it("rejects wrong-case and browser-selected verified factors", async () => {
+    mocks.getAuthContext.mockResolvedValue(recoveryContext);
+    await expect(
+      completeManagerMfaRecoveryEnrollmentAction(
+        idle,
+        form({ caseId: candidateId, code: "123456", factorId }),
+      ),
+    ).resolves.toEqual({ message: nlBE.managerMfa.genericFailure, status: "error" });
+    expect(mocks.challenge).not.toHaveBeenCalled();
+
+    mocks.listFactors.mockResolvedValue({
+      data: { all: [{ id: factorId, factor_type: "totp", status: "verified" }] },
+      error: null,
+    });
+    await expect(
+      completeManagerMfaRecoveryEnrollmentAction(
+        idle,
+        form({ caseId: recoveryCaseId, code: "123456", factorId }),
+      ),
+    ).resolves.toEqual({ message: nlBE.managerMfa.genericFailure, status: "error" });
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+});
+
+describe("manager password recovery MFA gate", () => {
+  it("keeps recovery proof and verifies only database-registered factor", async () => {
+    mocks.getAuthContext
+      .mockResolvedValueOnce({
+        ...setupContext,
+        state: "manager_mfa_verify",
+        factorId: registeredFactorId,
+      })
+      .mockResolvedValueOnce(readyContext);
+
+    await expect(
+      verifyManagerMfaPasswordRecoveryAction(idle, form({ code: "654321" })),
+    ).rejects.toThrow("NEXT_REDIRECT:/reset-password");
+    expect(mocks.requireAuthFlow).toHaveBeenCalledExactlyOnceWith("recovery", client);
+    expect(mocks.challenge).toHaveBeenCalledExactlyOnceWith({
+      factorId: registeredFactorId,
+    });
+    expect(mocks.verify).toHaveBeenCalledExactlyOnceWith({
+      challengeId: "challenge-one",
+      code: "654321",
+      factorId: registeredFactorId,
+    });
+  });
+
+  it("does not accept ordinary sessions or lost-factor recovery state", async () => {
+    mocks.requireAuthFlow.mockResolvedValue(false);
+    await expect(
+      verifyManagerMfaPasswordRecoveryAction(idle, form({ code: "654321" })),
+    ).resolves.toEqual({ message: nlBE.managerMfa.genericFailure, status: "error" });
+    expect(mocks.challenge).not.toHaveBeenCalled();
+
+    mocks.requireAuthFlow.mockResolvedValue(true);
+    mocks.getAuthContext.mockResolvedValue({
+      ...recoveryContext,
+      recovery: { state: "operator_action_required" },
+    });
+    await expect(
+      verifyManagerMfaPasswordRecoveryAction(idle, form({ code: "654321" })),
+    ).resolves.toEqual({ message: nlBE.managerMfa.genericFailure, status: "error" });
+    expect(mocks.challenge).not.toHaveBeenCalled();
+  });
 });

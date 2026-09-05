@@ -4,6 +4,20 @@ import { getSafeManagerReturnPath } from "@/lib/auth/routes";
 
 export type MembershipRole = "manager" | "employee";
 
+export type ManagerMfaRecoveryState =
+  | { state: "operator_action_required" | "expired" | "fresh_login_required" }
+  | {
+      state: "active";
+      caseId: string;
+      expiresAt: string;
+    }
+  | {
+      state: "awaiting_operator";
+      candidateId: string;
+      caseId: string;
+      expiresAt: string;
+    };
+
 export type AuthContext =
   | { state: "anonymous" }
   | { state: "unauthorized" | "unsupported"; userId: string }
@@ -14,6 +28,7 @@ export type AuthContext =
       organizationId: string;
       role: "manager";
       factorId?: string;
+      recovery?: ManagerMfaRecoveryState;
     }
   | {
       state: "authorized";
@@ -140,7 +155,72 @@ export function resolveManagerMfaContext(
   }
 
   if (row.manager_mfa_state === "recovery_required") {
-    return { ...base, state: "manager_mfa_recovery_required" };
+    const recoveryState = "recovery_state" in row ? String(row.recovery_state) : "";
+    if (
+      ![
+        "operator_action_required",
+        "expired",
+        "fresh_login_required",
+        "active",
+        "awaiting_operator",
+      ].includes(recoveryState)
+    ) {
+      return { state: "unauthorized", userId: context.userId };
+    }
+
+    if (recoveryState === "active" || recoveryState === "awaiting_operator") {
+      if (
+        !("recovery_case_id" in row) ||
+        !("recovery_expires_at" in row) ||
+        typeof row.recovery_case_id !== "string" ||
+        typeof row.recovery_expires_at !== "string" ||
+        !row.recovery_case_id ||
+        !row.recovery_expires_at
+      ) {
+        return { state: "unauthorized", userId: context.userId };
+      }
+
+      if (recoveryState === "awaiting_operator") {
+        if (
+          !("recovery_candidate_id" in row) ||
+          typeof row.recovery_candidate_id !== "string" ||
+          !row.recovery_candidate_id
+        ) {
+          return { state: "unauthorized", userId: context.userId };
+        }
+        return {
+          ...base,
+          recovery: {
+            candidateId: row.recovery_candidate_id,
+            caseId: row.recovery_case_id,
+            expiresAt: row.recovery_expires_at,
+            state: "awaiting_operator",
+          },
+          state: "manager_mfa_recovery_required",
+        };
+      }
+
+      return {
+        ...base,
+        recovery: {
+          caseId: row.recovery_case_id,
+          expiresAt: row.recovery_expires_at,
+          state: "active",
+        },
+        state: "manager_mfa_recovery_required",
+      };
+    }
+
+    return {
+      ...base,
+      recovery: {
+        state: recoveryState as Extract<
+          ManagerMfaRecoveryState,
+          { state: "operator_action_required" | "expired" | "fresh_login_required" }
+        >["state"],
+      },
+      state: "manager_mfa_recovery_required",
+    };
   }
 
   if (

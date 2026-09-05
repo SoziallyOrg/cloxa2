@@ -23,6 +23,7 @@
     "test:bundles": "node scripts/local-auth-bundles.mjs",
     "local:bootstrap": "node scripts/local-auth-bootstrap.mjs",
     "local:credentials": "node scripts/local-auth-credentials.mjs",
+    "local:manager-mfa-recovery": "node scripts/local-manager-mfa-recovery.mjs",
     "supabase:start": "supabase start",
     "supabase:status": "supabase status",
     "supabase:env": "supabase status --output env",

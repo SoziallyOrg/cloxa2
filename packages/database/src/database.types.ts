@@ -7,6 +7,7 @@ export type Database = {
       audit_events: {
         Row: {
           action: string;
+          actor_type: string;
           actor_user_id: string | null;
           after_data: Json | null;
           before_data: Json | null;
@@ -18,6 +19,7 @@ export type Database = {
         };
         Insert: {
           action: string;
+          actor_type?: string;
           actor_user_id?: string | null;
           after_data?: Json | null;
           before_data?: Json | null;
@@ -29,6 +31,7 @@ export type Database = {
         };
         Update: {
           action?: string;
+          actor_type?: string;
           actor_user_id?: string | null;
           after_data?: Json | null;
           before_data?: Json | null;
@@ -920,6 +923,10 @@ export type Database = {
         Args: never;
         Returns: {
           manager_mfa_state: string;
+          recovery_candidate_id: string;
+          recovery_case_id: string;
+          recovery_expires_at: string;
+          recovery_state: string;
           registered_factor_id: string;
         }[];
       };
@@ -942,6 +949,10 @@ export type Database = {
           request_id: string;
         };
         Returns: Json;
+      };
+      record_manager_mfa_recovery_candidate: {
+        Args: { target_case_id: string };
+        Returns: string;
       };
       register_manager_mfa: { Args: never; Returns: string };
       start_break: { Args: { request_id: string }; Returns: Json };
