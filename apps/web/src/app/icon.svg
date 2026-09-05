@@ -1,5 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="14" fill="#0e4a67"/>
-  <path d="M17 20h30M17 31h18M17 42h10" fill="none" stroke="#fffdf6" stroke-linecap="round" stroke-width="5"/>
-  <path d="m36 42 5 5 10-12" fill="none" stroke="#e69523" stroke-linecap="round" stroke-linejoin="round" stroke-width="5"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" role="img"><title>Cloxa simplified favicon</title><rect x="0" y="0" width="128" height="128" rx="28" fill="#0e4a67"/><g transform="translate(19,19) scale(0.9)"><path fill="#f8f6ee" d="M85.0665 22.6031 A44.5 44.5 0 1 0 85.0665 77.3969 L72.0643 67.2385 A28 28 0 1 1 72.0643 32.7615 Z"/><path fill="#e69523" d="M45 30 H55 V47 L72 59 L66 67 L45 53 Z"/></g></svg>

@@ -1,27 +1,37 @@
 import { cn } from "@/lib/utils";
+import Image from "next/image";
+
+type BrandWordmarkProps = {
+  className?: string;
+  variant?: "light" | "dark";
+};
 
 export function BrandMark({ className }: { className?: string }) {
   return (
-    <svg
+    <Image
       aria-hidden="true"
-      className={cn("size-8", className)}
-      fill="none"
-      viewBox="0 0 32 32"
-    >
-      <rect fill="currentColor" height="30" rx="7" width="30" x="1" y="1" />
-      <path
-        d="M9 10.5h14M9 16h8.5M9 21.5h5"
-        stroke="var(--color-paper)"
-        strokeLinecap="round"
-        strokeWidth="2"
-      />
-      <path
-        d="m18.5 21 2.1 2 4.4-5"
-        stroke="var(--color-signal)"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="2.25"
-      />
-    </svg>
+      className={cn("h-8 w-auto", className)}
+      height="32"
+      src="/branding/cloxa-compact.svg"
+      width="94"
+      alt=""
+    />
+  );
+}
+
+export function BrandWordmark({ className, variant = "light" }: BrandWordmarkProps) {
+  return (
+    <Image
+      aria-hidden="true"
+      alt=""
+      className={cn("h-auto w-44", className)}
+      height="114"
+      src={
+        variant === "dark"
+          ? "/branding/cloxa-on-dark.svg"
+          : "/branding/cloxa-compact.svg"
+      }
+      width="334"
+    />
   );
 }

@@ -396,6 +396,25 @@ Brand mark and condensed wordmark anchor left; one quiet login action anchors ri
 Keyboard skip link starts off-canvas, then enters on focus as an ink field with paper
 text and an amber focus ring.
 
+### Precision A Branding
+
+The installed Precision A mark uses the clock-C as the first letter of `cloxa`, followed
+only by `l-o-x-a`. The header uses the supplied `cloxa-compact.svg` wordmark because its
+compact master is intended for small placements. Authentication identity fields use the
+supplied `cloxa-on-dark.svg` wordmark on cobalt. Both are decorative artwork inside
+links or titled panels; accessible names come from the surrounding link or heading and
+must not be repeated in image alternative text.
+
+Runtime icon wiring uses the supplied `cloxa-favicon.svg` at `/icon.svg` and the
+supplied 180px `apple-touch-icon.png` through Next's `app/apple-icon.png` convention.
+The existing manifest continues to reference `/icon.svg`; this branding change does not
+add a PWA, service worker, or new dependency. Preserve the supplied proportions and
+colors, keep at least one-quarter of the C height as external clear space, and do not
+place a second logo or plain duplicate `c` beside the wordmark. Use the primary master
+only when a placement can retain its recommended large wordmark width; use compact/small
+masters below that threshold. The amber hands are a brand detail, not a live time
+indicator.
+
 ### Auth Shell
 
 Authentication shell is one clipped ruled dossier. Mobile stacks a cobalt identity field
