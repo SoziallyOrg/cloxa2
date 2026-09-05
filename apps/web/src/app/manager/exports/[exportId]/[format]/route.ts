@@ -1,4 +1,5 @@
 import { isUuid } from "@/lib/corrections/model";
+import { getAuthContext } from "@/lib/auth/session";
 import { getTimeExportSnapshot } from "@/lib/time-exports/server";
 import {
   createTimeExportArtifact,
@@ -17,6 +18,10 @@ export async function GET(
   _request: Request,
   context: { params: Promise<{ exportId: string; format: string }> },
 ) {
+  const auth = await getAuthContext();
+  if (auth.state !== "authorized" || auth.role !== "manager")
+    return new Response(null, { status: 403, headers: baseHeaders });
+
   const { exportId, format } = await context.params;
   if (!isUuid(exportId) || (format !== "csv" && format !== "json"))
     return new Response(null, { status: 404, headers: baseHeaders });

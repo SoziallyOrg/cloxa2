@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 };
 
 export default async function ManagerPage() {
-  await requireRole("manager");
+  await requireRole("manager", "/manager");
   return (
     <RoleShell
       description={nlBE.manager.description}

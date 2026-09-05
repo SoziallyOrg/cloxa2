@@ -5,7 +5,7 @@ import { requireRole } from "@/lib/auth/session";
 import { getV2History } from "@/lib/time-exports-v2/server";
 export const metadata = { title: "Export met pauzes (v2)" };
 export default async function Page() {
-  await requireRole("manager");
+  await requireRole("manager", "/manager/exports-v2");
   return (
     <RoleShell
       title="Export met pauzes (v2)"

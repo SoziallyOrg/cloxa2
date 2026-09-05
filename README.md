@@ -31,6 +31,23 @@ $env:CLOXA_E2E_PRODUCTION = '1'
 pnpm exec playwright test apps/web/e2e/manager-team.spec.mts
 ```
 
+## Manager TOTP MFA (Phase 11A)
+
+Every manager route, direct table read, controlled manager RPC, and v1/v2 export
+download requires Supabase Auth AAL2 from application-registered TOTP factor. Employee
+authorization is unchanged. First manager login routes to `/manager/security/setup`;
+later AAL1 sessions route to `/manager/security/verify`. Missing or unverified
+registered factor routes to `/manager/security/recovery-required` and stays blocked
+pending administrator recovery.
+
+Application stores user ID, provider factor ID, and registration timestamp only. TOTP
+secret remains in Supabase Auth and is displayed only during provider enrollment. Codes,
+secrets, challenges, and access tokens are absent from application tables and audits.
+Registration is atomic and first-factor-wins; retries with same factor are idempotent,
+while competing factor cannot replace registered identity. See
+[manager MFA contract](packages/database/MANAGER_MFA.md) and
+[Phase 11A status](PHASE_11_STATUS.md).
+
 ## Workspace
 
 ```text
@@ -212,6 +229,14 @@ local routes. Auth clients store tokens in `HttpOnly`, `SameSite=Lax` cookies; H
 also sets `Secure`. Local HTTP is permitted on loopback only. Browser-importable code
 has no service credential. Proxy refresh preserves response cookies and cache headers;
 server pages and actions enforce current database authorization.
+
+Manager authorization adds native Supabase TOTP MFA. Password login or recovery starts
+at AAL1 and cannot access manager data. Setup calls provider enrollment, challenge, and
+verification before one parameterless database registration RPC binds verified live
+session factor. Routine login challenges registered factor selected by database state,
+not browser input. Successful verification refreshes stored Auth session to AAL2 before
+manager access. Factor removal never clears application registration; it enters explicit
+administrator-recovery state instead of silently allowing reenrollment.
 
 Managers submit employee email, optional display name, and optional employee code. The
 database derives organization and `employee` role from trusted membership state,
@@ -450,20 +475,24 @@ pnpm test:bundles
 again after reset for manual use. Playwright bootstraps its manager through the same
 explicitly flagged local helper, then uses a fresh fictional employee and local Mailpit.
 Its desktop Auth journey covers invitation, acceptance, logout/login, and password
-recovery/reset. Separate desktop and 320px mobile clock journeys cover start, duplicate
-submission, concurrent tabs, stop, and persisted state after reload. Correction journeys
-cover adjustment and missed-entry submission, duplicate submission, reload persistence,
-escaped reason rendering, withdrawal, audit counts, unchanged factual entries, focus and
-field-error semantics, and exact 320px layout. Separate parallel-RPC tests use two live
-employee sessions for identical retries, conflicting pending intervals, withdrawal
-races, and mixed clock/correction calls. Manager journeys cover approval/rejection
-persistence, employee outcomes and facts, concurrent manager tabs, eight-way retries,
-mixed clock/correction/decision calls, stale-target handling, generic retry failures,
-and session expiry after an advisory lock wait. Export journeys cover desktop and exact
-320px preview/confirmation, blocker navigation, fixed CSV/JSON reconciliation, formula
-neutralization, retries/history, role/tenant/session denial, correction/clock races, and
-authorization expiry after a lock wait. Auth journey traces, screenshots, and videos
-stay disabled to avoid retaining credentials or email links.
+recovery/reset. Manager MFA journeys use disposable native Auth factors and cover AAL1
+Data API/RPC/download denial, initial enrollment, invalid/valid codes, routine login,
+AAL2 refresh, simultaneous setup, factor removal, Dutch recovery UI, and exact 320px
+layout without retaining test secrets in artifacts. Separate desktop and 320px mobile
+clock journeys cover start, duplicate submission, concurrent tabs, stop, and persisted
+state after reload. Correction journeys cover adjustment and missed-entry submission,
+duplicate submission, reload persistence, escaped reason rendering, withdrawal, audit
+counts, unchanged factual entries, focus and field-error semantics, and exact 320px
+layout. Separate parallel-RPC tests use two live employee sessions for identical
+retries, conflicting pending intervals, withdrawal races, and mixed clock/correction
+calls. Manager journeys cover approval/rejection persistence, employee outcomes and
+facts, concurrent manager tabs, eight-way retries, mixed clock/correction/decision
+calls, stale-target handling, generic retry failures, and session expiry after an
+advisory lock wait. Export journeys cover desktop and exact 320px preview/confirmation,
+blocker navigation, fixed CSV/JSON reconciliation, formula neutralization,
+retries/history, role/tenant/session denial, correction/clock races, and authorization
+expiry after a lock wait. Auth journey traces, screenshots, and videos stay disabled to
+avoid retaining credentials or email links.
 
 `pnpm build` checks production browser bundles for server-secret exposure;
 `pnpm test:bundles` repeats that check on an existing build. Use `pnpm format` to fix

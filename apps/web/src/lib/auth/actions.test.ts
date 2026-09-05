@@ -208,6 +208,34 @@ describe("login action", () => {
     { context: employee, path: "/employee" },
     { context: manager, path: "/manager" },
     {
+      context: {
+        state: "manager_mfa_setup",
+        userId: "verified-user",
+        organizationId: "organization-one",
+        role: "manager",
+      },
+      path: "/manager/security/setup?volgende=%2Fmanager",
+    },
+    {
+      context: {
+        state: "manager_mfa_verify",
+        userId: "verified-user",
+        organizationId: "organization-one",
+        role: "manager",
+        factorId: "123e4567-e89b-42d3-a456-426614174000",
+      },
+      path: "/manager/security/verify?volgende=%2Fmanager",
+    },
+    {
+      context: {
+        state: "manager_mfa_recovery_required",
+        userId: "verified-user",
+        organizationId: "organization-one",
+        role: "manager",
+      },
+      path: "/manager/security/recovery-required?volgende=%2Fmanager",
+    },
+    {
       context: { state: "unauthorized", userId: "verified-user" },
       path: "/unauthorized",
     },
@@ -590,7 +618,16 @@ describe("invitation acceptance action", () => {
 
 describe("password reset action", () => {
   it.each([
-    { context: manager, path: "/manager" },
+    {
+      context: {
+        state: "manager_mfa_verify",
+        userId: "verified-user",
+        organizationId: "organization-one",
+        role: "manager",
+        factorId: "123e4567-e89b-42d3-a456-426614174000",
+      } satisfies AuthContext,
+      path: "/manager/security/verify",
+    },
     { context: employee, path: "/employee" },
   ])(
     "updates the password, revokes other sessions, and routes to $path",

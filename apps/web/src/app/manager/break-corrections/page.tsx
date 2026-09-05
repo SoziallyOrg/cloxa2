@@ -6,7 +6,7 @@ import { getBreakCorrections } from "@/lib/break-corrections/server";
 import { requireRole } from "@/lib/auth/session";
 export const metadata = { title: breakCopy.reviewTitle };
 export default async function Page() {
-  await requireRole("manager");
+  await requireRole("manager", "/manager/break-corrections");
   return (
     <RoleShell
       title={breakCopy.reviewTitle}

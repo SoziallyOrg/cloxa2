@@ -23,6 +23,10 @@ values
   ('20000000-0000-0000-0000-000000000010', 'authenticated', 'authenticated', 'suspended-manager@example.test', now(), '{}', '{}'),
   ('20000000-0000-0000-0000-000000000011', 'authenticated', 'authenticated', 'suspended-employee@example.test', now(), '{}', '{}');
 
+insert into auth.sessions (id,user_id,created_at,updated_at)
+select ('21000000-0000-4000-8000-' || right(id::text,12))::uuid,id,now(),now()
+from auth.users where id::text like '20000000-0000-0000-0000-%';
+
 insert into public.profiles (user_id, display_name, created_at, updated_at)
 values
   ('20000000-0000-0000-0000-000000000001', 'Manager A', '2000-01-01T00:00:00Z', '2000-01-01T00:00:00Z'),
@@ -61,6 +65,20 @@ values
   ('30000000-0000-0000-0000-000000000008', '10000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000008', 'employee', 'invited'),
   ('30000000-0000-0000-0000-000000000009', '10000000-0000-0000-0000-000000000003', '20000000-0000-0000-0000-000000000010', 'manager', 'active'),
   ('30000000-0000-0000-0000-000000000010', '10000000-0000-0000-0000-000000000003', '20000000-0000-0000-0000-000000000011', 'employee', 'active');
+
+insert into auth.mfa_factors (id,user_id,friendly_name,factor_type,status,created_at,updated_at)
+select gen_random_uuid(),m.user_id,'Synthetic manager TOTP','totp','verified',now(),now()
+from (select distinct user_id from public.memberships
+  where role='manager' and user_id::text like '20000000-0000-0000-0000-%') m;
+update auth.sessions s set factor_id=f.id,aal='aal2' from auth.mfa_factors f
+where f.user_id=s.user_id and f.factor_type='totp'
+  and s.user_id::text like '20000000-0000-0000-0000-%';
+insert into auth.mfa_amr_claims(id,session_id,created_at,updated_at,authentication_method)
+select gen_random_uuid(),s.id,now(),now(),'totp' from auth.sessions s join auth.mfa_factors f on f.id=s.factor_id
+where s.user_id::text like '20000000-0000-0000-0000-%';
+insert into private.manager_mfa_registrations(auth_user_id,provider_factor_id)
+select user_id,id from auth.mfa_factors where factor_type='totp'
+  and user_id::text like '20000000-0000-0000-0000-%';
 
 insert into public.invitations (
   id, organization_id, normalized_email, invited_by, expires_at
@@ -192,7 +210,7 @@ select throws_ok(
 );
 
 -- Manager A sees all membership statuses in A, but no rows in B.
-set local "request.jwt.claims" = '{"sub":"20000000-0000-0000-0000-000000000001","role":"authenticated"}';
+set local "request.jwt.claims" = '{"sub":"20000000-0000-0000-0000-000000000001","session_id":"21000000-0000-4000-8000-000000000001","role":"authenticated","aal":"aal2","amr":[{"method":"totp","timestamp":0}]}';
 
 select is((select count(*)::integer from public.memberships), 6, 'manager lists own organization memberships including invited and inactive');
 select is((select count(*)::integer from public.memberships where organization_id = '10000000-0000-0000-0000-000000000002'), 0, 'manager A cannot list organization B memberships');
@@ -272,7 +290,7 @@ select is((select count(*)::integer from public.memberships), 1, 'employee B see
 select is((select count(*)::integer from public.organizations where id = '10000000-0000-0000-0000-000000000001'), 0, 'employee B cannot read organization A');
 select is((select count(*)::integer from public.profiles where user_id = '20000000-0000-0000-0000-000000000001'), 0, 'employee B cannot read manager A profile');
 
-set local "request.jwt.claims" = '{"sub":"20000000-0000-0000-0000-000000000007","role":"authenticated"}';
+set local "request.jwt.claims" = '{"sub":"20000000-0000-0000-0000-000000000007","session_id":"21000000-0000-4000-8000-000000000007","role":"authenticated","aal":"aal2","amr":[{"method":"totp","timestamp":0}]}';
 select is((select count(*)::integer from public.memberships), 2, 'manager B lists only organization B memberships');
 select is((select count(*)::integer from public.organizations where id = '10000000-0000-0000-0000-000000000001'), 0, 'manager B cannot read organization A');
 select is((select count(*)::integer from public.invitations where organization_id = '10000000-0000-0000-0000-000000000001'), 0, 'manager B cannot read organization A invitations');
@@ -325,7 +343,7 @@ select is(
 select is((select count(*)::integer from public.profiles), 1, 'suspended employee retains own profile');
 
 -- Reuse the same authenticated claims before/after a privileged deactivation.
-set local "request.jwt.claims" = '{"sub":"20000000-0000-0000-0000-000000000001","role":"authenticated"}';
+set local "request.jwt.claims" = '{"sub":"20000000-0000-0000-0000-000000000001","session_id":"21000000-0000-4000-8000-000000000001","role":"authenticated","aal":"aal2","amr":[{"method":"totp","timestamp":0}]}';
 reset role;
 update public.memberships set status = 'inactive'
 where id = '30000000-0000-0000-0000-000000000001';

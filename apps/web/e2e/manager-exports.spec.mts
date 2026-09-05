@@ -9,6 +9,11 @@ import {
   requireLocalOrigin,
   requireLocalPassword,
 } from "../../../scripts/local-auth-config.mjs";
+import {
+  elevateManagerSession,
+  enrollManagerMfa,
+  finishManagerBrowserLogin,
+} from "./manager-mfa-fixture.mts";
 
 const appOrigin = requireLocalOrigin(process.env.CLOXA_SITE_URL, "App URL");
 const supabaseOrigin = requireLocalOrigin(
@@ -112,6 +117,7 @@ async function authenticated(email: string) {
   );
   const result = await client.auth.signInWithPassword({ email, password });
   if (result.error) throw new Error("Synthetic export login failed.");
+  if (email.includes(".manager.")) await elevateManagerSession(client, email);
   return client;
 }
 
@@ -145,13 +151,24 @@ async function exportTeam() {
     ' =SOM(1); "Élodie"\r\nregel',
     '+SYN,"1";\tcode',
   );
+  const managerClient = createClient(
+    supabaseOrigin,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+    options,
+  );
+  const managerLogin = await managerClient.auth.signInWithPassword({
+    email: manager.email,
+    password,
+  });
+  if (managerLogin.error) throw new Error("Synthetic export login failed.");
+  await enrollManagerMfa(managerClient, manager.email);
   return {
     service,
     organizationId: organization.data.id as string,
     worksiteId: worksite.data.id as string,
     manager,
     employee,
-    managerClient: await authenticated(manager.email),
+    managerClient,
     employeeClient: await authenticated(employee.email),
   };
 }
@@ -161,6 +178,10 @@ async function login(page: Page, email: string, role: "manager" | "employee") {
   await page.getByLabel("E-mailadres", { exact: true }).fill(email);
   await page.getByLabel("Wachtwoord", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Aanmelden", exact: true }).click();
+  if (role === "manager") {
+    await finishManagerBrowserLogin(page, email);
+    return;
+  }
   await expect.poll(() => new URL(page.url()).pathname).toBe(`/${role}`);
 }
 
@@ -448,7 +469,7 @@ test("manager bevestigt, vergelijkt en downloadt één vaste CSV/JSON-momentopna
   const employeePage = await employeeContext.newPage();
   await login(employeePage, fixture.employee.email, "employee");
   expect((await employeeContext.request.get(`${appOrigin}${jsonHref}`)).status()).toBe(
-    404,
+    403,
   );
   await employeeContext.close();
 
@@ -466,7 +487,7 @@ test("manager bevestigt, vergelijkt en downloadt één vaste CSV/JSON-momentopna
   ownerSql(
     `update auth.sessions set not_after = clock_timestamp() - interval '1 second' where user_id = '${fixture.manager.userId}'::uuid;`,
   );
-  expect((await page.request.get(jsonHref!)).status()).toBe(404);
+  expect((await page.request.get(jsonHref!)).status()).toBe(403);
   ownerSql(
     `update auth.sessions set not_after = null where user_id = '${fixture.manager.userId}'::uuid;`,
   );
@@ -474,7 +495,7 @@ test("manager bevestigt, vergelijkt en downloadt één vaste CSV/JSON-momentopna
   ownerSql(
     `delete from auth.sessions where user_id = '${fixture.manager.userId}'::uuid;`,
   );
-  expect((await page.request.get(jsonHref!)).status()).toBe(404);
+  expect((await page.request.get(jsonHref!)).status()).toBe(403);
 });
 
 test("exact 320px behoudt dialoogfocus, foutmelding en correctienavigatie", async ({

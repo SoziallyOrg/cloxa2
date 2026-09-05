@@ -11,7 +11,8 @@ $$;
 create function pg_temp.export_login(number integer) returns void language sql as $$
   select set_config('request.jwt.claims', jsonb_build_object(
     'sub', pg_temp.export_id(901, number), 'role', 'authenticated',
-    'session_id', pg_temp.export_id(902, number)
+    'session_id', pg_temp.export_id(902, number), 'aal', 'aal2',
+    'amr', jsonb_build_array(jsonb_build_object('method', 'totp', 'timestamp', extract(epoch from now())::bigint))
   )::text, true)::text::void
 $$;
 
@@ -53,6 +54,21 @@ insert into public.memberships (
   (pg_temp.export_id(905, 12), pg_temp.export_id(903, 1), pg_temp.export_id(901, 12), 'employee', 'active', 'SYN-LARGE');
 insert into public.memberships (id, organization_id, user_id, role, status)
 values (pg_temp.export_id(905, 20), pg_temp.export_id(903, 2), pg_temp.export_id(901, 10), 'manager', 'active');
+
+insert into auth.mfa_factors (id,user_id,friendly_name,factor_type,status,created_at,updated_at)
+select gen_random_uuid(),m.user_id,'Synthetic manager TOTP','totp','verified',now(),now()
+from (select distinct user_id from public.memberships where role='manager'
+  and user_id::text like '90100000-0000-4000-8000-%') m
+where exists(select 1 from auth.sessions s where s.user_id=m.user_id);
+update auth.sessions s set factor_id=f.id,aal='aal2' from auth.mfa_factors f
+where f.user_id=s.user_id and f.factor_type='totp'
+  and s.user_id::text like '90100000-0000-4000-8000-%';
+insert into auth.mfa_amr_claims(id,session_id,created_at,updated_at,authentication_method)
+select gen_random_uuid(),s.id,now(),now(),'totp' from auth.sessions s join auth.mfa_factors f on f.id=s.factor_id
+where s.user_id::text like '90100000-0000-4000-8000-%';
+insert into private.manager_mfa_registrations(auth_user_id,provider_factor_id)
+select user_id,id from auth.mfa_factors where factor_type='totp'
+  and user_id::text like '90100000-0000-4000-8000-%';
 insert into public.profiles (user_id, display_name)
 select pg_temp.export_id(901, n),
   case when n = 2 then ' =SOM(1); "Élodie"' else 'Fictieve persoon ' || n end
@@ -509,8 +525,13 @@ delete from auth.sessions where id = pg_temp.export_id(902,1);
 set local role authenticated;
 select pg_temp.assert_export_denied(1);
 reset role;
-insert into auth.sessions (id,user_id,created_at,updated_at)
-values (pg_temp.export_id(902,1), pg_temp.export_id(901,1), now(), now());
+insert into auth.sessions (id,user_id,created_at,updated_at,factor_id,aal)
+select pg_temp.export_id(902,1), pg_temp.export_id(901,1), now(), now(),
+  registration.provider_factor_id, 'aal2'
+from private.manager_mfa_registrations as registration
+where registration.auth_user_id=pg_temp.export_id(901,1);
+insert into auth.mfa_amr_claims(id,session_id,created_at,updated_at,authentication_method)
+values(pg_temp.export_id(911,1),pg_temp.export_id(902,1),now(),now(),'totp');
 set local role service_role;
 select pg_temp.assert_export_denied(1);
 set local role anon;

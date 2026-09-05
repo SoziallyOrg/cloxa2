@@ -14,7 +14,9 @@ returns void language sql as $$
   select set_config('request.jwt.claims', jsonb_build_object(
     'sub', pg_temp.team_id(901, number),
     'session_id', pg_temp.team_id(902, number),
-    'role', 'authenticated'
+    'role', 'authenticated',
+    'aal', 'aal2',
+    'amr', jsonb_build_array(jsonb_build_object('method', 'totp', 'timestamp', extract(epoch from now())::bigint))
   )::text, true)::text::void
 $$;
 
@@ -59,6 +61,24 @@ insert into public.memberships (
   (pg_temp.team_id(905, 11), pg_temp.team_id(903, 1), pg_temp.team_id(901, 11), 'manager', 'active', null),
   (pg_temp.team_id(905, 12), pg_temp.team_id(903, 1), pg_temp.team_id(901, 12), 'manager', 'active', null),
   (pg_temp.team_id(905, 13), pg_temp.team_id(903, 1), pg_temp.team_id(901, 13), 'manager', 'active', null);
+
+insert into auth.mfa_factors (id, user_id, friendly_name, factor_type, status, created_at, updated_at)
+select gen_random_uuid(), manager.user_id, 'Synthetic manager TOTP', 'totp', 'verified', now(), now()
+from (select distinct user_id from public.memberships where role = 'manager'
+  and user_id::text like '90100000-0000-4000-a000-%') as manager
+where exists (select 1 from auth.sessions where auth.sessions.user_id = manager.user_id);
+update auth.sessions as session
+set factor_id = factor.id, aal = 'aal2'
+from auth.mfa_factors as factor
+where factor.user_id = session.user_id and factor.factor_type = 'totp'
+  and session.user_id::text like '90100000-0000-4000-a000-%';
+insert into auth.mfa_amr_claims (id, session_id, created_at, updated_at, authentication_method)
+select gen_random_uuid(), session.id, now(), now(), 'totp'
+from auth.sessions as session join auth.mfa_factors as factor on factor.id = session.factor_id
+where session.user_id::text like '90100000-0000-4000-a000-%';
+insert into private.manager_mfa_registrations (auth_user_id, provider_factor_id)
+select factor.user_id, factor.id from auth.mfa_factors as factor where factor.factor_type = 'totp'
+  and factor.user_id::text like '90100000-0000-4000-a000-%';
 
 insert into public.profiles (user_id, display_name)
 select pg_temp.team_id(901, number), case number

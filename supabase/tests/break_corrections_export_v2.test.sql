@@ -9,7 +9,8 @@ create function pg_temp.bid(p integer, n integer) returns uuid language sql immu
 $$;
 create function pg_temp.login(n integer) returns void language sql as $$
   select set_config('request.jwt.claims', jsonb_build_object('sub',pg_temp.bid(901,n),
-    'session_id',pg_temp.bid(902,n),'role','authenticated')::text,true);
+    'session_id',pg_temp.bid(902,n),'role','authenticated','aal','aal2',
+    'amr',jsonb_build_array(jsonb_build_object('method','totp','timestamp',extract(epoch from now())::bigint)))::text,true);
 $$;
 insert into auth.users(id,email,email_confirmed_at,encrypted_password,banned_until,deleted_at)
 select pg_temp.bid(901,n),'break.'||n||'@example.test',case when n<>7 then now() end,
@@ -30,6 +31,21 @@ select pg_temp.bid(905,n),pg_temp.bid(903,case when n=3 then 2 when n=5 then 3 e
   case when n=4 then 'inactive' else 'active' end from generate_series(1,12) n;
 insert into public.memberships(id,organization_id,user_id,role,status)
 values(pg_temp.bid(905,20),pg_temp.bid(903,2),pg_temp.bid(901,10),'employee','active');
+
+insert into auth.mfa_factors (id,user_id,friendly_name,factor_type,status,created_at,updated_at)
+select gen_random_uuid(),m.user_id,'Synthetic manager TOTP','totp','verified',now(),now()
+from (select distinct user_id from public.memberships where role='manager'
+  and user_id::text like '90100000-0000-4000-9000-%') m
+where exists(select 1 from auth.sessions s where s.user_id=m.user_id);
+update auth.sessions s set factor_id=f.id,aal='aal2' from auth.mfa_factors f
+where f.user_id=s.user_id and f.factor_type='totp'
+  and s.user_id::text like '90100000-0000-4000-9000-%';
+insert into auth.mfa_amr_claims(id,session_id,created_at,updated_at,authentication_method)
+select gen_random_uuid(),s.id,now(),now(),'totp' from auth.sessions s join auth.mfa_factors f on f.id=s.factor_id
+where s.user_id::text like '90100000-0000-4000-9000-%';
+insert into private.manager_mfa_registrations(auth_user_id,provider_factor_id)
+select user_id,id from auth.mfa_factors where factor_type='totp'
+  and user_id::text like '90100000-0000-4000-9000-%';
 
 insert into public.time_entries(id,organization_id,membership_id,worksite_id,started_at,created_at)
 values(pg_temp.bid(906,1),pg_temp.bid(903,1),pg_temp.bid(905,1),pg_temp.bid(904,1),'2010-01-01 08:00Z','2010-01-01 08:00Z');

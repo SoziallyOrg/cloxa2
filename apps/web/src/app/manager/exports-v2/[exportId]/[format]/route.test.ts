@@ -1,8 +1,9 @@
 import { beforeEach, expect, it, vi } from "vitest";
 import { v2 as snapshot } from "@/lib/time-exports-v2/fixtures.test-data";
 
-const mocks = vi.hoisted(() => ({ snapshot: vi.fn() }));
+const mocks = vi.hoisted(() => ({ auth: vi.fn(), snapshot: vi.fn() }));
 vi.mock("server-only", () => ({}));
+vi.mock("@/lib/auth/session", () => ({ getAuthContext: mocks.auth }));
 vi.mock("@/lib/time-exports-v2/server", () => ({ getV2Snapshot: mocks.snapshot }));
 import { GET } from "@/app/manager/exports-v2/[exportId]/[format]/route";
 
@@ -12,8 +13,23 @@ const context = (exportId: string, format: string) => ({
 
 beforeEach(() => {
   vi.resetAllMocks();
+  mocks.auth.mockResolvedValue({ state: "authorized", role: "manager" });
   mocks.snapshot.mockResolvedValue(snapshot);
 });
+
+it.each(["manager_mfa_setup", "manager_mfa_verify", "manager_mfa_recovery_required"])(
+  "denies download while manager state is %s",
+  async (state) => {
+    mocks.auth.mockResolvedValue({ state, role: "manager" });
+    const response = await GET(
+      new Request("http://local.test"),
+      context(snapshot.manifest.export_id, "csv"),
+    );
+    expect(response.status).toBe(403);
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+    expect(mocks.snapshot).not.toHaveBeenCalled();
+  },
+);
 
 it.each([
   ["csv", "text/csv; charset=utf-8"],

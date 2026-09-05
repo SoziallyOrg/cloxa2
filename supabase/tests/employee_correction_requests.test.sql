@@ -49,6 +49,15 @@ insert into public.memberships (id, organization_id, user_id, role, status) valu
   ('a5000000-0000-4000-8000-000000000008', 'a3000000-0000-4000-8000-000000000002', 'a1000000-0000-4000-8000-000000000007', 'employee', 'active'),
   ('a5000000-0000-4000-8000-000000000009', 'a3000000-0000-4000-8000-000000000001', 'a1000000-0000-4000-8000-000000000008', 'employee', 'active');
 
+insert into auth.mfa_factors (id,user_id,friendly_name,factor_type,status,created_at,updated_at)
+values('af000000-0000-4000-8000-000000000002','a1000000-0000-4000-8000-000000000002','Synthetic manager TOTP','totp','verified',now(),now());
+update auth.sessions set factor_id='af000000-0000-4000-8000-000000000002',aal='aal2'
+where id='a2000000-0000-4000-8000-000000000002';
+insert into auth.mfa_amr_claims(id,session_id,created_at,updated_at,authentication_method)
+values('ae000000-0000-4000-8000-000000000002','a2000000-0000-4000-8000-000000000002',now(),now(),'totp');
+insert into private.manager_mfa_registrations(auth_user_id,provider_factor_id)
+values('a1000000-0000-4000-8000-000000000002','af000000-0000-4000-8000-000000000002');
+
 insert into public.time_entries (
   id, organization_id, membership_id, worksite_id, started_at, ended_at, created_at
 ) values
@@ -270,7 +279,7 @@ select throws_ok(
 reset role;
 set local role authenticated;
 set local "request.jwt.claims" =
-  '{"sub":"a1000000-0000-4000-8000-000000000002","role":"authenticated","session_id":"a2000000-0000-4000-8000-000000000002"}';
+  '{"sub":"a1000000-0000-4000-8000-000000000002","role":"authenticated","session_id":"a2000000-0000-4000-8000-000000000002","aal":"aal2","amr":[{"method":"totp","timestamp":0}]}';
 select throws_ok(
   $$select * from public.submit_employee_correction_request(
     'a7000000-0000-4000-8000-000000000012', 'missed_entry', null,
@@ -786,7 +795,7 @@ update public.organizations set lifecycle_status = 'research_pilot' where id = '
 
 set local role authenticated;
 set local "request.jwt.claims" =
-  '{"sub":"a1000000-0000-4000-8000-000000000002","role":"authenticated","session_id":"a2000000-0000-4000-8000-000000000002"}';
+  '{"sub":"a1000000-0000-4000-8000-000000000002","role":"authenticated","session_id":"a2000000-0000-4000-8000-000000000002","aal":"aal2","amr":[{"method":"totp","timestamp":0}]}';
 select is((select count(*) from public.correction_requests), 3::bigint, 'manager reads employee requests in own tenant');
 select throws_ok($$select * from public.withdraw_employee_correction_request(
   gen_random_uuid(), current_setting('app.test_employee_a_request_id')::uuid
@@ -817,7 +826,7 @@ select throws_ok($$select * from public.withdraw_employee_correction_request(
 reset role;
 set local role authenticated;
 set local "request.jwt.claims" =
-  '{"sub":"a1000000-0000-4000-8000-000000000002","role":"authenticated","session_id":"a2000000-0000-4000-8000-000000000002"}';
+  '{"sub":"a1000000-0000-4000-8000-000000000002","role":"authenticated","session_id":"a2000000-0000-4000-8000-000000000002","aal":"aal2","amr":[{"method":"totp","timestamp":0}]}';
 select is((select result_code from public.decide_correction_request(gen_random_uuid(),
   (select id from public.correction_requests where submission_request_id = 'a7000000-0000-4000-8000-000000000060'),
   'approve', 'Synthetic approved fixture')), 'approved', 'manager resolves approved withdrawal-denial fixture');

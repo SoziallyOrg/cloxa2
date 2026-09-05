@@ -255,7 +255,7 @@ test("historical break lifecycle, stale claims and immutable v1/v2 downloads", a
     await decide("reject");
     await noOverflow(page);
     await noOverflow(manager);
-    expect((await page.request.get(jsonHref!)).status()).toBe(404);
+    expect((await page.request.get(jsonHref!)).status()).toBe(403);
     expect(
       (await manager.request.get("/manager/exports-v2/not-a-uuid/json")).status(),
     ).toBe(404);

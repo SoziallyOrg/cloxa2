@@ -7,12 +7,16 @@ set local "request.jwt.claim.sub" = '';
 select plan(103);
 
 -- Transaction-only identities: no passwords, sessions, email delivery, or login setup.
-insert into auth.users (id, email) values
-  ('72000000-0000-4000-8000-000000000001', 'boundary.manager-a@example.test'),
-  ('72000000-0000-4000-8000-000000000002', 'boundary.employee-a@example.test'),
-  ('72000000-0000-4000-8000-000000000003', 'boundary.manager-b@example.test'),
-  ('72000000-0000-4000-8000-000000000004', 'boundary.inactive-manager@example.test'),
-  ('72000000-0000-4000-8000-000000000005', 'boundary.suspended-manager@example.test');
+insert into auth.users (id, email, email_confirmed_at) values
+  ('72000000-0000-4000-8000-000000000001', 'boundary.manager-a@example.test', now()),
+  ('72000000-0000-4000-8000-000000000002', 'boundary.employee-a@example.test', now()),
+  ('72000000-0000-4000-8000-000000000003', 'boundary.manager-b@example.test', now()),
+  ('72000000-0000-4000-8000-000000000004', 'boundary.inactive-manager@example.test', now()),
+  ('72000000-0000-4000-8000-000000000005', 'boundary.suspended-manager@example.test', now());
+
+insert into auth.sessions(id,user_id,created_at,updated_at)
+select ('73000000-0000-4000-8000-' || right(id::text,12))::uuid,id,now(),now()
+from auth.users where id::text like '72000000-0000-4000-8000-%';
 
 insert into public.profiles (user_id, display_name, created_at, updated_at)
 select id, 'Synthetic boundary profile', '2000-01-01Z', '2000-01-01Z'
@@ -34,6 +38,20 @@ insert into public.memberships (organization_id, user_id, role, status) values
   ('71000000-0000-4000-8000-000000000002', '72000000-0000-4000-8000-000000000003', 'manager', 'active'),
   ('71000000-0000-4000-8000-000000000001', '72000000-0000-4000-8000-000000000004', 'manager', 'inactive'),
   ('71000000-0000-4000-8000-000000000003', '72000000-0000-4000-8000-000000000005', 'manager', 'active');
+
+insert into auth.mfa_factors (id,user_id,friendly_name,factor_type,status,created_at,updated_at)
+select gen_random_uuid(),m.user_id,'Synthetic manager TOTP','totp','verified',now(),now()
+from (select distinct user_id from public.memberships
+  where role='manager' and user_id::text like '72000000-0000-4000-8000-%') m;
+update auth.sessions s set factor_id=f.id,aal='aal2' from auth.mfa_factors f
+where f.user_id=s.user_id and f.factor_type='totp'
+  and s.user_id::text like '72000000-0000-4000-8000-%';
+insert into auth.mfa_amr_claims(id,session_id,created_at,updated_at,authentication_method)
+select gen_random_uuid(),s.id,now(),now(),'totp' from auth.sessions s join auth.mfa_factors f on f.id=s.factor_id
+where s.user_id::text like '72000000-0000-4000-8000-%';
+insert into private.manager_mfa_registrations(auth_user_id,provider_factor_id)
+select user_id,id from auth.mfa_factors where factor_type='totp'
+  and user_id::text like '72000000-0000-4000-8000-%';
 
 insert into public.audit_events (organization_id, entity_type, entity_id, action)
 select id, 'organization', id, 'synthetic_boundary_fixture'
@@ -283,7 +301,7 @@ select is((select count(*) from changed), 0::bigint, 'employee cannot update ano
 -- active manager: assert actual database role and JWT identity, not only simulated metadata.
 reset role;
 set local role authenticated;
-set local "request.jwt.claims" = '{"sub":"72000000-0000-4000-8000-000000000001","role":"authenticated"}';
+set local "request.jwt.claims" = '{"sub":"72000000-0000-4000-8000-000000000001","session_id":"73000000-0000-4000-8000-000000000001","role":"authenticated","aal":"aal2","amr":[{"method":"totp","timestamp":0}]}';
 
 select is(current_user::text, 'authenticated', 'active manager runs under authenticated');
 

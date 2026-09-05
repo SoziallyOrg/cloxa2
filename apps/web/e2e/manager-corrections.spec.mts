@@ -9,6 +9,11 @@ import {
   requireLocalOrigin,
   requireLocalPassword,
 } from "../../../scripts/local-auth-config.mjs";
+import {
+  elevateManagerSession,
+  enrollManagerMfa,
+  finishManagerBrowserLogin,
+} from "./manager-mfa-fixture.mts";
 
 const appOrigin = requireLocalOrigin(process.env.CLOXA_SITE_URL, "App URL");
 const supabaseOrigin = requireLocalOrigin(
@@ -113,6 +118,7 @@ async function session(email: string) {
   );
   const login = await client.auth.signInWithPassword({ email, password });
   if (login.error) throw new Error("Synthetic review login failed.");
+  if (email.includes(".manager.")) await elevateManagerSession(client, email);
   return client;
 }
 async function team() {
@@ -138,12 +144,23 @@ async function team() {
   if (worksite.error) throw new Error("Synthetic review worksite failed.");
   const manager = await createAccount(org.data.id, "manager");
   const employee = await createAccount(org.data.id, "employee");
+  const managerClient = createClient(
+    supabaseOrigin,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+    options,
+  );
+  const managerLogin = await managerClient.auth.signInWithPassword({
+    email: manager.email,
+    password,
+  });
+  if (managerLogin.error) throw new Error("Synthetic review login failed.");
+  await enrollManagerMfa(managerClient, manager.email);
   return {
     manager,
     employee,
     organizationId: org.data.id,
     worksiteId: worksite.data.id,
-    managerClient: await session(manager.email),
+    managerClient,
     employeeClient: await session(employee.email),
     service,
   };
@@ -153,6 +170,10 @@ async function login(page: Page, email: string, role: "manager" | "employee") {
   await page.getByLabel("E-mailadres", { exact: true }).fill(email);
   await page.getByLabel("Wachtwoord", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Aanmelden", exact: true }).click();
+  if (role === "manager") {
+    await finishManagerBrowserLogin(page, email);
+    return;
+  }
   await expect.poll(() => new URL(page.url()).pathname).toBe(`/${role}`);
 }
 function wallTime(iso: string) {

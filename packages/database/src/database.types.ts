@@ -916,6 +916,13 @@ export type Database = {
       get_employee_invitation_state: { Args: never; Returns: string };
       get_employee_time_clock: { Args: never; Returns: Json };
       get_manager_correction_requests: { Args: never; Returns: Json };
+      get_manager_mfa_status: {
+        Args: never;
+        Returns: {
+          manager_mfa_state: string;
+          registered_factor_id: string;
+        }[];
+      };
       get_manager_team: { Args: { request_id: string }; Returns: Json };
       get_manager_time_exports: { Args: never; Returns: Json };
       get_time_export_snapshot: { Args: { export_id: string }; Returns: Json };
@@ -936,6 +943,7 @@ export type Database = {
         };
         Returns: Json;
       };
+      register_manager_mfa: { Args: never; Returns: string };
       start_break: { Args: { request_id: string }; Returns: Json };
       submit_employee_correction_request: {
         Args: {

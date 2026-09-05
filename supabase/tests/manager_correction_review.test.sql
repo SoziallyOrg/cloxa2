@@ -8,7 +8,8 @@ create function pg_temp.fixture_id(prefix integer, number integer) returns uuid
 language sql immutable as $$ select (prefix::text || '00000-0000-4000-8000-' || lpad(number::text, 12, '0'))::uuid $$;
 create function pg_temp.login(number integer) returns void language sql as $$
   select set_config('request.jwt.claims', jsonb_build_object('sub', pg_temp.fixture_id(111, number),
-    'role', 'authenticated', 'session_id', pg_temp.fixture_id(112, number))::text, true)::text::void;
+    'role', 'authenticated', 'session_id', pg_temp.fixture_id(112, number), 'aal', 'aal2',
+    'amr', jsonb_build_array(jsonb_build_object('method', 'totp', 'timestamp', extract(epoch from now())::bigint)))::text, true)::text::void;
 $$;
 insert into auth.users (id, email, email_confirmed_at, encrypted_password, banned_until, deleted_at)
 select pg_temp.fixture_id(111, n), 'decision.fixture.' || n || '@example.test',
@@ -31,6 +32,21 @@ select pg_temp.fixture_id(115, n), pg_temp.fixture_id(113, case when n in (3, 4)
 from generate_series(1, 12) as n;
 insert into public.memberships (id, organization_id, user_id, role, status)
 values (pg_temp.fixture_id(115, 20), pg_temp.fixture_id(113, 3), pg_temp.fixture_id(111, 8), 'manager', 'active');
+
+insert into auth.mfa_factors (id,user_id,friendly_name,factor_type,status,created_at,updated_at)
+select gen_random_uuid(),m.user_id,'Synthetic manager TOTP','totp','verified',now(),now()
+from (select distinct user_id from public.memberships where role='manager'
+  and user_id::text like '11100000-0000-4000-8000-%') m
+where exists(select 1 from auth.sessions s where s.user_id=m.user_id);
+update auth.sessions s set factor_id=f.id,aal='aal2' from auth.mfa_factors f
+where f.user_id=s.user_id and f.factor_type='totp'
+  and s.user_id::text like '11100000-0000-4000-8000-%';
+insert into auth.mfa_amr_claims(id,session_id,created_at,updated_at,authentication_method)
+select gen_random_uuid(),s.id,now(),now(),'totp' from auth.sessions s join auth.mfa_factors f on f.id=s.factor_id
+where s.user_id::text like '11100000-0000-4000-8000-%';
+insert into private.manager_mfa_registrations(auth_user_id,provider_factor_id)
+select user_id,id from auth.mfa_factors where factor_type='totp'
+  and user_id::text like '11100000-0000-4000-8000-%';
 insert into public.profiles (user_id, display_name)
 select pg_temp.fixture_id(111, n), 'Fictieve medewerker ' || n from generate_series(1, 13) as n;
 
@@ -348,6 +364,14 @@ select is((select result_code from public.decide_correction_request(pg_temp.fixt
 reset role;
 insert into public.memberships (id,organization_id,user_id,role,status)
 values(pg_temp.fixture_id(115,13),pg_temp.fixture_id(113,1),pg_temp.fixture_id(111,13),'manager','active');
+insert into auth.mfa_factors (id,user_id,friendly_name,factor_type,status,created_at,updated_at)
+values(pg_temp.fixture_id(119,13),pg_temp.fixture_id(111,13),'Synthetic manager TOTP','totp','verified',now(),now());
+update auth.sessions set factor_id=pg_temp.fixture_id(119,13),aal='aal2'
+where id=pg_temp.fixture_id(112,13);
+insert into auth.mfa_amr_claims(id,session_id,created_at,updated_at,authentication_method)
+values(pg_temp.fixture_id(120,13),pg_temp.fixture_id(112,13),now(),now(),'totp');
+insert into private.manager_mfa_registrations(auth_user_id,provider_factor_id)
+values(pg_temp.fixture_id(111,13),pg_temp.fixture_id(119,13));
 set local role authenticated;
 select pg_temp.login(13);
 select throws_ok($$select * from public.decide_correction_request(pg_temp.fixture_id(118,1),pg_temp.fixture_id(117,1),'approve','  synthetic manager note  ')$$,
