@@ -34,6 +34,25 @@ function verificationError(): ManagerMfaVerificationState {
   return { message: nlBE.managerMfa.genericFailure, status: "error" };
 }
 
+function awaitingOperatorState(
+  context: Awaited<ReturnType<typeof getAuthContext>>,
+  caseId: string,
+): ManagerMfaVerificationState | null {
+  if (
+    context.state !== "manager_mfa_recovery_required" ||
+    context.recovery?.state !== "awaiting_operator" ||
+    context.recovery.caseId !== caseId
+  ) {
+    return null;
+  }
+
+  return {
+    candidateId: context.recovery.candidateId,
+    message: nlBE.managerMfa.recoveryAwaitingOperator,
+    status: "awaiting_operator",
+  };
+}
+
 function isFactorId(value: FormDataEntryValue | null): value is string {
   return (
     typeof value === "string" &&
@@ -284,6 +303,11 @@ export async function completeManagerMfaRecoveryEnrollmentAction(
     const supabase = await createSupabaseServerClient();
     const context = await getAuthContext(supabase);
 
+    const committedCandidate = awaitingOperatorState(context, caseId);
+    if (committedCandidate) {
+      return committedCandidate;
+    }
+
     if (
       context.state !== "manager_mfa_recovery_required" ||
       context.recovery?.state !== "active" ||
@@ -293,14 +317,14 @@ export async function completeManagerMfaRecoveryEnrollmentAction(
     }
 
     const factors = await supabase.auth.mfa.listFactors();
-    const pendingFactor = factors.data?.all.find(
+    const selectedFactor = factors.data?.all.find(
       (factor) =>
         factor.id === factorId &&
         factor.factor_type === "totp" &&
-        factor.status === "unverified",
+        (factor.status === "unverified" || factor.status === "verified"),
     );
 
-    if (factors.error || !pendingFactor) {
+    if (factors.error || !selectedFactor) {
       return verificationError();
     }
 
@@ -323,7 +347,10 @@ export async function completeManagerMfaRecoveryEnrollmentAction(
     });
 
     if (candidate.error || !isFactorId(candidate.data)) {
-      return verificationError();
+      return (
+        awaitingOperatorState(await getAuthContext(supabase), caseId) ??
+        verificationError()
+      );
     }
 
     return {

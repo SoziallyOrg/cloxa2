@@ -86,12 +86,27 @@ candidate evidence, and terminal state. Database permits one unresolved case per
 manager. Expiry preserves denial and history; another explicit start is required. Start
 and complete operation IDs provide exact replay, while altered reuse fails.
 
+If a case expires after native replacement verification, Supabase Auth retains that
+verified candidate while application registration still references prior factor. A new
+`start` sees retained candidate as unrelated provider state and refuses without deleting
+it; business access remains denied. Resolving retained factor requires separately
+authorized local operator handling outside fixed recovery CLI. Phase 11B does not claim
+native expire → restart → completion support and does not auto-adopt or delete
+candidate.
+
 ### Local operator commands
 
 Commands require ignored local credentials, exact repository project `cloxa2`, expected
 ports, literal loopback endpoints, no hosted link, running matching stack, fictional
 manager marker, and matching confirmation values. Output excludes credentials, tokens,
 passwords, OTPs, enrollment secrets, factor IDs, and session IDs.
+
+Before Supabase status or maintenance SQL, CLI resolves Docker selection from
+`DOCKER_CONTEXT`, `DOCKER_HOST`, or active context. Conflicting selectors, failed or
+ambiguous context inspection, SSH/TCP endpoints, and remote named pipes fail closed.
+Supported local Unix socket or local Windows named-pipe endpoint is pinned for both
+stack inspection and every maintenance `docker exec`; CLI does not change global Docker
+state.
 
 ```bash
 pnpm local:manager-mfa-recovery start --target-user <user-uuid> --operation-id <operation-uuid> --confirm-local-development --confirm-target <same-user-uuid>
@@ -133,14 +148,16 @@ pre-removal denial, operation replay, provider failure, candidate derivation, cr
 and stale rejection, atomic completion/audit rollback, preserved binding history,
 expiration, refreshed old-session denial, and required post-cutoff login.
 
-`tests/local-manager-mfa-recovery.test.ts` covers CLI confirmations, local-stack
-validation, fixed maintenance calls, provider response-loss retry, and unexpected factor
-failure. Web action tests cover recovery candidate recording and manager password-reset
-MFA gate.
+`tests/local-manager-mfa-recovery.test.ts` covers CLI confirmations, Docker
+context/endpoint validation and pinning, local-stack validation, fixed maintenance
+calls, provider response-loss retry, and unexpected factor failure. Web action tests
+cover same-factor candidate-write retry, authoritative committed-candidate recovery,
+candidate recording, and manager password-reset MFA gate.
 
 `apps/web/e2e/manager-mfa.spec.mts` uses disposable local users and native Supabase Auth
 enrollment/challenge/verification. It covers desktop and exact 320px flows, direct Data
 API/RPC/download denial, invalid and valid code behavior, routine login, factor removal,
-simultaneous setup attempts, native recovery, password-reset regression, old
-refresh-token denial, fresh-login restoration, and concurrent operator replay.
-Playwright trace, screenshots, and video remain off so secrets never enter artifacts.
+simultaneous setup attempts, native recovery, one-time candidate-write retry,
+password-reset regression, expired retained-candidate refusal, old refresh-token denial,
+fresh-login restoration, and concurrent operator replay. Playwright trace, screenshots,
+and video remain off so secrets never enter artifacts.

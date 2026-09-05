@@ -374,6 +374,11 @@ test("controlled native recovery keeps password reset and old sessions fail-clos
   const afterPasswordReset = browserClient();
   const candidate = browserClient();
   const fresh = browserClient();
+  const failureSuffix = randomUUID().replaceAll("-", "");
+  const failureSequence = `mfa_retry_seq_${failureSuffix}`;
+  const failureFunction = `mfa_retry_fn_${failureSuffix}`;
+  const failureTrigger = `mfa_retry_trg_${failureSuffix}`;
+  let candidateFailureInjectionInstalled = false;
 
   try {
     const initialLogin = await initial.auth.signInWithPassword({
@@ -531,6 +536,52 @@ test("controlled native recovery keeps password reset and old sessions fail-clos
       .inputValue();
     if (!replacementSecret || !replacementFactorId)
       throw new Error("Synthetic replacement enrollment is unavailable.");
+    ownerSql(`begin;
+      create sequence private.${failureSequence};
+      create function private.${failureFunction}()
+      returns trigger
+      language plpgsql
+      security invoker
+      set search_path=''
+      as $mfa_retry$
+      begin
+        if new.auth_user_id='${uuid(fixture.userId)}'::uuid then
+          if pg_catalog.nextval('private.${failureSequence}'::regclass)=1 then
+            raise exception using errcode='P0001',
+              message='synthetic one-time candidate write failure';
+          end if;
+        end if;
+        return new;
+      end;
+      $mfa_retry$;
+      create trigger ${failureTrigger}
+      before insert on private.manager_mfa_recovery_candidates
+      for each row execute function private.${failureFunction}();
+      commit;
+    `);
+    candidateFailureInjectionInstalled = true;
+    await page
+      .getByLabel("Authenticatorcode", { exact: true })
+      .fill(currentTotp(replacementSecret));
+    await page.getByRole("button", { name: "Instelling bevestigen" }).click();
+    await expect(
+      page.getByRole("alert").filter({ hasText: /kon niet worden gecontroleerd/u }),
+    ).toBeVisible();
+    expect(
+      ownerSql(
+        `select count(*) from private.manager_mfa_recovery_candidates where recovery_case_id='${recoveryCaseId}'`,
+      ),
+    ).toBe("0");
+    expect(
+      (await fixture.admin.auth.admin.mfa.listFactors({ userId: fixture.userId })).data
+        .factors,
+    ).toEqual([
+      expect.objectContaining({ id: replacementFactorId, status: "verified" }),
+    ]);
+    expect(
+      (await page.request.get(`/manager/exports-v2/${randomUUID()}/json`)).status(),
+    ).toBe(403);
+
     await page
       .getByLabel("Authenticatorcode", { exact: true })
       .fill(currentTotp(replacementSecret));
@@ -538,8 +589,20 @@ test("controlled native recovery keeps password reset and old sessions fail-clos
     await expect(
       page.getByText(/Toegang blijft geblokkeerd tot een lokale beheerder/u),
     ).toBeVisible();
+    ownerSql(`begin;
+      drop trigger ${failureTrigger} on private.manager_mfa_recovery_candidates;
+      drop function private.${failureFunction}();
+      drop sequence private.${failureSequence};
+      commit;
+    `);
+    candidateFailureInjectionInstalled = false;
     const displayedCandidateId = (await page.locator("code").textContent())?.trim();
-    uuid(displayedCandidateId ?? "");
+    const retriedCandidateId = uuid(displayedCandidateId ?? "");
+    expect(
+      ownerSql(
+        `select provider_factor_id from private.manager_mfa_recovery_candidates where id='${retriedCandidateId}'`,
+      ),
+    ).toBe(replacementFactorId);
     expect(new URL(page.url()).search).not.toMatch(/secret|code|factor|candidate/iu);
     expect(
       (await page.request.get(`/manager/exports-v2/${randomUUID()}/json`)).status(),
@@ -626,9 +689,152 @@ test("controlled native recovery keeps password reset and old sessions fail-clos
     await page.getByRole("button", { name: "Code controleren" }).click();
     await expect.poll(() => new URL(page.url()).pathname).toBe("/manager");
   } finally {
+    if (candidateFailureInjectionInstalled) {
+      ownerSql(`begin;
+        drop trigger if exists ${failureTrigger}
+          on private.manager_mfa_recovery_candidates;
+        drop function if exists private.${failureFunction}();
+        drop sequence if exists private.${failureSequence};
+        commit;
+      `);
+    }
     for (const client of [initial, afterPasswordReset, candidate, fresh]) {
       await client.auth.signOut().catch(() => {});
     }
+    await cleanup(fixture);
+  }
+});
+
+test("expired verified candidate is retained and restart refuses unrelated deletion", async () => {
+  test.setTimeout(120_000);
+  const fixture = await managerFixture();
+  const initial = browserClient();
+  const replacement = browserClient();
+
+  try {
+    expect(
+      (
+        await initial.auth.signInWithPassword({
+          email: fixture.email,
+          password,
+        })
+      ).error,
+    ).toBeNull();
+    const oldEnrollment = await initial.auth.mfa.enroll({
+      factorType: "totp",
+      friendlyName: "Expiry old factor",
+      issuer: "Cloxa",
+    });
+    if (oldEnrollment.error || !oldEnrollment.data)
+      throw new Error("Expiry old factor enrollment failed.");
+    const oldChallenge = await initial.auth.mfa.challenge({
+      factorId: oldEnrollment.data.id,
+    });
+    if (oldChallenge.error || !oldChallenge.data)
+      throw new Error("Expiry old factor challenge failed.");
+    expect(
+      (
+        await initial.auth.mfa.verify({
+          factorId: oldEnrollment.data.id,
+          challengeId: oldChallenge.data.id,
+          code: currentTotp(oldEnrollment.data.totp.secret),
+        })
+      ).error,
+    ).toBeNull();
+    expect((await initial.rpc("register_manager_mfa")).data).toBe("ready");
+
+    const startOperation = randomUUID();
+    const started = await executeRecoveryCommand(
+      {
+        command: "start",
+        operationId: startOperation,
+        targetUserId: fixture.userId,
+      },
+      { admin: fixture.admin, database: operatorDatabase() },
+    );
+    expect(started.status).toBe("awaiting_candidate");
+    const recoveryCaseId = uuid(started.case_id);
+
+    expect(
+      (
+        await replacement.auth.signInWithPassword({
+          email: fixture.email,
+          password,
+        })
+      ).error,
+    ).toBeNull();
+    const replacementEnrollment = await replacement.auth.mfa.enroll({
+      factorType: "totp",
+      friendlyName: "Retained expired candidate",
+      issuer: "Cloxa",
+    });
+    if (replacementEnrollment.error || !replacementEnrollment.data)
+      throw new Error("Expiry replacement enrollment failed.");
+    const replacementChallenge = await replacement.auth.mfa.challenge({
+      factorId: replacementEnrollment.data.id,
+    });
+    if (replacementChallenge.error || !replacementChallenge.data)
+      throw new Error("Expiry replacement challenge failed.");
+    expect(
+      (
+        await replacement.auth.mfa.verify({
+          factorId: replacementEnrollment.data.id,
+          challengeId: replacementChallenge.data.id,
+          code: currentTotp(replacementEnrollment.data.totp.secret),
+        })
+      ).error,
+    ).toBeNull();
+    const candidate = await replacement.rpc("record_manager_mfa_recovery_candidate", {
+      target_case_id: recoveryCaseId,
+    });
+    expect(candidate.error).toBeNull();
+    uuid(candidate.data as string);
+
+    ownerSql(`
+      update private.manager_mfa_recovery_cases as recovery_case
+      set started_at=expired.at-interval '16 minutes',
+          expires_at=expired.at-interval '1 minute'
+      from (select pg_catalog.clock_timestamp() as at) as expired
+      where recovery_case.id='${recoveryCaseId}';
+    `);
+    expect(operatorDatabase().status(fixture.userId, recoveryCaseId).status).toBe(
+      "expired",
+    );
+
+    await expect(
+      executeRecoveryCommand(
+        {
+          command: "start",
+          operationId: randomUUID(),
+          targetUserId: fixture.userId,
+        },
+        { admin: fixture.admin, database: operatorDatabase() },
+      ),
+    ).rejects.toThrow(
+      "Unexpected native factor state requires explicit operator review. No unrelated factor was deleted.",
+    );
+    expect(
+      (await fixture.admin.auth.admin.mfa.listFactors({ userId: fixture.userId })).data
+        .factors,
+    ).toEqual([
+      expect.objectContaining({
+        id: replacementEnrollment.data.id,
+        status: "verified",
+      }),
+    ]);
+    expect(
+      ownerSql(
+        `select provider_factor_id from private.manager_mfa_registrations where auth_user_id='${uuid(fixture.userId)}'`,
+      ),
+    ).toBe(oldEnrollment.data.id);
+    expect((await replacement.from("memberships").select("id")).data).toEqual([]);
+    expect(
+      (await replacement.rpc("get_manager_team", { request_id: randomUUID() })).error
+        ?.code,
+    ).toBe("42501");
+  } finally {
+    await initial.auth.signOut().catch(() => {});
+    await replacement.auth.signOut().catch(() => {});
     await cleanup(fixture);
   }
 });

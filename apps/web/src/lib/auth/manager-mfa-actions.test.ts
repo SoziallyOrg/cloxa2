@@ -73,6 +73,15 @@ const recoveryContext = {
     expiresAt: "2026-09-05T12:15:00Z",
   },
 };
+const awaitingOperatorContext = {
+  ...recoveryContext,
+  recovery: {
+    state: "awaiting_operator",
+    candidateId,
+    caseId: recoveryCaseId,
+    expiresAt: "2026-09-05T12:15:00Z",
+  },
+};
 const idle = { status: "idle", message: "" } as const;
 
 function form(fields: Record<string, string> = {}) {
@@ -303,7 +312,69 @@ describe("controlled manager TOTP recovery candidate", () => {
     expect(mocks.redirect).not.toHaveBeenCalled();
   });
 
-  it("rejects wrong-case and browser-selected verified factors", async () => {
+  it("retries the same owned factor after a one-time candidate-write failure", async () => {
+    let factorStatus = "unverified";
+    mocks.getAuthContext.mockResolvedValue(recoveryContext);
+    mocks.listFactors.mockImplementation(async () => ({
+      data: { all: [{ id: factorId, factor_type: "totp", status: factorStatus }] },
+      error: null,
+    }));
+    mocks.verify.mockImplementation(async () => {
+      factorStatus = "verified";
+      return { data: { access_token: "redacted" }, error: null };
+    });
+    mocks.rpc
+      .mockResolvedValueOnce({
+        data: null,
+        error: { message: "one-time write failure" },
+      })
+      .mockResolvedValueOnce({ data: candidateId, error: null });
+
+    const submission = form({
+      caseId: recoveryCaseId,
+      code: "123456",
+      factorId,
+    });
+    await expect(
+      completeManagerMfaRecoveryEnrollmentAction(idle, submission),
+    ).resolves.toEqual({ message: nlBE.managerMfa.genericFailure, status: "error" });
+    await expect(
+      completeManagerMfaRecoveryEnrollmentAction(idle, submission),
+    ).resolves.toEqual({
+      candidateId,
+      message: nlBE.managerMfa.recoveryAwaitingOperator,
+      status: "awaiting_operator",
+    });
+
+    expect(mocks.challenge).toHaveBeenCalledTimes(2);
+    expect(mocks.verify).toHaveBeenCalledTimes(2);
+    expect(mocks.rpc).toHaveBeenCalledTimes(2);
+    expect(mocks.verify.mock.invocationCallOrder[1]).toBeLessThan(
+      mocks.rpc.mock.invocationCallOrder[1]!,
+    );
+  });
+
+  it("uses authoritative candidate state after a committed response is lost", async () => {
+    mocks.getAuthContext
+      .mockResolvedValueOnce(recoveryContext)
+      .mockResolvedValueOnce(awaitingOperatorContext);
+    mocks.rpc.mockResolvedValue({ data: null, error: { message: "response lost" } });
+
+    await expect(
+      completeManagerMfaRecoveryEnrollmentAction(
+        idle,
+        form({ caseId: recoveryCaseId, code: "123456", factorId }),
+      ),
+    ).resolves.toEqual({
+      candidateId,
+      message: nlBE.managerMfa.recoveryAwaitingOperator,
+      status: "awaiting_operator",
+    });
+    expect(mocks.rpc).toHaveBeenCalledOnce();
+    expect(mocks.getAuthContext).toHaveBeenCalledTimes(2);
+  });
+
+  it("rejects wrong-case, foreign-factor and expired-case submissions", async () => {
     mocks.getAuthContext.mockResolvedValue(recoveryContext);
     await expect(
       completeManagerMfaRecoveryEnrollmentAction(
@@ -314,7 +385,9 @@ describe("controlled manager TOTP recovery candidate", () => {
     expect(mocks.challenge).not.toHaveBeenCalled();
 
     mocks.listFactors.mockResolvedValue({
-      data: { all: [{ id: factorId, factor_type: "totp", status: "verified" }] },
+      data: {
+        all: [{ id: registeredFactorId, factor_type: "totp", status: "verified" }],
+      },
       error: null,
     });
     await expect(
@@ -324,6 +397,51 @@ describe("controlled manager TOTP recovery candidate", () => {
       ),
     ).resolves.toEqual({ message: nlBE.managerMfa.genericFailure, status: "error" });
     expect(mocks.rpc).not.toHaveBeenCalled();
+
+    mocks.getAuthContext.mockResolvedValue({
+      ...recoveryContext,
+      recovery: { state: "expired" },
+    });
+    await expect(
+      completeManagerMfaRecoveryEnrollmentAction(
+        idle,
+        form({ caseId: recoveryCaseId, code: "123456", factorId }),
+      ),
+    ).resolves.toEqual({ message: nlBE.managerMfa.genericFailure, status: "error" });
+    expect(mocks.challenge).not.toHaveBeenCalled();
+  });
+
+  it("requires authoritative candidate persistence after old-factor verification", async () => {
+    mocks.getAuthContext.mockResolvedValue(recoveryContext);
+    mocks.listFactors.mockResolvedValue({
+      data: {
+        all: [{ id: registeredFactorId, factor_type: "totp", status: "verified" }],
+      },
+      error: null,
+    });
+    mocks.rpc.mockResolvedValue({
+      data: null,
+      error: { message: "old factor denied" },
+    });
+
+    await expect(
+      completeManagerMfaRecoveryEnrollmentAction(
+        idle,
+        form({
+          caseId: recoveryCaseId,
+          code: "123456",
+          factorId: registeredFactorId,
+        }),
+      ),
+    ).resolves.toEqual({ message: nlBE.managerMfa.genericFailure, status: "error" });
+    expect(mocks.challenge).toHaveBeenCalledExactlyOnceWith({
+      factorId: registeredFactorId,
+    });
+    expect(mocks.verify).toHaveBeenCalledOnce();
+    expect(mocks.rpc).toHaveBeenCalledExactlyOnceWith(
+      "record_manager_mfa_recovery_candidate",
+      { target_case_id: recoveryCaseId },
+    );
   });
 });
 

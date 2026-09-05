@@ -29,6 +29,11 @@ for configured fictional manager. Every command requires local-development confi
 exact target confirmation, fixed repository stack, ignored matching credentials, no
 hosted link, and literal loopback API/database endpoints. `status` and `complete` also
 require exact case confirmation; `complete` requires exact candidate confirmation.
+Docker selection is resolved from `DOCKER_CONTEXT`, `DOCKER_HOST`, or active context
+before stack inspection. Conflicting selectors, remote/ambiguous contexts, SSH/TCP, and
+remote named pipes are rejected. Valid local Unix socket or Windows named-pipe endpoint
+is pinned for Supabase status and every maintenance command without changing Docker
+configuration.
 
 ```bash
 pnpm local:manager-mfa-recovery start --target-user <user-uuid> --operation-id <operation-uuid> --confirm-local-development --confirm-target <same-user-uuid>
@@ -42,6 +47,12 @@ same operation retry inspects actual factor state before resuming. After manager
 verifies replacement in browser, use `status` candidate list and manually select exact
 candidate. Completion updates binding and minimal audit atomically. It does not promote
 candidate session; manager must log in again and verify replacement factor.
+
+Expiry after replacement verification can leave verified candidate in native Auth while
+application binding still names old factor. Normal restart then refuses retained factor
+as unrelated, deletes nothing, and leaves access denied. Separately authorized operator
+handling outside this fixed CLI is required. Do not claim or rely on automatic native
+expire → restart → completion behavior.
 
 CLI output contains only case state, deadline, binding generation, and non-secret case
 or candidate references. It never prints factor/session IDs, passwords, keys, tokens,

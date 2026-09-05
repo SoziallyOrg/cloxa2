@@ -8,6 +8,8 @@ import {
   executeRecoveryCommand,
   operatorDatabase,
   parseRecoveryArguments,
+  resolveLocalDockerEndpoint,
+  runOperatorSql,
   validateRecoveryEnvironment,
 } from "../scripts/local-manager-mfa-recovery.mjs";
 
@@ -20,6 +22,7 @@ const factorId = "85000000-0000-4000-8000-000000000001";
 const roots: string[] = [];
 const environment = {
   CLOXA_LOCAL_MANAGER_EMAIL: "manager.local@example.test",
+  DOCKER_HOST: "unix:///var/run/docker.sock",
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "local-public",
   NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54321",
   SUPABASE_SECRET_KEY: "local-secret",
@@ -56,6 +59,110 @@ afterEach(async () => {
 });
 
 describe("local manager MFA recovery CLI boundary", () => {
+  it.each([
+    "unix:///var/run/docker.sock",
+    "unix:///home/local/.docker/desktop/docker.sock",
+    "npipe:////./pipe/docker_engine",
+    "npipe:////./pipe/dockerDesktopLinuxEngine",
+  ])("accepts and pins supported local Docker endpoint %s", (endpoint) => {
+    const resolved = resolveLocalDockerEndpoint({
+      environment: { DOCKER_HOST: endpoint },
+      runCommand: vi.fn(),
+    });
+
+    expect(resolved.endpoint).toBe(endpoint);
+    expect(resolved.environment).toMatchObject({ DOCKER_HOST: endpoint });
+    expect(resolved.environment).not.toHaveProperty("DOCKER_CONTEXT");
+  });
+
+  it.each([
+    "ssh://operator@remote.example.test",
+    "tcp://127.0.0.1:2375",
+    "npipe:////remote-host/pipe/docker_engine",
+    "unix:////remote-share/docker.sock",
+  ])("rejects unsupported or ambiguous Docker endpoint %s", (endpoint) => {
+    const runCommand = vi.fn();
+    expect(() =>
+      resolveLocalDockerEndpoint({
+        environment: { DOCKER_HOST: endpoint },
+        runCommand,
+      }),
+    ).toThrow("local Unix socket or Windows named pipe");
+    expect(runCommand).not.toHaveBeenCalled();
+  });
+
+  it("rejects a remote selected context when DOCKER_HOST is unset", () => {
+    const runCommand = vi.fn(() =>
+      JSON.stringify([
+        {
+          Name: "remote-build",
+          Endpoints: { docker: { Host: "ssh://builder@remote.example.test" } },
+        },
+      ]),
+    );
+
+    expect(() =>
+      resolveLocalDockerEndpoint({
+        environment: { DOCKER_CONTEXT: "remote-build" },
+        runCommand,
+      }),
+    ).toThrow("local Unix socket or Windows named pipe");
+    expect(runCommand).toHaveBeenCalledExactlyOnceWith(
+      "docker",
+      ["context", "inspect", "remote-build"],
+      expect.objectContaining({ encoding: "utf8" }),
+    );
+  });
+
+  it("rejects conflicting Docker selectors before inspection", () => {
+    const runCommand = vi.fn();
+    expect(() =>
+      resolveLocalDockerEndpoint({
+        environment: {
+          DOCKER_CONTEXT: "desktop-linux",
+          DOCKER_HOST: "unix:///var/run/docker.sock",
+        },
+        runCommand,
+      }),
+    ).toThrow("conflicting");
+    expect(runCommand).not.toHaveBeenCalled();
+  });
+
+  it("uses active-context precedence and fails closed on malformed inspection", () => {
+    const valid = vi
+      .fn()
+      .mockReturnValueOnce("desktop-linux\n")
+      .mockReturnValueOnce(
+        JSON.stringify([
+          {
+            Name: "desktop-linux",
+            Endpoints: {
+              docker: { Host: "npipe:////./pipe/dockerDesktopLinuxEngine" },
+            },
+          },
+        ]),
+      );
+    expect(
+      resolveLocalDockerEndpoint({ environment: {}, runCommand: valid }),
+    ).toMatchObject({
+      endpoint: "npipe:////./pipe/dockerDesktopLinuxEngine",
+    });
+    expect(valid.mock.calls.map((call) => call[1])).toEqual([
+      ["context", "show"],
+      ["context", "inspect", "desktop-linux"],
+    ]);
+
+    const failed = vi.fn(() => {
+      throw new Error("private Docker output");
+    });
+    expect(() =>
+      resolveLocalDockerEndpoint({
+        environment: { DOCKER_CONTEXT: "desktop-linux" },
+        runCommand: failed,
+      }),
+    ).toThrow("Docker context inspection failed");
+  });
+
   it("requires exact local, target, case, candidate and operation confirmations", () => {
     expect(
       parseRecoveryArguments([
@@ -157,6 +264,61 @@ describe("local manager MFA recovery CLI boundary", () => {
         runCommand: vi.fn(),
       }),
     ).rejects.toThrow("Hosted Supabase project link detected");
+  });
+
+  it("refuses a remote Docker selector before Supabase or Auth inspection", async () => {
+    const root = await localRoot();
+    const getStatus = vi.fn();
+    await expect(
+      validateRecoveryEnvironment({
+        environment: {
+          ...environment,
+          DOCKER_HOST: "ssh://operator@remote.example.test",
+        },
+        getStatus,
+        root,
+        runCommand: vi.fn(),
+      }),
+    ).rejects.toThrow("local Unix socket or Windows named pipe");
+    expect(getStatus).not.toHaveBeenCalled();
+  });
+
+  it("pins the validated Docker endpoint for stack inspection and maintenance", async () => {
+    const root = await localRoot();
+    const getStatus = vi.fn(() => status);
+    const settings = await validateRecoveryEnvironment({
+      environment: {
+        ...environment,
+        DOCKER_CONTEXT: undefined,
+        DOCKER_HOST: "unix:///var/run/docker.sock",
+      },
+      getStatus,
+      root,
+      runCommand: vi.fn(),
+    });
+    const stackEnvironment = getStatus.mock.calls[0]?.[0];
+    expect(stackEnvironment).toEqual(
+      expect.objectContaining({ DOCKER_HOST: "unix:///var/run/docker.sock" }),
+    );
+    expect(stackEnvironment).not.toHaveProperty("DOCKER_CONTEXT");
+
+    const runCommand = vi.fn(() => '{"status":"ok"}');
+    expect(
+      runOperatorSql("select '{}'::jsonb;", {
+        dockerEndpoint: settings.dockerEndpoint,
+        environment: settings.dockerEnvironment,
+        runCommand,
+      }),
+    ).toEqual({ status: "ok" });
+    expect(runCommand).toHaveBeenCalledWith(
+      "docker",
+      expect.arrayContaining(["--host", "unix:///var/run/docker.sock", "exec"]),
+      expect.objectContaining({
+        env: expect.objectContaining({
+          DOCKER_HOST: "unix:///var/run/docker.sock",
+        }),
+      }),
+    );
   });
 
   it("uses fixed maintenance functions and UUID-only SQL values", () => {

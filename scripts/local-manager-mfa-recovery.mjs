@@ -22,6 +22,13 @@ const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 const localFixtureMarker = "cloxa-local-manager-v1";
 const databaseContainer = "supabase_db_cloxa2";
+const dockerSelectionVariables = new Set([
+  "DOCKER_CERT_PATH",
+  "DOCKER_CONTEXT",
+  "DOCKER_HOST",
+  "DOCKER_TLS",
+  "DOCKER_TLS_VERIFY",
+]);
 
 function requireUuid(value, label) {
   if (typeof value !== "string" || !uuidPattern.test(value)) {
@@ -142,12 +149,150 @@ export function parseRecoveryArguments(args) {
   };
 }
 
+function dockerVariable(environment, name) {
+  const values = Object.entries(environment)
+    .filter(
+      ([key, value]) =>
+        key.toUpperCase() === name && typeof value === "string" && value.length > 0,
+    )
+    .map(([, value]) => value);
+
+  if (values.length > 1) {
+    throw new LocalAuthError("Docker endpoint selection is ambiguous.");
+  }
+
+  return values[0];
+}
+
+function withoutDockerSelection(environment) {
+  return Object.fromEntries(
+    Object.entries(environment).filter(
+      ([key, value]) =>
+        !dockerSelectionVariables.has(key.toUpperCase()) && value !== undefined,
+    ),
+  );
+}
+
+function requireDockerContextName(value) {
+  if (typeof value !== "string" || !/^[a-z0-9][a-z0-9_.-]{0,127}$/iu.test(value)) {
+    throw new LocalAuthError("Docker context selection is missing or malformed.");
+  }
+  return value;
+}
+
+function requireLocalDockerEndpoint(value) {
+  if (
+    typeof value === "string" &&
+    value === value.trim() &&
+    /^unix:\/\/\/(?!\/)[^\0\r\n?#]+$/u.test(value)
+  ) {
+    return value;
+  }
+
+  const localPipePrefix = "npipe:////./pipe/";
+  if (
+    typeof value === "string" &&
+    value.startsWith(localPipePrefix) &&
+    /^[a-z0-9][a-z0-9_.-]{0,127}$/iu.test(value.slice(localPipePrefix.length))
+  ) {
+    return value;
+  }
+
+  throw new LocalAuthError(
+    "Docker endpoint must be a supported local Unix socket or Windows named pipe.",
+  );
+}
+
+function inspectDockerContext(contextName, environment, runCommand, root) {
+  let parsed;
+  try {
+    const output = runCommand("docker", ["context", "inspect", contextName], {
+      cwd: root,
+      encoding: "utf8",
+      env: withoutDockerSelection(environment),
+      maxBuffer: 1024 * 1024,
+      stdio: ["ignore", "pipe", "pipe"],
+      windowsHide: true,
+    });
+    parsed = JSON.parse(String(output));
+  } catch {
+    throw new LocalAuthError("Docker context inspection failed safely.");
+  }
+
+  if (
+    !Array.isArray(parsed) ||
+    parsed.length !== 1 ||
+    parsed[0]?.Name !== contextName ||
+    typeof parsed[0]?.Endpoints?.docker?.Host !== "string"
+  ) {
+    throw new LocalAuthError("Docker context inspection failed safely.");
+  }
+
+  return parsed[0].Endpoints.docker.Host;
+}
+
+export function resolveLocalDockerEndpoint({
+  environment = process.env,
+  root = projectRoot,
+  runCommand = execFileSync,
+} = {}) {
+  const selectedContext = dockerVariable(environment, "DOCKER_CONTEXT");
+  const selectedHost = dockerVariable(environment, "DOCKER_HOST");
+
+  if (selectedContext && selectedHost) {
+    throw new LocalAuthError(
+      "Docker endpoint selection contains conflicting overrides.",
+    );
+  }
+
+  let endpoint;
+  if (selectedContext) {
+    endpoint = inspectDockerContext(
+      requireDockerContextName(selectedContext),
+      environment,
+      runCommand,
+      root,
+    );
+  } else if (selectedHost) {
+    endpoint = selectedHost;
+  } else {
+    let activeContext;
+    try {
+      activeContext = requireDockerContextName(
+        String(
+          runCommand("docker", ["context", "show"], {
+            cwd: root,
+            encoding: "utf8",
+            env: withoutDockerSelection(environment),
+            maxBuffer: 1024 * 1024,
+            stdio: ["ignore", "pipe", "pipe"],
+            windowsHide: true,
+          }),
+        ).trim(),
+      );
+    } catch {
+      throw new LocalAuthError("Docker context inspection failed safely.");
+    }
+    endpoint = inspectDockerContext(activeContext, environment, runCommand, root);
+  }
+
+  endpoint = requireLocalDockerEndpoint(endpoint);
+  return {
+    endpoint,
+    environment: {
+      ...withoutDockerSelection(environment),
+      DOCKER_HOST: endpoint,
+    },
+  };
+}
+
 export async function validateRecoveryEnvironment({
   environment = process.env,
   getStatus = getLocalStackStatus,
   root = projectRoot,
   runCommand = execFileSync,
 } = {}) {
+  const docker = resolveLocalDockerEndpoint({ environment, root, runCommand });
   const environmentFile = path.join(root, "apps", "web", ".env.local");
   const environmentStat = await lstat(environmentFile).catch(() => null);
   if (
@@ -189,7 +334,7 @@ export async function validateRecoveryEnvironment({
   }
 
   requireLocalOrigin(environment.NEXT_PUBLIC_SUPABASE_URL);
-  const status = getStatus();
+  const status = getStatus(docker.environment);
   try {
     validateCiStatus(status);
   } catch {
@@ -201,6 +346,8 @@ export async function validateRecoveryEnvironment({
 
   return {
     ...settings,
+    dockerEndpoint: docker.endpoint,
+    dockerEnvironment: docker.environment,
     managerEmail: requireFictionalEmail(environment.CLOXA_LOCAL_MANAGER_EMAIL),
   };
 }
@@ -209,11 +356,27 @@ function sqlUuid(value) {
   return `'${requireUuid(value, "Database identifier")}'::uuid`;
 }
 
-export function runOperatorSql(sql, runCommand = execFileSync) {
+export function runOperatorSql(
+  sql,
+  { dockerEndpoint, environment = process.env, runCommand = execFileSync } = {},
+) {
+  const docker = dockerEndpoint
+    ? {
+        endpoint: requireLocalDockerEndpoint(dockerEndpoint),
+        environment: {
+          ...withoutDockerSelection(environment),
+          DOCKER_HOST: dockerEndpoint,
+        },
+      }
+    : resolveLocalDockerEndpoint({ environment, runCommand });
+  const endpoint = docker.endpoint;
+  const pinnedEnvironment = docker.environment;
   try {
     const output = runCommand(
       "docker",
       [
+        "--host",
+        endpoint,
         "exec",
         "-i",
         databaseContainer,
@@ -230,6 +393,7 @@ export function runOperatorSql(sql, runCommand = execFileSync) {
       {
         cwd: projectRoot,
         encoding: "utf8",
+        env: pinnedEnvironment,
         input: sql,
         maxBuffer: 1024 * 1024,
         stdio: ["pipe", "pipe", "pipe"],
@@ -247,7 +411,21 @@ export function runOperatorSql(sql, runCommand = execFileSync) {
 }
 
 export function operatorDatabase(dependencies = {}) {
-  const call = dependencies.runOperatorSql ?? runOperatorSql;
+  const docker = dependencies.runOperatorSql
+    ? null
+    : dependencies.dockerEndpoint
+      ? {
+          endpoint: dependencies.dockerEndpoint,
+          environment: dependencies.dockerEnvironment,
+        }
+      : resolveLocalDockerEndpoint({ environment: dependencies.dockerEnvironment });
+  const call =
+    dependencies.runOperatorSql ??
+    ((sql) =>
+      runOperatorSql(sql, {
+        dockerEndpoint: docker.endpoint,
+        environment: docker.environment,
+      }));
   return {
     start(targetUserId, operationId) {
       return call(
@@ -439,7 +617,11 @@ export async function main(args = process.argv.slice(2)) {
     parsed.targetUserId,
     settings.managerEmail,
   );
-  const result = await executeRecoveryCommand(parsed, { admin });
+  const database = operatorDatabase({
+    dockerEndpoint: settings.dockerEndpoint,
+    dockerEnvironment: settings.dockerEnvironment,
+  });
+  const result = await executeRecoveryCommand(parsed, { admin, database });
 
   console.log(
     JSON.stringify({

@@ -64,11 +64,14 @@ pnpm local:manager-mfa-recovery complete --target-user <user-uuid> --case-id <ca
 ```
 
 Commands reject hosted links/endpoints, non-loopback ports, mismatched local keys,
-nonfictional targets, missing confirmations, and unexpected provider factor state. CLI
-never prints factor identity, sessions, credentials, OTPs, or setup secrets. Expiration
-preserves denial and case history. This workflow supplies no production identity
-proofing, support authorization, or hosted recovery. Full contract and failure/replay
-behavior: [manager MFA contract](packages/database/MANAGER_MFA.md).
+nonfictional targets, missing confirmations, remote or conflicting Docker selection, and
+unexpected provider factor state. Valid local Docker socket is pinned for stack
+inspection and maintenance commands. CLI never prints factor identity, sessions,
+credentials, OTPs, or setup secrets. Expiration preserves denial and case history. A
+verified candidate retained after expiration makes normal restart refuse without factor
+deletion; separately authorized operator handling is required. This workflow supplies no
+production identity proofing, support authorization, or hosted recovery. Full contract
+and failure/replay behavior: [manager MFA contract](packages/database/MANAGER_MFA.md).
 
 ## Workspace
 
