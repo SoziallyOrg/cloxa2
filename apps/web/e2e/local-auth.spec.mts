@@ -1,4 +1,6 @@
+import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { createRequire } from "node:module";
 
 import {
   expect,
@@ -13,11 +15,13 @@ import {
   containsServerSecret,
 } from "../../../scripts/local-auth-bundles.mjs";
 import {
+  localOnlyFetch,
   requireFictionalEmail,
   requireLiteralLoopbackOrigin,
   requireLocalOrigin,
   requireLocalPassword,
 } from "../../../scripts/local-auth-config.mjs";
+import { currentTotp } from "./manager-mfa-fixture.mts";
 
 const managerEmail = requireFictionalEmail(process.env.CLOXA_LOCAL_MANAGER_EMAIL);
 const managerPassword = requireLocalPassword(
@@ -41,9 +45,74 @@ const supabaseOrigin = requireLiteralLoopbackOrigin(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   "Supabase URL",
 );
+const requireFromWeb = createRequire(new URL("../package.json", import.meta.url));
+const { createClient } = requireFromWeb("@supabase/supabase-js");
 
 type MailMessage = { ID: string; HTML: string; To: Array<{ Address: string }> };
 type MailSummary = { ID: string; To: Array<{ Address: string }> };
+
+function ownerSql(sql: string) {
+  execFileSync(
+    "docker",
+    [
+      "exec",
+      "-i",
+      "supabase_db_cloxa2",
+      "psql",
+      "-X",
+      "-qAt",
+      "-v",
+      "ON_ERROR_STOP=1",
+      "-U",
+      "postgres",
+      "-d",
+      "postgres",
+    ],
+    {
+      input: sql,
+      windowsHide: true,
+      stdio: ["pipe", "pipe", "pipe"],
+    },
+  );
+}
+
+async function clearLocalManagerMfa() {
+  const admin = createClient(supabaseOrigin, process.env.SUPABASE_SECRET_KEY, {
+    auth: {
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+      persistSession: false,
+    },
+    global: { fetch: localOnlyFetch },
+  });
+  const users = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+  const manager = users.data?.users.find(
+    (user: { email?: string }) =>
+      user.email?.toLowerCase() === managerEmail.toLowerCase(),
+  );
+  if (
+    users.error ||
+    !manager?.id ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(
+      manager.id,
+    )
+  ) {
+    throw new Error("Lokale manager-MFA-fixture ontbreekt.");
+  }
+
+  ownerSql(`begin;
+    delete from private.manager_mfa_registrations where auth_user_id='${manager.id}';
+    commit;`);
+  const factors = await admin.auth.admin.mfa.listFactors({ userId: manager.id });
+  if (factors.error) throw new Error("Lokale MFA-factorlijst is niet beschikbaar.");
+  for (const factor of factors.data?.factors ?? []) {
+    const deleted = await admin.auth.admin.mfa.deleteFactor({
+      id: factor.id,
+      userId: manager.id,
+    });
+    if (deleted.error) throw new Error("Lokale MFA-factor kon niet worden gewist.");
+  }
+}
 
 async function blockExternalRequests(context: BrowserContext) {
   await context.route("**/*", async (route) => {
@@ -179,8 +248,21 @@ async function followPrivateLink(page: Page, link: string) {
   }
 }
 
-test.beforeEach(async ({ context }) => {
+test.beforeEach(async ({ context }, testInfo) => {
   await blockExternalRequests(context);
+  if (
+    testInfo.title === "volledige lokale uitnodiging, aanmelding en wachtwoordherstel"
+  ) {
+    await clearLocalManagerMfa();
+  }
+});
+
+test.afterEach(async ({}, testInfo) => {
+  if (
+    testInfo.title === "volledige lokale uitnodiging, aanmelding en wachtwoordherstel"
+  ) {
+    await clearLocalManagerMfa();
+  }
 });
 
 test("volledige lokale uitnodiging, aanmelding en wachtwoordherstel", async ({
@@ -191,6 +273,22 @@ test("volledige lokale uitnodiging, aanmelding en wachtwoordherstel", async ({
   const employeeEmail = `employee.${randomUUID()}@example.test`;
 
   await login(page, managerEmail, managerPassword);
+  await expectPath(page, "/manager/security/setup");
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Authenticator instellen" }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Authenticator instellen", exact: true })
+    .click();
+  const totpSecret = (await page.locator("code").textContent())?.trim();
+  if (!totpSecret) throw new Error("Lokale TOTP-sleutel ontbreekt.");
+  await privateFill(
+    page.getByLabel("Authenticatorcode", { exact: true }),
+    currentTotp(totpSecret),
+  );
+  await page
+    .getByRole("button", { name: "Instelling bevestigen", exact: true })
+    .click();
   await expectPath(page, "/manager");
   await expect(
     page.getByRole("heading", { level: 1, name: "Manager", exact: true }),

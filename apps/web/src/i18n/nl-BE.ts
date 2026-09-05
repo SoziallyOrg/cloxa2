@@ -209,6 +209,31 @@ export const nlBE = {
       "Beoordeel correctieaanvragen van je medewerkers en nodig medewerkers uit.",
     status: "Aangemeld",
   },
+  managerMfa: {
+    setupTitle: "Authenticator instellen",
+    setupDescription:
+      "Beveilig je managerwerkruimte met een code uit je authenticator-app.",
+    setupHelp:
+      "Start de instelling, scan daarna de QR-code en bevestig met de zescijferige code uit je app.",
+    startSetup: "Authenticator instellen",
+    enrollmentReady: "Scan de QR-code en bevestig daarna je actuele code.",
+    qrAlt: "QR-code voor authenticator-app",
+    manualHelp: "Kun je niet scannen? Voer deze sleutel handmatig in:",
+    codeLabel: "Authenticatorcode",
+    codeHelp: "Vul de actuele zescijferige code in.",
+    completeSetup: "Instelling bevestigen",
+    verifyTitle: "Authenticatorcode controleren",
+    verifyDescription:
+      "Vul de actuele code uit je geregistreerde authenticator-app in om verder te gaan.",
+    verifySubmit: "Code controleren",
+    recoveryTitle: "Herstel door beheerder nodig",
+    recoveryDescription:
+      "Je geregistreerde authenticator is niet meer bruikbaar. Managergegevens blijven geblokkeerd.",
+    recoveryHelp:
+      "Zelf vervangen of verwijderen is in deze fase niet mogelijk. Neem contact op met een bevoegde beheerder. Dit is nog geen volledig productieherstelproces.",
+    genericFailure:
+      "De code kon niet worden gecontroleerd. Controleer de code en probeer later opnieuw.",
+  },
   managerCorrections: {
     title: "Correcties beoordelen",
     description:

@@ -9,7 +9,7 @@ import { getManagerCorrectionRequests } from "@/lib/manager-corrections/server";
 export const metadata: Metadata = { title: nlBE.managerCorrections.title };
 
 export default async function ManagerCorrectionsPage() {
-  await requireRole("manager");
+  await requireRole("manager", "/manager/corrections");
   const view = await getManagerCorrectionRequests();
   return (
     <RoleShell

@@ -12,7 +12,7 @@ export const metadata: Metadata = { title: "Team en pilotinstellingen" };
 // Established docket system: settings first, roster second, invitations last.
 // Inline editing and explicit access confirmation keep context at 320px.
 export default async function ManagerTeamPage() {
-  await requireRole("manager");
+  await requireRole("manager", "/manager/team");
   const view = await getManagerTeam();
   return (
     <RoleShell

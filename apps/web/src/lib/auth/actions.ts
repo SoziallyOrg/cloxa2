@@ -1,9 +1,10 @@
 "use server";
 
+import type { Route } from "next";
 import { redirect } from "next/navigation";
 
 import { nlBE } from "@/i18n/nl-BE";
-import { getAuthorizedPath } from "@/lib/auth/access";
+import { getAuthorizedPath, getAuthorizedPathWithReturn } from "@/lib/auth/access";
 import { clearAuthFlowIntent, requireAuthFlow } from "@/lib/auth/flow-intent";
 import { deliverEmployeeInvitation } from "@/lib/auth/invitation-delivery";
 import { getLocalSiteOrigin } from "@/lib/auth/local-only";
@@ -38,7 +39,7 @@ export async function loginAction(
     return errorState(nlBE.auth.loginFailure);
   }
 
-  let destination: ReturnType<typeof getAuthorizedPath>;
+  let destination: Route;
 
   try {
     const supabase = await createSupabaseServerClient();
@@ -50,15 +51,21 @@ export async function loginAction(
 
     await clearAuthFlowIntent();
     const context = await getAuthContext(supabase);
-    destination = getAuthorizedPath(context);
+    const requested = getSafePostAuthPath(
+      getFormText(formData, "next"),
+      context.state === "authorized" && context.role === "employee"
+        ? "/employee"
+        : "/manager",
+    );
+    destination = getAuthorizedPathWithReturn(context, requested);
 
     if (context.state === "authorized") {
-      const requested = getSafePostAuthPath(
-        getFormText(formData, "next"),
-        context.role === "manager" ? "/manager" : "/employee",
-      );
       // A safe URL does not grant access to another role's workspace.
-      destination = requested === destination ? requested : destination;
+      destination =
+        (context.role === "manager" && requested.startsWith("/manager")) ||
+        (context.role === "employee" && requested === "/employee")
+          ? requested
+          : getAuthorizedPath(context);
     }
   } catch {
     return errorState(nlBE.auth.loginFailure);

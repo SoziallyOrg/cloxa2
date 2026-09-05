@@ -13,7 +13,9 @@ create function pg_temp.slogin(number integer)
 returns void language sql as $$
   select set_config('request.jwt.claims', jsonb_build_object(
     'sub', pg_temp.sid(951, number), 'session_id', pg_temp.sid(952, number),
-    'role', 'authenticated', 'exp', extract(epoch from now() + interval '1 hour')::bigint
+    'role', 'authenticated', 'exp', extract(epoch from now() + interval '1 hour')::bigint,
+    'aal', 'aal2',
+    'amr', jsonb_build_array(jsonb_build_object('method', 'totp', 'timestamp', extract(epoch from now())::bigint))
   )::text, true)::text::void
 $$;
 create function pg_temp.time_decide(operation_number integer, claim_number integer,
@@ -45,6 +47,21 @@ insert into public.memberships (id, organization_id, user_id, role, status, empl
 select pg_temp.sid(955, n), pg_temp.sid(953, case when n in (7, 8) then 2 else 1 end),
   pg_temp.sid(951, n), case when n in (1, 8) then 'manager' else 'employee' end,
   'active', 'SUSP-REVIEW-' || n from generate_series(1, 10) n;
+
+insert into auth.mfa_factors (id,user_id,friendly_name,factor_type,status,created_at,updated_at)
+select gen_random_uuid(),m.user_id,'Synthetic manager TOTP','totp','verified',now(),now()
+from (select distinct user_id from public.memberships where role='manager'
+  and user_id::text like '95100000-0000-4000-b000-%') m
+where exists(select 1 from auth.sessions s where s.user_id=m.user_id);
+update auth.sessions s set factor_id=f.id,aal='aal2' from auth.mfa_factors f
+where f.user_id=s.user_id and f.factor_type='totp'
+  and s.user_id::text like '95100000-0000-4000-b000-%';
+insert into auth.mfa_amr_claims(id,session_id,created_at,updated_at,authentication_method)
+select gen_random_uuid(),s.id,now(),now(),'totp' from auth.sessions s join auth.mfa_factors f on f.id=s.factor_id
+where s.user_id::text like '95100000-0000-4000-b000-%';
+insert into private.manager_mfa_registrations(auth_user_id,provider_factor_id)
+select user_id,id from auth.mfa_factors where factor_type='totp'
+  and user_id::text like '95100000-0000-4000-b000-%';
 insert into public.profiles (user_id, display_name)
 select pg_temp.sid(951, n), 'Fictieve naam ' || n from generate_series(1, 10) n;
 

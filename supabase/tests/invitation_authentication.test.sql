@@ -73,6 +73,21 @@ select ('84000000-0000-4000-8000-' || lpad(number::text, 12, '0'))::uuid,
   role, status from fixtures;
 insert into public.memberships (organization_id, user_id, role, status) values
   ('83000000-0000-4000-8000-000000000003', '81000000-0000-4000-8000-000000000016', 'employee', 'active');
+
+insert into auth.mfa_factors (id,user_id,friendly_name,factor_type,status,created_at,updated_at)
+select gen_random_uuid(),m.user_id,'Synthetic manager TOTP','totp','verified',now(),now()
+from (select distinct user_id from public.memberships where role='manager'
+  and user_id::text like '81000000-0000-4000-8000-%') m
+where exists(select 1 from auth.sessions s where s.user_id=m.user_id);
+update auth.sessions s set factor_id=f.id,aal='aal2' from auth.mfa_factors f
+where f.user_id=s.user_id and f.factor_type='totp'
+  and s.user_id::text like '81000000-0000-4000-8000-%';
+insert into auth.mfa_amr_claims(id,session_id,created_at,updated_at,authentication_method)
+select gen_random_uuid(),s.id,now(),now(),'totp' from auth.sessions s join auth.mfa_factors f on f.id=s.factor_id
+where s.user_id::text like '81000000-0000-4000-8000-%';
+insert into private.manager_mfa_registrations(auth_user_id,provider_factor_id)
+select user_id,id from auth.mfa_factors where factor_type='totp'
+  and user_id::text like '81000000-0000-4000-8000-%';
 insert into public.profiles (user_id, display_name) values
   ('81000000-0000-4000-8000-000000000022', 'Bestaande profielnaam');
 
@@ -267,6 +282,7 @@ select throws_ok($$select public.create_employee_invitation('expired-session-for
 select set_config('request.jwt.claims', jsonb_build_object(
   'role', 'authenticated', 'sub', '81000000-0000-4000-8000-000000000001',
   'session_id', '82000000-0000-4000-8000-000000000001',
+  'aal', 'aal2', 'amr', jsonb_build_array(jsonb_build_object('method', 'totp', 'timestamp', 0)),
   'user_metadata', jsonb_build_object('organization_id', '83000000-0000-4000-8000-000000000002')
 )::text, true);
 select is(current_user::text, 'authenticated', 'manager mutation tests use actual authenticated database role');
@@ -322,7 +338,8 @@ select ok(not exists (select 1 from public.audit_events
 -- Second manager cannot create an ambiguous invitation for same email.
 select set_config('request.jwt.claims', jsonb_build_object(
   'role', 'authenticated', 'sub', '81000000-0000-4000-8000-000000000003',
-  'session_id', '82000000-0000-4000-8000-000000000003'
+  'session_id', '82000000-0000-4000-8000-000000000003',
+  'aal', 'aal2', 'amr', jsonb_build_array(jsonb_build_object('method', 'totp', 'timestamp', 0))
 )::text, true);
 select is(public.create_employee_invitation('invite.new-employee@example.test'), null::uuid,
   'cross-tenant usable duplicate also returns nondisclosing no-op');

@@ -59,6 +59,15 @@ insert into public.memberships (id, organization_id, user_id, role, status) valu
   ('95000000-0000-4000-8000-000000000011', '93000000-0000-4000-8000-000000000004', '91000000-0000-4000-8000-000000000010', 'employee', 'active'),
   ('95000000-0000-4000-8000-000000000012', '93000000-0000-4000-8000-000000000001', '91000000-0000-4000-8000-000000000011', 'employee', 'active');
 
+insert into auth.mfa_factors (id,user_id,friendly_name,factor_type,status,created_at,updated_at)
+values('9f000000-0000-4000-8000-000000000002','91000000-0000-4000-8000-000000000002','Synthetic manager TOTP','totp','verified',now(),now());
+update auth.sessions set factor_id='9f000000-0000-4000-8000-000000000002',aal='aal2'
+where id='92000000-0000-4000-8000-000000000002';
+insert into auth.mfa_amr_claims(id,session_id,created_at,updated_at,authentication_method)
+values('9e000000-0000-4000-8000-000000000002','92000000-0000-4000-8000-000000000002',now(),now(),'totp');
+insert into private.manager_mfa_registrations(auth_user_id,provider_factor_id)
+values('91000000-0000-4000-8000-000000000002','9f000000-0000-4000-8000-000000000002');
+
 insert into public.time_entries (
   id, organization_id, membership_id, worksite_id, started_at, ended_at, created_at
 ) values
@@ -292,7 +301,7 @@ select ok(
 reset role;
 set local role authenticated;
 set local "request.jwt.claims" =
-  '{"sub":"91000000-0000-4000-8000-000000000002","role":"authenticated","session_id":"92000000-0000-4000-8000-000000000002"}';
+  '{"sub":"91000000-0000-4000-8000-000000000002","role":"authenticated","session_id":"92000000-0000-4000-8000-000000000002","aal":"aal2","amr":[{"method":"totp","timestamp":0}]}';
 select throws_ok($$select * from public.clock_in('97000000-0000-4000-8000-000000000010')$$,
   '42501', null, 'manager cannot clock as employee');
 select is((select count(*) from public.time_entries), 5::bigint, 'manager reads own tenant employee entries');

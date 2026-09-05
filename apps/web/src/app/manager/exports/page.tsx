@@ -10,7 +10,7 @@ import { getManagerTimeExports } from "@/lib/time-exports/server";
 export const metadata: Metadata = { title: nlBE.managerExports.title };
 
 export default async function ManagerExportsPage() {
-  await requireRole("manager");
+  await requireRole("manager", "/manager/exports");
   const history = await getManagerTimeExports();
   return (
     <RoleShell

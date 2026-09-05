@@ -1,8 +1,20 @@
+import type { Route } from "next";
+
+import { getSafeManagerReturnPath } from "@/lib/auth/routes";
+
 export type MembershipRole = "manager" | "employee";
 
 export type AuthContext =
   | { state: "anonymous" }
   | { state: "unauthorized" | "unsupported"; userId: string }
+  | {
+      state:
+        "manager_mfa_setup" | "manager_mfa_verify" | "manager_mfa_recovery_required";
+      userId: string;
+      organizationId: string;
+      role: "manager";
+      factorId?: string;
+    }
   | {
       state: "authorized";
       userId: string;
@@ -63,8 +75,88 @@ export function getAuthorizedPath(context: AuthContext) {
   }
 
   if (context.state !== "authorized") {
+    if (context.state === "manager_mfa_setup") {
+      return "/manager/security/setup" as const;
+    }
+
+    if (context.state === "manager_mfa_verify") {
+      return "/manager/security/verify" as const;
+    }
+
+    if (context.state === "manager_mfa_recovery_required") {
+      return "/manager/security/recovery-required" as const;
+    }
+
     return "/unauthorized" as const;
   }
 
   return context.role === "manager" ? ("/manager" as const) : ("/employee" as const);
+}
+
+export function getAuthorizedPathWithReturn(
+  context: AuthContext,
+  requested: string | null | undefined,
+): Route {
+  const destination = getAuthorizedPath(context);
+
+  if (!context.state.startsWith("manager_mfa_")) {
+    return destination;
+  }
+
+  const next = getSafeManagerReturnPath(requested);
+  return `${destination}?volgende=${encodeURIComponent(next)}` as Route;
+}
+
+export function resolveManagerMfaContext(
+  context: Extract<AuthContext, { state: "authorized" }>,
+  rows: unknown,
+): AuthContext {
+  if (context.role !== "manager") {
+    return context;
+  }
+
+  if (!Array.isArray(rows) || rows.length !== 1) {
+    return { state: "unauthorized", userId: context.userId };
+  }
+
+  const row: unknown = rows[0];
+
+  if (!row || typeof row !== "object" || !("manager_mfa_state" in row)) {
+    return { state: "unauthorized", userId: context.userId };
+  }
+
+  if (row.manager_mfa_state === "ready") {
+    return context;
+  }
+
+  const base = {
+    organizationId: context.organizationId,
+    role: "manager" as const,
+    userId: context.userId,
+  };
+
+  if (row.manager_mfa_state === "setup") {
+    return { ...base, state: "manager_mfa_setup" };
+  }
+
+  if (row.manager_mfa_state === "recovery_required") {
+    return { ...base, state: "manager_mfa_recovery_required" };
+  }
+
+  if (
+    row.manager_mfa_state === "verify" &&
+    "registered_factor_id" in row &&
+    typeof row.registered_factor_id === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(
+      row.registered_factor_id,
+    )
+  ) {
+    return {
+      ...base,
+      factorId: row.registered_factor_id,
+      state: "manager_mfa_verify",
+    };
+  }
+
+  return { state: "unauthorized", userId: context.userId };
 }

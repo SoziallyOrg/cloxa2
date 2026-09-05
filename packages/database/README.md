@@ -1,5 +1,14 @@
 # `@cloxa/database`
 
+## Phase 11A manager TOTP MFA
+
+Manager access requires live Supabase Auth session at AAL2, matching `totp` AMR,
+verified provider TOTP factor, and immutable first application registration for same
+user/factor. RLS helpers and every manager RPC derive this shared assurance context.
+AAL1 manager receives no manager tenant rows even through direct Data API. Employee
+paths keep prior authorization semantics. Full schema, status, registration, recovery,
+audit, and lock contract: [MANAGER_MFA.md](MANAGER_MFA.md).
+
 ## Phase 9 manager administration
 
 [Manager team contract](MANAGER_TEAM.md) documents exact read/mutation RPC keys and
@@ -49,22 +58,24 @@ and fails when the stored types differ.
 
 `public.memberships` is the authoritative source for organization roles. Authorization
 helpers derive identity from `auth.uid()` and require an active membership in an
-organization whose lifecycle is `research_pilot` or `paid_beta`. They do not trust
-metadata, email addresses, route names, or browser state as proof of tenant access.
+organization whose lifecycle is `research_pilot` or `paid_beta`. Manager helpers also
+require registered native TOTP AAL2 assurance. They do not trust metadata, email
+addresses, route names, browser state, or an AAL claim without matching live Auth rows
+as proof of tenant access.
 
 All application tables have RLS enabled. This matrix describes direct access through
 `anon` and `authenticated` database roles:
 
-| Table                 | Anonymous | Active employee               | Active manager                                                                                    | Invited, inactive, absent membership, or suspended organization | Direct browser writes                                                                                      |
-| --------------------- | --------- | ----------------------------- | ------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `profiles`            | None      | Own profile                   | Own profile and profiles of members in manager's organization, including invited/inactive members | Own profile                                                     | Authenticated owner may update `display_name` and `locale`; no insert/delete or identity/timestamp changes |
-| `organizations`       | None      | Own organization              | Own organization                                                                                  | None                                                            | None                                                                                                       |
-| `worksites`           | None      | Worksites in own organization | Worksites in own organization                                                                     | None                                                            | None                                                                                                       |
-| `memberships`         | None      | Own active membership         | Memberships in own organization, including invited/inactive members                               | None, including own membership                                  | None                                                                                                       |
-| `invitations`         | None      | None                          | Invitations in own organization                                                                   | None                                                            | None                                                                                                       |
-| `audit_events`        | None      | None                          | Events in own organization                                                                        | None                                                            | None                                                                                                       |
-| `time_entries`        | None      | Own entries while active      | Own organization while live and unambiguous                                                       | None                                                            | None                                                                                                       |
-| `correction_requests` | None      | Own requests while active     | Own organization while live and unambiguous                                                       | None                                                            | None                                                                                                       |
+| Table                 | Anonymous | Active employee               | Active manager with registered TOTP AAL2                                                          | Invited, inactive, absent membership, suspended organization, or manager without TOTP AAL2 | Direct browser writes                                                                                      |
+| --------------------- | --------- | ----------------------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| `profiles`            | None      | Own profile                   | Own profile and profiles of members in manager's organization, including invited/inactive members | Own profile                                                                                | Authenticated owner may update `display_name` and `locale`; no insert/delete or identity/timestamp changes |
+| `organizations`       | None      | Own organization              | Own organization                                                                                  | None                                                                                       | None                                                                                                       |
+| `worksites`           | None      | Worksites in own organization | Worksites in own organization                                                                     | None                                                                                       | None                                                                                                       |
+| `memberships`         | None      | Own active membership         | Memberships in own organization, including invited/inactive members                               | None, including own membership                                                             | None                                                                                                       |
+| `invitations`         | None      | None                          | Invitations in own organization                                                                   | None                                                                                       | None                                                                                                       |
+| `audit_events`        | None      | None                          | Events in own organization                                                                        | None                                                                                       | None                                                                                                       |
+| `time_entries`        | None      | Own entries while active      | Own organization while live and unambiguous                                                       | None                                                                                       | None                                                                                                       |
+| `correction_requests` | None      | Own requests while active     | Own organization while live and unambiguous                                                       | None                                                                                       | None                                                                                                       |
 
 Access applies per organization: losing access to one tenant does not remove a user's
 separate active membership in another tenant. Suspension removes access to all rows

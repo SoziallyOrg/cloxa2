@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { getSafePostAuthPath, isProtectedRoute } from "./routes";
+import {
+  getSafeManagerReturnPath,
+  getSafePostAuthPath,
+  isProtectedRoute,
+} from "./routes";
 
 describe("protected routes", () => {
   it.each([
@@ -19,12 +23,17 @@ describe("protected routes", () => {
 });
 
 describe("post-auth redirect validation", () => {
-  it.each(["/employee", "/manager"])(
-    "accepts implemented role landing page %s",
-    (pathname) => {
-      expect(getSafePostAuthPath(pathname)).toBe(pathname);
-    },
-  );
+  it.each([
+    "/employee",
+    "/manager",
+    "/manager/team",
+    "/manager/corrections",
+    "/manager/break-corrections",
+    "/manager/exports",
+    "/manager/exports-v2",
+  ])("accepts implemented role landing page %s", (pathname) => {
+    expect(getSafePostAuthPath(pathname)).toBe(pathname);
+  });
 
   it.each([
     null,
@@ -52,5 +61,28 @@ describe("post-auth redirect validation", () => {
     expect(getSafePostAuthPath(value)).toBe("/unauthorized");
     expect(getSafePostAuthPath(value, "/manager")).toBe("/manager");
     expect(getSafePostAuthPath(value, "/employee")).toBe("/employee");
+  });
+
+  it.each([
+    "/manager",
+    "/manager/team",
+    "/manager/corrections",
+    "/manager/break-corrections",
+    "/manager/exports",
+    "/manager/exports-v2",
+  ])("allows exact manager return destination %s", (value) => {
+    expect(getSafeManagerReturnPath(value)).toBe(value);
+  });
+
+  it.each([
+    null,
+    "/employee",
+    "/manager/security/setup",
+    "/manager/team/",
+    "/manager/exports/anything",
+    "//attacker.test",
+    "https://attacker.test",
+  ])("defaults unsafe manager return destination %s", (value) => {
+    expect(getSafeManagerReturnPath(value)).toBe("/manager");
   });
 });

@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { getAuthorizedPath, resolveAuthContext, type AuthContext } from "./access";
+import {
+  getAuthorizedPath,
+  getAuthorizedPathWithReturn,
+  resolveAuthContext,
+  resolveManagerMfaContext,
+  type AuthContext,
+} from "./access";
 
 const userId = "verified-user";
 const authorized = {
@@ -87,7 +93,101 @@ describe("role landing paths", () => {
       context: { state: "authorized", userId, organizationId: "one", role: "manager" },
       expected: "/manager",
     },
+    {
+      context: {
+        state: "manager_mfa_setup",
+        userId,
+        organizationId: "one",
+        role: "manager",
+      },
+      expected: "/manager/security/setup",
+    },
+    {
+      context: {
+        state: "manager_mfa_verify",
+        userId,
+        organizationId: "one",
+        role: "manager",
+        factorId: "123e4567-e89b-42d3-a456-426614174000",
+      },
+      expected: "/manager/security/verify",
+    },
+    {
+      context: {
+        state: "manager_mfa_recovery_required",
+        userId,
+        organizationId: "one",
+        role: "manager",
+      },
+      expected: "/manager/security/recovery-required",
+    },
   ])("maps $context.state to $expected", ({ context, expected }) => {
     expect(getAuthorizedPath(context)).toBe(expected);
+  });
+
+  it("keeps only allowlisted manager destinations through MFA redirects", () => {
+    const context: AuthContext = {
+      state: "manager_mfa_verify",
+      userId,
+      organizationId: "one",
+      role: "manager",
+      factorId: "123e4567-e89b-42d3-a456-426614174000",
+    };
+
+    expect(getAuthorizedPathWithReturn(context, "/manager/exports-v2")).toBe(
+      "/manager/security/verify?volgende=%2Fmanager%2Fexports-v2",
+    );
+    expect(getAuthorizedPathWithReturn(context, "https://attacker.test")).toBe(
+      "/manager/security/verify?volgende=%2Fmanager",
+    );
+  });
+});
+
+describe("manager MFA context", () => {
+  const manager = {
+    state: "authorized",
+    userId,
+    organizationId: "organization-one",
+    role: "manager",
+  } as const;
+
+  it.each([
+    ["setup", "manager_mfa_setup"],
+    ["recovery_required", "manager_mfa_recovery_required"],
+  ])("maps provider state %s to %s", (manager_mfa_state, state) => {
+    expect(resolveManagerMfaContext(manager, [{ manager_mfa_state }])).toMatchObject({
+      state,
+      role: "manager",
+    });
+  });
+
+  it("accepts only a valid registered factor for verification", () => {
+    expect(
+      resolveManagerMfaContext(manager, [
+        {
+          manager_mfa_state: "verify",
+          registered_factor_id: "123e4567-e89b-42d3-a456-426614174000",
+        },
+      ]),
+    ).toMatchObject({ state: "manager_mfa_verify" });
+  });
+
+  it("keeps ready managers authorized", () => {
+    expect(resolveManagerMfaContext(manager, [{ manager_mfa_state: "ready" }])).toBe(
+      manager,
+    );
+  });
+
+  it.each([
+    null,
+    [],
+    [{}],
+    [{ manager_mfa_state: "verify" }],
+    [{ manager_mfa_state: "denied" }],
+  ])("fails closed on malformed state %j", (rows) => {
+    expect(resolveManagerMfaContext(manager, rows)).toEqual({
+      state: "unauthorized",
+      userId,
+    });
   });
 });

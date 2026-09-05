@@ -28,11 +28,21 @@ const membership = {
   organization_id: "organization-one",
 };
 
+function mockRpcFor(
+  authContext: object = membership,
+  mfaStatus: object = { manager_mfa_state: "ready", registered_factor_id: null },
+) {
+  mocks.rpc.mockImplementation(async (name: string) => ({
+    data: name === "get_manager_mfa_status" ? [mfaStatus] : [authContext],
+    error: null,
+  }));
+}
+
 beforeEach(() => {
   vi.resetAllMocks();
   mocks.createServerClient.mockResolvedValue(client);
   mocks.getUser.mockResolvedValue({ data: { user: { id: userId } }, error: null });
-  mocks.rpc.mockResolvedValue({ data: [membership], error: null });
+  mockRpcFor();
   mocks.redirect.mockImplementation((path: string) => {
     throw new Error(`NEXT_REDIRECT:${path}`);
   });
@@ -48,7 +58,8 @@ describe("server auth context", () => {
     });
     expect(mocks.createServerClient).toHaveBeenCalledOnce();
     expect(mocks.getUser).toHaveBeenCalledExactlyOnceWith();
-    expect(mocks.rpc).toHaveBeenCalledExactlyOnceWith("get_auth_context");
+    expect(mocks.rpc).toHaveBeenNthCalledWith(1, "get_auth_context");
+    expect(mocks.rpc).toHaveBeenNthCalledWith(2, "get_manager_mfa_status");
     expect(mocks.getUser.mock.invocationCallOrder[0]).toBeLessThan(
       mocks.rpc.mock.invocationCallOrder[0]!,
     );
@@ -124,6 +135,9 @@ describe("server page role enforcement", () => {
         data: [{ ...membership, membership_role: role }],
         error: null,
       });
+      if (role === "manager") {
+        mockRpcFor({ ...membership, membership_role: role });
+      }
       await expect(requireRole(role)).resolves.toMatchObject({
         state: "authorized",
         role,
@@ -136,10 +150,7 @@ describe("server page role enforcement", () => {
     { own: "manager", requested: "employee" },
     { own: "employee", requested: "manager" },
   ] as const)("denies $own visiting $requested", async ({ own, requested }) => {
-    mocks.rpc.mockResolvedValue({
-      data: [{ ...membership, membership_role: own }],
-      error: null,
-    });
+    mockRpcFor({ ...membership, membership_role: own });
     await expect(requireRole(requested)).rejects.toThrow("NEXT_REDIRECT:/unauthorized");
   });
 
@@ -178,5 +189,39 @@ describe("server page role enforcement", () => {
     await expect(requireRole("manager")).rejects.toThrow(
       "NEXT_REDIRECT:/unauthorized?melding=meerdere-lidmaatschappen",
     );
+  });
+
+  it.each([
+    ["setup", "/manager/security/setup?volgende=%2Fmanager%2Fteam"],
+    ["verify", "/manager/security/verify?volgende=%2Fmanager%2Fteam"],
+    [
+      "recovery_required",
+      "/manager/security/recovery-required?volgende=%2Fmanager%2Fteam",
+    ],
+  ])(
+    "routes manager MFA state %s before workspace access",
+    async (manager_mfa_state, path) => {
+      mockRpcFor(membership, {
+        manager_mfa_state,
+        registered_factor_id:
+          manager_mfa_state === "verify"
+            ? "123e4567-e89b-42d3-a456-426614174000"
+            : null,
+      });
+
+      await expect(requireRole("manager", "/manager/team")).rejects.toThrow(
+        `NEXT_REDIRECT:${path}`,
+      );
+    },
+  );
+
+  it("fails closed when the manager MFA status query errors", async () => {
+    mocks.rpc.mockImplementation(async (name: string) =>
+      name === "get_auth_context"
+        ? { data: [membership], error: null }
+        : { data: null, error: { message: "private provider detail" } },
+    );
+
+    await expect(getAuthContext()).resolves.toEqual({ state: "unauthorized", userId });
   });
 });
