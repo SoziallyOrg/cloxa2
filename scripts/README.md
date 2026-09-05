@@ -22,6 +22,22 @@ manager membership. Reruns neither reset passwords nor overwrite conflicting rec
 E2E adds unique fictional employees; no broad account or inbox cleanup runs. Resetting
 the local database removes local fixtures when explicitly requested.
 
+## CI environment preparation
+
+`scripts/ci-local-env.mjs` is a GitHub-Actions-only bridge for a disposable runner. It
+captures structured `supabase status --output json` without printing CLI output, checks
+repository project ID and local API/database ports, rejects hosted or malformed URLs,
+and accepts current or legacy local CLI key names. It creates only ignored
+`apps/web/.env.local`, refuses an existing target, and applies mode `0600` on Linux.
+
+Generated identities use `example.test`; three random passwords are independent. Keys
+and passwords are registered with GitHub log masking before tests. Normal messages and
+sanitized failures contain no values, status dumps, or command stderr. Supabase CLI
+nonzero status is preserved. Workflow cleanup removes environment file and stops only
+local project `cloxa2` with no backup, including after failed gates. Do not run helper
+as a replacement for local credential setup; it refuses execution outside GitHub
+Actions.
+
 Playwright runs on `127.0.0.1:3100`, retrieves invitation and recovery mail from local
 Mailpit, and disables traces, screenshots, video and retained test artifacts. Build
 automatically scans production browser bundles for server-secret leakage. Pinned

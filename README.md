@@ -50,6 +50,52 @@ supabase/tests       Transactional pgTAP authorization tests
 All application and test dependencies are open source. Local development does not
 require a paid service.
 
+## Continuous integration
+
+GitHub workflow `CI` runs check `verification` on pull requests to `main`, pushes to
+`main`, and manual dispatches. It uses a clean Ubuntu 24.04 runner, Node 24, pnpm
+11.25.0, and repository-pinned Supabase and Playwright CLIs. Checkout credentials are
+not persisted, permissions are read-only, and superseded runs for the same pull request
+or branch are cancelled.
+
+Verification first confirms `apps/web/.next` is absent and runs `pnpm typecheck` before
+any Next.js generation or build. Formatting, whitespace, and lint checks follow. CI then
+starts and resets only the repository-local Supabase project, creates an ignored
+fictional environment, and runs database tests, database lint, generated-type freshness,
+unit/integration tests, production build, production Playwright journeys, production
+dependency audit against the npm registry, and browser-bundle secret scan. Cleanup stops
+only local project `cloxa2` and removes generated environment data even after failure.
+CI does not deploy or upload artifacts.
+
+To reproduce, use a clean checkout with Docker running, install with
+`pnpm install --frozen-lockfile`, start local Supabase, and create the three ignored
+stack URL/key settings described in [Local Supabase](#local-supabase). Then run gates in
+workflow order:
+
+```bash
+test ! -e apps/web/.next
+pnpm typecheck
+pnpm format:check
+git diff --check
+pnpm lint
+pnpm supabase:start
+pnpm supabase:reset
+pnpm local:credentials --confirm-local-development
+pnpm local:bootstrap --confirm-local-development
+pnpm test:db
+pnpm supabase:lint
+pnpm supabase:types:check
+pnpm test
+pnpm build
+pnpm exec playwright install --with-deps chromium
+CLOXA_E2E_PRODUCTION=1 pnpm test:e2e
+npm_config_registry=https://registry.npmjs.org/ pnpm audit --prod --audit-level high
+pnpm test:bundles
+```
+
+Use equivalent environment-variable syntax on PowerShell. CI-only environment creation
+is documented in [scripts/README.md](scripts/README.md).
+
 ## Install
 
 ```bash
