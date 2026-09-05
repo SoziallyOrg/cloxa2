@@ -43,6 +43,14 @@ authorized later, run beside the customer’s existing official process.
 
 ## Capabilities and Constraints
 
+- Managers use `/manager/team` for bounded employee/invitation history, employee
+  name/code edits, explicit suspension/reactivation and current organization/worksite
+  names. Open shifts/breaks block suspension; pending correction counts remain visible
+  and requests remain reviewable. Suspension changes membership access, never Auth
+  identity or historical records. Reactivation restores the same membership only.
+- Employee codes are optional and normalized-unique per organization. Conflicting
+  optional invitation codes remain unassigned for manager review; invitation acceptance
+  and mail retain their local-only security boundary. Historical exports stay fixed.
 - Implemented workflow: invitation, login, secure employee clock-in/out, today's own
   factual registrations, employee adjustment or missed-entry requests, manager review,
   employee visibility of final decisions and explanations, export preview/blockers,

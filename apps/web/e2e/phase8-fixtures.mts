@@ -84,7 +84,7 @@ async function createAccount(organizationId: string, role: "manager" | "employee
       user_id: userId,
       role,
       status: "active",
-      employee_code: "SYNREVIEW1234567890123456789012345",
+      employee_code: role === "employee" ? "SYNREVIEW1234567890123456789012345" : null,
     })
     .select("id")
     .single();

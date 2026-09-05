@@ -22,6 +22,9 @@ export default async function ManagerPage() {
       title={nlBE.manager.title}
     >
       <div className="mt-6 flex flex-col flex-wrap gap-3 sm:flex-row">
+        <Button asChild variant="secondary" className="h-auto py-3 whitespace-normal">
+          <Link href="/manager/team">Team en pilotinstellingen</Link>
+        </Button>
         <Button asChild variant="secondary">
           <Link href="/manager/break-corrections">Pauzeaanvragen beoordelen</Link>
         </Button>
@@ -38,7 +41,7 @@ export default async function ManagerPage() {
           </Link>
         </Button>
       </div>
-      <div className="mt-8 border-t border-rule pt-8">
+      <div id="medewerker-uitnodigen" className="mt-8 border-t border-rule pt-8">
         <h2 className="font-display text-3xl font-semibold tracking-[-0.025em] text-ink">
           {nlBE.invitation.title}
         </h2>
