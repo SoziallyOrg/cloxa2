@@ -207,6 +207,8 @@ describe("server page role enforcement", () => {
           manager_mfa_state === "verify"
             ? "123e4567-e89b-42d3-a456-426614174000"
             : null,
+        recovery_state:
+          manager_mfa_state === "recovery_required" ? "operator_action_required" : null,
       });
 
       await expect(requireRole("manager", "/manager/team")).rejects.toThrow(

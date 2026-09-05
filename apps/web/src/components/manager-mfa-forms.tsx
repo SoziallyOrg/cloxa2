@@ -5,8 +5,11 @@ import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import { nlBE } from "@/i18n/nl-BE";
 import {
+  completeManagerMfaRecoveryEnrollmentAction,
   completeManagerMfaEnrollmentAction,
+  startManagerMfaRecoveryEnrollmentAction,
   startManagerMfaEnrollmentAction,
+  verifyManagerMfaPasswordRecoveryAction,
   verifyManagerMfaAction,
   type ManagerMfaEnrollmentState,
   type ManagerMfaVerificationState,
@@ -116,6 +119,97 @@ export function ManagerMfaVerifyForm({ returnTo }: { returnTo: string }) {
   return (
     <form action={action} className="grid max-w-md gap-5">
       <input name="returnTo" type="hidden" value={returnTo} />
+      <CodeField />
+      <FormMessage message={state.message} />
+      <Button className="w-full sm:w-fit" disabled={pending} type="submit">
+        {pending ? nlBE.auth.pending : nlBE.managerMfa.verifySubmit}
+      </Button>
+    </form>
+  );
+}
+
+export function ManagerMfaRecoveryForm({ caseId }: { caseId: string }) {
+  const [enrollment, start, starting] = useActionState(
+    startManagerMfaRecoveryEnrollmentAction,
+    initialEnrollment,
+  );
+  const [verification, complete, completing] = useActionState(
+    completeManagerMfaRecoveryEnrollmentAction,
+    initialVerification,
+  );
+
+  if (verification.status === "awaiting_operator" && verification.candidateId) {
+    return (
+      <div className="grid max-w-md gap-3" role="status">
+        <p className="text-sm leading-6 text-ink">{verification.message}</p>
+        <p className="text-sm leading-6 text-muted">
+          {nlBE.managerMfa.recoveryCandidateLabel}
+        </p>
+        <code className="max-w-full rounded-lg bg-paper-strong px-3 py-2 text-sm break-all text-ink">
+          {verification.candidateId}
+        </code>
+      </div>
+    );
+  }
+
+  if (!enrollment.enrollment) {
+    return (
+      <form action={start} className="grid max-w-md gap-5">
+        <p className="text-sm leading-6 text-muted">
+          {nlBE.managerMfa.recoveryActiveHelp}
+        </p>
+        <FormMessage message={enrollment.message} />
+        <Button className="w-full sm:w-fit" disabled={starting} type="submit">
+          {starting ? nlBE.auth.pending : nlBE.managerMfa.recoveryStartEnrollment}
+        </Button>
+      </form>
+    );
+  }
+
+  return (
+    <div className="grid max-w-md gap-6">
+      <p className="text-sm leading-6 text-ink" role="status">
+        {enrollment.message}
+      </p>
+      <div className="grid justify-items-start gap-3">
+        {/* Native provider QR contains setup secret. Route is private/no-store. */}
+        {/* eslint-disable-next-line @next/next/no-img-element -- private data URL cannot use Next image optimization */}
+        <img
+          alt={nlBE.managerMfa.qrAlt}
+          className="size-52 max-w-full rounded-xl border border-rule-strong bg-white p-2"
+          height={208}
+          src={enrollment.enrollment.qrCode}
+          width={208}
+        />
+        <p className="text-sm leading-6 text-muted">{nlBE.managerMfa.manualHelp}</p>
+        <code className="max-w-full rounded-lg bg-paper-strong px-3 py-2 text-sm break-all text-ink">
+          {enrollment.enrollment.secret}
+        </code>
+      </div>
+      <form action={complete} className="grid gap-5">
+        <input name="caseId" type="hidden" value={caseId} />
+        <input name="factorId" type="hidden" value={enrollment.enrollment.factorId} />
+        <CodeField />
+        <FormMessage message={verification.message} />
+        <Button className="w-full sm:w-fit" disabled={completing} type="submit">
+          {completing ? nlBE.auth.pending : nlBE.managerMfa.completeSetup}
+        </Button>
+      </form>
+    </div>
+  );
+}
+
+export function ManagerMfaPasswordRecoveryVerifyForm() {
+  const [state, action, pending] = useActionState(
+    verifyManagerMfaPasswordRecoveryAction,
+    initialVerification,
+  );
+
+  return (
+    <form action={action} className="grid max-w-md gap-5">
+      <p className="text-sm leading-6 text-muted">
+        {nlBE.managerMfa.passwordRecoveryVerifyHelp}
+      </p>
       <CodeField />
       <FormMessage message={state.message} />
       <Button className="w-full sm:w-fit" disabled={pending} type="submit">

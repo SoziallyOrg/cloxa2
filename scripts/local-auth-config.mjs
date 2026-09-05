@@ -87,13 +87,14 @@ export function validateBootstrapArguments(args) {
   }
 }
 
-export function getLocalStackStatus() {
+export function getLocalStackStatus(environment = process.env) {
   const cli = path.join(projectRoot, "node_modules", "supabase", "dist", "supabase.js");
 
   try {
     const output = execFileSync(process.execPath, [cli, "status", "--output", "json"], {
       cwd: projectRoot,
       encoding: "utf8",
+      env: environment,
       maxBuffer: 1024 * 1024,
       stdio: ["ignore", "pipe", "pipe"],
       windowsHide: true,

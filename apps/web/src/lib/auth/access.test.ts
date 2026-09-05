@@ -151,14 +151,40 @@ describe("manager MFA context", () => {
     role: "manager",
   } as const;
 
-  it.each([
-    ["setup", "manager_mfa_setup"],
-    ["recovery_required", "manager_mfa_recovery_required"],
-  ])("maps provider state %s to %s", (manager_mfa_state, state) => {
-    expect(resolveManagerMfaContext(manager, [{ manager_mfa_state }])).toMatchObject({
-      state,
+  it("maps setup and controlled recovery states", () => {
+    expect(
+      resolveManagerMfaContext(manager, [{ manager_mfa_state: "setup" }]),
+    ).toMatchObject({ state: "manager_mfa_setup", role: "manager" });
+    expect(
+      resolveManagerMfaContext(manager, [
+        {
+          manager_mfa_state: "recovery_required",
+          recovery_state: "active",
+          recovery_case_id: "123e4567-e89b-42d3-a456-426614174010",
+          recovery_expires_at: "2026-09-05T12:15:00Z",
+        },
+      ]),
+    ).toMatchObject({
+      state: "manager_mfa_recovery_required",
+      recovery: { state: "active" },
       role: "manager",
     });
+  });
+
+  it("fails closed on malformed recovery payloads", () => {
+    expect(
+      resolveManagerMfaContext(manager, [{ manager_mfa_state: "recovery_required" }]),
+    ).toEqual({ state: "unauthorized", userId });
+    expect(
+      resolveManagerMfaContext(manager, [
+        {
+          manager_mfa_state: "recovery_required",
+          recovery_state: "awaiting_operator",
+          recovery_case_id: "case",
+          recovery_expires_at: "deadline",
+        },
+      ]),
+    ).toEqual({ state: "unauthorized", userId });
   });
 
   it("accepts only a valid registered factor for verification", () => {

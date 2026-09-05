@@ -230,7 +230,25 @@ export const nlBE = {
     recoveryDescription:
       "Je geregistreerde authenticator is niet meer bruikbaar. Managergegevens blijven geblokkeerd.",
     recoveryHelp:
-      "Zelf vervangen of verwijderen is in deze fase niet mogelijk. Neem contact op met een bevoegde beheerder. Dit is nog geen volledig productieherstelproces.",
+      "Automatisch of zelf herstellen is niet mogelijk. Een vertrouwde lokale beheerder moet voor deze fictieve ontwikkelaccount een herstelvenster openen. Productieherstel en identiteitscontrole zijn niet beschikbaar.",
+    recoveryWindowHelp:
+      "Een lokale beheerder heeft een herstelvenster van 15 minuten geopend. Stel een vervangende authenticator in. Managergegevens blijven geblokkeerd tot de lokale beheerder exact deze kandidaat goedkeurt.",
+    recoveryActiveHelp:
+      "Start de native instelling, scan de QR-code en bevestig de actuele code. Dit geeft nog geen toegang tot managergegevens.",
+    recoveryStartEnrollment: "Vervangende authenticator instellen",
+    recoveryEnrollmentReady:
+      "Scan de QR-code en bevestig daarna je actuele code. Deel de sleutel of code met niemand.",
+    recoveryAwaitingOperator:
+      "De vervangende authenticator is gecontroleerd. Toegang blijft geblokkeerd tot een lokale beheerder exact deze kandidaat goedkeurt.",
+    recoveryCandidateLabel: "Niet-geheime kandidaatreferentie voor lokale beheerder:",
+    recoveryExpiredHelp:
+      "Het herstelvenster is verlopen. Toegang blijft geblokkeerd. Een lokale beheerder moet een nieuwe herstelcase starten.",
+    recoveryFreshLoginHelp:
+      "De vervangende authenticator is goedgekeurd. Meld je af en daarna opnieuw aan. Controleer vervolgens de nieuwe authenticatorcode om managergegevens te openen.",
+    passwordRecoveryVerifyHelp:
+      "Controleer eerst je geregistreerde authenticatorcode. Daarna kun je het wachtwoord wijzigen. Een wachtwoordlink vervangt of verwijdert je authenticator niet.",
+    passwordRecoveryBlocked:
+      "Je geregistreerde authenticator is niet bruikbaar. De wachtwoordlink kan MFA niet herstellen. Managergegevens en wachtwoordwijziging blijven geblokkeerd tot het afzonderlijke lokale herstel is afgerond.",
     genericFailure:
       "De code kon niet worden gecontroleerd. Controleer de code en probeer later opnieuw.",
   },

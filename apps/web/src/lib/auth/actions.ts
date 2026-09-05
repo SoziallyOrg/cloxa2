@@ -241,6 +241,18 @@ export async function resetPasswordAction(
       return validationState(parsed.error);
     }
 
+    const resetContext = await getAuthContext(supabase);
+    if (
+      resetContext.state === "manager_mfa_verify" ||
+      resetContext.state === "manager_mfa_recovery_required"
+    ) {
+      return errorState(nlBE.auth.passwordFailure);
+    }
+    const isManagerReset =
+      (resetContext.state === "authorized" ||
+        resetContext.state === "manager_mfa_setup") &&
+      resetContext.role === "manager";
+
     failureMessage = nlBE.auth.passwordFailure;
     const { error } = await supabase.auth.updateUser({
       password: parsed.data.password,
@@ -250,14 +262,18 @@ export async function resetPasswordAction(
       return errorState(nlBE.auth.passwordFailure);
     }
 
-    const signOut = await supabase.auth.signOut({ scope: "others" });
+    const signOut = await supabase.auth.signOut({
+      scope: isManagerReset ? "global" : "others",
+    });
 
     if (signOut.error) {
       return errorState(nlBE.auth.passwordFailure);
     }
 
     await clearAuthFlowIntent();
-    destination = getAuthorizedPath(await getAuthContext(supabase));
+    destination = isManagerReset
+      ? "/login"
+      : getAuthorizedPath(await getAuthContext(supabase));
   } catch {
     return errorState(failureMessage);
   }

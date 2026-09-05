@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 
 import { nlBE } from "@/i18n/nl-BE";
+import { requireAuthFlow } from "@/lib/auth/flow-intent";
 import { getSafeManagerReturnPath } from "@/lib/auth/routes";
 import { getAuthContext } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -20,8 +21,9 @@ export type ManagerMfaEnrollmentState = {
 };
 
 export type ManagerMfaVerificationState = {
-  status: "idle" | "error";
+  status: "idle" | "error" | "awaiting_operator";
   message: string;
+  candidateId?: string;
 };
 
 function enrollmentError(): ManagerMfaEnrollmentState {
@@ -30,6 +32,25 @@ function enrollmentError(): ManagerMfaEnrollmentState {
 
 function verificationError(): ManagerMfaVerificationState {
   return { message: nlBE.managerMfa.genericFailure, status: "error" };
+}
+
+function awaitingOperatorState(
+  context: Awaited<ReturnType<typeof getAuthContext>>,
+  caseId: string,
+): ManagerMfaVerificationState | null {
+  if (
+    context.state !== "manager_mfa_recovery_required" ||
+    context.recovery?.state !== "awaiting_operator" ||
+    context.recovery.caseId !== caseId
+  ) {
+    return null;
+  }
+
+  return {
+    candidateId: context.recovery.candidateId,
+    message: nlBE.managerMfa.recoveryAwaitingOperator,
+    status: "awaiting_operator",
+  };
 }
 
 function isFactorId(value: FormDataEntryValue | null): value is string {
@@ -215,4 +236,174 @@ export async function verifyManagerMfaAction(
   }
 
   redirect(returnTo);
+}
+
+export async function startManagerMfaRecoveryEnrollmentAction(
+  _previous: ManagerMfaEnrollmentState,
+): Promise<ManagerMfaEnrollmentState> {
+  void _previous;
+
+  try {
+    const supabase = await createSupabaseServerClient();
+    const context = await getAuthContext(supabase);
+
+    if (
+      context.state !== "manager_mfa_recovery_required" ||
+      context.recovery?.state !== "active"
+    ) {
+      return enrollmentError();
+    }
+
+    const result = await supabase.auth.mfa.enroll({
+      factorType: "totp",
+      friendlyName: "Cloxa manager herstel",
+      issuer: "Cloxa",
+    });
+    const factor = result.data;
+
+    if (
+      result.error ||
+      !factor ||
+      factor.type !== "totp" ||
+      !isFactorId(factor.id) ||
+      !factor.totp.qr_code.startsWith("data:image/svg+xml") ||
+      !/^[A-Z2-7]+=*$/iu.test(factor.totp.secret) ||
+      factor.totp.secret.length > 256
+    ) {
+      return enrollmentError();
+    }
+
+    return {
+      enrollment: {
+        factorId: factor.id,
+        qrCode: factor.totp.qr_code,
+        secret: factor.totp.secret,
+      },
+      message: nlBE.managerMfa.recoveryEnrollmentReady,
+      status: "ready",
+    };
+  } catch {
+    return enrollmentError();
+  }
+}
+
+export async function completeManagerMfaRecoveryEnrollmentAction(
+  _previous: ManagerMfaVerificationState,
+  formData: FormData,
+): Promise<ManagerMfaVerificationState> {
+  const factorId = formData.get("factorId");
+  const caseId = formData.get("caseId");
+  const code = getCode(formData);
+
+  if (!isFactorId(factorId) || !isFactorId(caseId) || !code) {
+    return verificationError();
+  }
+
+  try {
+    const supabase = await createSupabaseServerClient();
+    const context = await getAuthContext(supabase);
+
+    const committedCandidate = awaitingOperatorState(context, caseId);
+    if (committedCandidate) {
+      return committedCandidate;
+    }
+
+    if (
+      context.state !== "manager_mfa_recovery_required" ||
+      context.recovery?.state !== "active" ||
+      context.recovery.caseId !== caseId
+    ) {
+      return verificationError();
+    }
+
+    const factors = await supabase.auth.mfa.listFactors();
+    const selectedFactor = factors.data?.all.find(
+      (factor) =>
+        factor.id === factorId &&
+        factor.factor_type === "totp" &&
+        (factor.status === "unverified" || factor.status === "verified"),
+    );
+
+    if (factors.error || !selectedFactor) {
+      return verificationError();
+    }
+
+    const challenge = await supabase.auth.mfa.challenge({ factorId });
+    if (challenge.error) {
+      return verificationError();
+    }
+
+    const verification = await supabase.auth.mfa.verify({
+      challengeId: challenge.data.id,
+      code,
+      factorId,
+    });
+    if (verification.error) {
+      return verificationError();
+    }
+
+    const candidate = await supabase.rpc("record_manager_mfa_recovery_candidate", {
+      target_case_id: caseId,
+    });
+
+    if (candidate.error || !isFactorId(candidate.data)) {
+      return (
+        awaitingOperatorState(await getAuthContext(supabase), caseId) ??
+        verificationError()
+      );
+    }
+
+    return {
+      candidateId: candidate.data,
+      message: nlBE.managerMfa.recoveryAwaitingOperator,
+      status: "awaiting_operator",
+    };
+  } catch {
+    return verificationError();
+  }
+}
+
+export async function verifyManagerMfaPasswordRecoveryAction(
+  _previous: ManagerMfaVerificationState,
+  formData: FormData,
+): Promise<ManagerMfaVerificationState> {
+  const code = getCode(formData);
+  if (!code) {
+    return verificationError();
+  }
+
+  try {
+    const supabase = await createSupabaseServerClient();
+    if (!(await requireAuthFlow("recovery", supabase))) {
+      return verificationError();
+    }
+    const context = await getAuthContext(supabase);
+    if (context.state !== "manager_mfa_verify" || !context.factorId) {
+      return verificationError();
+    }
+
+    const challenge = await supabase.auth.mfa.challenge({
+      factorId: context.factorId,
+    });
+    if (challenge.error) {
+      return verificationError();
+    }
+    const verification = await supabase.auth.mfa.verify({
+      challengeId: challenge.data.id,
+      code,
+      factorId: context.factorId,
+    });
+    if (verification.error) {
+      return verificationError();
+    }
+
+    const ready = await getAuthContext(supabase);
+    if (ready.state !== "authorized" || ready.role !== "manager") {
+      return verificationError();
+    }
+  } catch {
+    return verificationError();
+  }
+
+  redirect("/reset-password");
 }

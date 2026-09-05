@@ -48,6 +48,31 @@ while competing factor cannot replace registered identity. See
 [manager MFA contract](packages/database/MANAGER_MFA.md) and
 [Phase 11A status](PHASE_11_STATUS.md).
 
+## Local manager MFA recovery (Phase 11B)
+
+Local operators can recover only configured synthetic manager through fixed
+`start`/`status`/`complete` CLI. Start establishes database denial before native Auth
+factor deletion. Manager then enrolls and verifies replacement during 15-minute case,
+receives non-secret candidate reference, and waits for exact operator approval.
+Completion atomically changes binding and records session cutoff. Fresh login plus
+replacement TOTP verification is required; old and candidate sessions remain denied.
+
+```bash
+pnpm local:manager-mfa-recovery start --target-user <user-uuid> --operation-id <operation-uuid> --confirm-local-development --confirm-target <same-user-uuid>
+pnpm local:manager-mfa-recovery status --target-user <user-uuid> --case-id <case-uuid> --confirm-local-development --confirm-target <same-user-uuid> --confirm-case <same-case-uuid>
+pnpm local:manager-mfa-recovery complete --target-user <user-uuid> --case-id <case-uuid> --candidate-id <candidate-uuid> --operation-id <operation-uuid> --confirm-local-development --confirm-target <same-user-uuid> --confirm-case <same-case-uuid> --confirm-candidate <same-candidate-uuid>
+```
+
+Commands reject hosted links/endpoints, non-loopback ports, mismatched local keys,
+nonfictional targets, missing confirmations, remote or conflicting Docker selection, and
+unexpected provider factor state. Valid local Docker socket is pinned for stack
+inspection and maintenance commands. CLI never prints factor identity, sessions,
+credentials, OTPs, or setup secrets. Expiration preserves denial and case history. A
+verified candidate retained after expiration makes normal restart refuse without factor
+deletion; separately authorized operator handling is required. This workflow supplies no
+production identity proofing, support authorization, or hosted recovery. Full contract
+and failure/replay behavior: [manager MFA contract](packages/database/MANAGER_MFA.md).
+
 ## Workspace
 
 ```text
@@ -236,7 +261,9 @@ verification before one parameterless database registration RPC binds verified l
 session factor. Routine login challenges registered factor selected by database state,
 not browser input. Successful verification refreshes stored Auth session to AAL2 before
 manager access. Factor removal never clears application registration; it enters explicit
-administrator-recovery state instead of silently allowing reenrollment.
+administrator-recovery state instead of silently allowing reenrollment. Registered
+managers also cannot use password-recovery link as password-only MFA reset: exact bound
+factor verification is required before password update. Missing factor remains blocked.
 
 Managers submit employee email, optional display name, and optional employee code. The
 database derives organization and `employee` role from trusted membership state,
@@ -477,22 +504,23 @@ explicitly flagged local helper, then uses a fresh fictional employee and local 
 Its desktop Auth journey covers invitation, acceptance, logout/login, and password
 recovery/reset. Manager MFA journeys use disposable native Auth factors and cover AAL1
 Data API/RPC/download denial, initial enrollment, invalid/valid codes, routine login,
-AAL2 refresh, simultaneous setup, factor removal, Dutch recovery UI, and exact 320px
-layout without retaining test secrets in artifacts. Separate desktop and 320px mobile
-clock journeys cover start, duplicate submission, concurrent tabs, stop, and persisted
-state after reload. Correction journeys cover adjustment and missed-entry submission,
-duplicate submission, reload persistence, escaped reason rendering, withdrawal, audit
-counts, unchanged factual entries, focus and field-error semantics, and exact 320px
-layout. Separate parallel-RPC tests use two live employee sessions for identical
-retries, conflicting pending intervals, withdrawal races, and mixed clock/correction
-calls. Manager journeys cover approval/rejection persistence, employee outcomes and
-facts, concurrent manager tabs, eight-way retries, mixed clock/correction/decision
-calls, stale-target handling, generic retry failures, and session expiry after an
-advisory lock wait. Export journeys cover desktop and exact 320px preview/confirmation,
-blocker navigation, fixed CSV/JSON reconciliation, formula neutralization,
-retries/history, role/tenant/session denial, correction/clock races, and authorization
-expiry after a lock wait. Auth journey traces, screenshots, and videos stay disabled to
-avoid retaining credentials or email links.
+AAL2 refresh, simultaneous setup, factor removal, native local recovery, candidate
+approval, password-reset regression, old refresh-token denial, concurrent operator
+replay, Dutch recovery UI, and exact 320px layout without retaining test secrets in
+artifacts. Separate desktop and 320px mobile clock journeys cover start, duplicate
+submission, concurrent tabs, stop, and persisted state after reload. Correction journeys
+cover adjustment and missed-entry submission, duplicate submission, reload persistence,
+escaped reason rendering, withdrawal, audit counts, unchanged factual entries, focus and
+field-error semantics, and exact 320px layout. Separate parallel-RPC tests use two live
+employee sessions for identical retries, conflicting pending intervals, withdrawal
+races, and mixed clock/correction calls. Manager journeys cover approval/rejection
+persistence, employee outcomes and facts, concurrent manager tabs, eight-way retries,
+mixed clock/correction/decision calls, stale-target handling, generic retry failures,
+and session expiry after an advisory lock wait. Export journeys cover desktop and exact
+320px preview/confirmation, blocker navigation, fixed CSV/JSON reconciliation, formula
+neutralization, retries/history, role/tenant/session denial, correction/clock races, and
+authorization expiry after a lock wait. Auth journey traces, screenshots, and videos
+stay disabled to avoid retaining credentials or email links.
 
 `pnpm build` checks production browser bundles for server-secret exposure;
 `pnpm test:bundles` repeats that check on an existing build. Use `pnpm format` to fix

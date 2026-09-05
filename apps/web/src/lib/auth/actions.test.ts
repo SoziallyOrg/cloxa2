@@ -619,19 +619,14 @@ describe("invitation acceptance action", () => {
 describe("password reset action", () => {
   it.each([
     {
-      context: {
-        state: "manager_mfa_verify",
-        userId: "verified-user",
-        organizationId: "organization-one",
-        role: "manager",
-        factorId: "123e4567-e89b-42d3-a456-426614174000",
-      } satisfies AuthContext,
-      path: "/manager/security/verify",
+      context: manager,
+      path: "/login",
+      scope: "global",
     },
-    { context: employee, path: "/employee" },
+    { context: employee, path: "/employee", scope: "others" },
   ])(
-    "updates the password, revokes other sessions, and routes to $path",
-    async ({ context, path }) => {
+    "updates password, applies $scope revocation, and routes to $path",
+    async ({ context, path, scope }) => {
       mocks.getAuthContext.mockResolvedValue(context);
       await expect(
         resetPasswordAction(
@@ -645,7 +640,7 @@ describe("password reset action", () => {
       ).rejects.toThrow(`NEXT_REDIRECT:${path}`);
       expect(mocks.requireAuthFlow).toHaveBeenCalledExactlyOnceWith("recovery", client);
       expect(mocks.updateUser).toHaveBeenCalledExactlyOnceWith({ password });
-      expect(mocks.signOut).toHaveBeenCalledExactlyOnceWith({ scope: "others" });
+      expect(mocks.signOut).toHaveBeenCalledExactlyOnceWith({ scope });
       expect(mocks.clearAuthFlowIntent).toHaveBeenCalledOnce();
       expect(mocks.rpc).not.toHaveBeenCalled();
       expect(mocks.requireAuthFlow.mock.invocationCallOrder[0]).toBeLessThan(
@@ -657,6 +652,33 @@ describe("password reset action", () => {
       expect(mocks.signOut.mock.invocationCallOrder[0]).toBeLessThan(
         mocks.clearAuthFlowIntent.mock.invocationCallOrder[0]!,
       );
+    },
+  );
+
+  it.each([
+    {
+      state: "manager_mfa_verify",
+      userId: "verified-user",
+      organizationId: "organization-one",
+      role: "manager",
+      factorId: "123e4567-e89b-42d3-a456-426614174000",
+    },
+    {
+      state: "manager_mfa_recovery_required",
+      userId: "verified-user",
+      organizationId: "organization-one",
+      role: "manager",
+      recovery: { state: "operator_action_required" },
+    },
+  ] satisfies AuthContext[])(
+    "requires genuine registered-factor verification before manager password reset from $state",
+    async (context) => {
+      mocks.getAuthContext.mockResolvedValue(context);
+      await expect(
+        resetPasswordAction(initialAuthActionState, passwordForm()),
+      ).resolves.toEqual(passwordFailure);
+      expect(mocks.updateUser).not.toHaveBeenCalled();
+      expect(mocks.signOut).not.toHaveBeenCalled();
     },
   );
 
@@ -726,7 +748,7 @@ describe("password reset action", () => {
       await expect(
         resetPasswordAction(initialAuthActionState, passwordForm()),
       ).resolves.toEqual(
-        stage === "client" || stage === "proof"
+        stage === "client" || stage === "proof" || stage === "context"
           ? { status: "error", message: nlBE.auth.recoveryUnavailable }
           : passwordFailure,
       );

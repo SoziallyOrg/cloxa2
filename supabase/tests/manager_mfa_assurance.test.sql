@@ -23,7 +23,7 @@ values
   ('66000000-0000-4000-8000-000000000001','Synthetic MFA manager'),
   ('66000000-0000-4000-8000-000000000002','Synthetic MFA employee');
 
-select columns_are('private','manager_mfa_registrations',array['auth_user_id','provider_factor_id','registered_at']);
+select columns_are('private','manager_mfa_registrations',array['auth_user_id','provider_factor_id','registered_at','generation','session_cutoff_at']);
 select ok((select relrowsecurity from pg_class where oid='private.manager_mfa_registrations'::regclass),'registration table has RLS');
 select ok(not has_table_privilege(role_name,'private.manager_mfa_registrations',privilege_name),
   role_name||' denied registration table '||privilege_name)
