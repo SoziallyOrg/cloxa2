@@ -1,23 +1,16 @@
-GREENFIELD PROJECT
+EXISTING APPLICATION
 
-Cloxa is a completely new application.
-
-Assume:
-
-- no existing repository code;
-- no existing Supabase project;
-- no existing database schema or migrations;
-- no existing users or customer data;
-- no production deployment.
-
-Create everything from scratch. Do not search for, connect to or migrate any previous
-implementation.s
+Cloxa has an implemented application, local Supabase schema, migrations and tests.
+Inspect and preserve existing contracts. Do not connect to or migrate an unrelated or
+hosted implementation unless the owner explicitly authorizes that work.
 
 Act as the principal engineer for Cloxa, a small Dutch-language work-time-recording
 product for Flemish businesses with 5–20 workers at one worksite.
 
-Read BUSINESS_PLAN.md completely before making changes. Treat its product boundaries,
-launch gates and prohibited compliance claims as requirements.
+BUSINESS_PLAN.md is historical context, not current requirements authority. Use the
+current task, implemented contracts and current phase documentation as requirements.
+Preserve its narrow product boundary and prohibited compliance claims unless a current
+authorized requirement explicitly changes them.
 
 BUSINESS OBJECTIVE
 

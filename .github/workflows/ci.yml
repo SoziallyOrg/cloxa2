@@ -1,0 +1,122 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verification:
+    name: verification
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install pnpm 11.25.0
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          version: 11.25.0
+
+      - name: Install Node 24
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+
+      - name: Record runtime versions
+        run: |
+          node --version
+          pnpm --version
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Record Supabase CLI version
+        run: pnpm exec supabase --version
+
+      - name: Confirm clean Next.js type state
+        run: test ! -e apps/web/.next
+
+      - name: Typecheck clean checkout
+        run: pnpm typecheck
+
+      - name: Confirm typecheck stayed generation-free
+        run: test ! -e apps/web/.next
+
+      - name: Check formatting
+        run: pnpm format:check
+
+      - name: Check whitespace errors
+        run: git diff --check
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Start and reset repository-local Supabase
+        shell: bash
+        run: |
+          set +e
+          pnpm exec supabase start >"${RUNNER_TEMP}/cloxa-supabase-start.log" 2>&1
+          status=$?
+          set -e
+          rm -f "${RUNNER_TEMP}/cloxa-supabase-start.log"
+          if [ "$status" -ne 0 ]; then
+            echo "Repository-local Supabase start failed; credential-bearing output was withheld."
+            exit "$status"
+          fi
+          pnpm exec supabase db reset --local
+
+      - name: Prepare fictional local CI environment
+        run: |
+          node scripts/ci-local-env.mjs
+          pnpm local:bootstrap --confirm-local-development
+
+      - name: Test database
+        run: pnpm test:db
+
+      - name: Lint database
+        run: pnpm supabase:lint
+
+      - name: Check generated database types
+        run: pnpm supabase:types:check
+
+      - name: Test application
+        run: pnpm test
+
+      - name: Build production application
+        run: pnpm build
+
+      - name: Install pinned Playwright Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Test production browser journeys
+        run: CLOXA_E2E_PRODUCTION=1 pnpm test:e2e
+
+      - name: Audit production dependencies
+        timeout-minutes: 5
+        env:
+          npm_config_registry: https://registry.npmjs.org/
+        run: pnpm audit --prod --audit-level high
+
+      - name: Scan production browser bundles
+        run: pnpm test:bundles
+
+      - name: Clean repository-local runtime state
+        if: always()
+        shell: bash
+        run: |
+          rm -f apps/web/.env.local
+          rm -f "${RUNNER_TEMP}/cloxa-supabase-start.log"
+          pnpm exec supabase stop --project-id cloxa2 --no-backup
