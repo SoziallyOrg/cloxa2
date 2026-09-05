@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { BrandWordmark } from "@/components/brand-mark";
 import { nlBE } from "@/i18n/nl-BE";
 
 export function AuthShell({
@@ -21,7 +22,10 @@ export function AuthShell({
     >
       <section className="docket-surface grid w-full overflow-hidden rounded-2xl border border-rule-strong lg:grid-cols-[minmax(0,0.72fr)_minmax(22rem,1.28fr)]">
         <div className="flex min-h-44 flex-col justify-between bg-primary p-6 text-primary-foreground sm:p-8 lg:min-h-[30rem]">
-          <Icon aria-hidden="true" className="size-8" strokeWidth={1.8} />
+          <div className="flex flex-col gap-8">
+            <BrandWordmark className="w-40 sm:w-44" variant="dark" />
+            <Icon aria-hidden="true" className="size-8" strokeWidth={1.8} />
+          </div>
           <p className="max-w-sm text-sm leading-6 text-[color:var(--color-primary-foreground-muted)]">
             {nlBE.brand.descriptor}
           </p>

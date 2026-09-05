@@ -109,6 +109,29 @@ test("manifest beschrijft web-app zonder service worker", async ({ page, request
   expect(registrations).toHaveLength(0);
 });
 
+test("Precision A-branding levert runtime-icons en toegankelijke woordmerken", async ({
+  page,
+  request,
+}) => {
+  for (const asset of [
+    ["/icon.svg", "image/svg+xml"],
+    ["/apple-icon.png", "image/png"],
+    ["/branding/cloxa-compact.svg", "image/svg+xml"],
+    ["/branding/cloxa-on-dark.svg", "image/svg+xml"],
+  ] as const) {
+    const response = await request.get(asset[0]);
+    expect(response.status(), asset[0]).toBe(200);
+    expect(response.headers()["content-type"], asset[0]).toContain(asset[1]);
+  }
+
+  await page.goto("/login");
+  await expect(page.getByRole("link", { name: "Cloxa" })).toBeVisible();
+  await expect(page.locator('header img[src$="cloxa-compact.svg"]')).toHaveCount(1);
+  await expect(page.locator('main img[src$="cloxa-on-dark.svg"]')).toHaveCount(1);
+  await expect(page.locator('header img[alt=""]')).toHaveCount(1);
+  await expect(page.locator('main img[alt=""]')).toHaveCount(1);
+});
+
 test("publieke routes blijven bruikbaar op 320 pixels", async ({ page }) => {
   await page.setViewportSize({ height: 800, width: 320 });
 

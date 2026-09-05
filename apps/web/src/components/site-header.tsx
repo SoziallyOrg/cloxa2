@@ -25,13 +25,11 @@ export async function SiteHeader() {
       </a>
       <div className="mx-auto flex min-h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
         <Link
-          className="flex items-center gap-2 rounded-lg font-semibold text-ink outline-none focus-visible:ring-3 focus-visible:ring-focus"
+          aria-label={nlBE.brand.name}
+          className="flex items-center rounded-lg outline-none focus-visible:ring-3 focus-visible:ring-focus"
           href="/"
         >
           <BrandMark />
-          <span className="font-display text-xl tracking-[-0.02em]">
-            {nlBE.brand.name}
-          </span>
         </Link>
 
         <nav aria-label={nlBE.navigation.mainLabel} className="flex items-center gap-1">
