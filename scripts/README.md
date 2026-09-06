@@ -22,6 +22,43 @@ manager membership. Reruns neither reset passwords nor overwrite conflicting rec
 E2E adds unique fictional employees; no broad account or inbox cleanup runs. Resetting
 the local database removes local fixtures when explicitly requested.
 
+## Isolated local Auth E2E
+
+Run `pnpm test:e2e:local-auth` only against this repository's verified local
+Docker/Supabase stack. It requires ignored local URL/key settings that match running
+stack, `CLOXA_LOCAL_EMPLOYEE_PASSWORD`, `CLOXA_LOCAL_EMPLOYEE_RESET_PASSWORD`, local
+Mailpit, and installed Chromium. Docker host/context selection is resolved and pinned
+before first status request; remote, conflicting, or ambiguous selectors are refused.
+
+Dedicated journey does not use retained bootstrap manager. Each run creates unique
+fictional `example.test` manager and employee identities and an ownership proof, then
+creates exact run-owned organization, worksite, profiles, memberships, invitation, MFA
+registration, and audit rows. Cleanup locks checked local graph, verifies run/proof,
+tenant, identities, timestamps, inviter, and relationships, and deletes only verified
+rows and users. It does not reset database, sweep factors, or clean by email/marker.
+
+Uncertain ownership, interrupted invitation, database failure, or Auth deletion failure
+preserves remaining resources and reports sanitized resource classes. Complete expected
+lease/state is in memory; proof value also persists in server-owned Auth app metadata.
+Process loss still has no approved automatic cleanup path. Cleanup replay after full
+success returns preserved with empty remainder; replay after employee deletion followed
+by manager deletion failure preserves manager. Handle leftovers manually only after
+independent exact ownership verification.
+
+Each run bounds its Auth/Data API requests and Docker SQL client. Operation cancellation
+stops new fixture mutations. An Auth deletion already dispatched, or SQL whose client
+exit cannot be confirmed, remains uncertain; cleanup stops before another deletion.
+Killing the owned Docker client does not prove its in-container SQL stopped, so server
+transaction deadlines and conservative retained state remain required.
+
+Cleanup uses transaction-local deadlines and table-wide graph locks that briefly block
+other local writers. Native success, refusal, rollback, trigger-restoration,
+unrelated-fixture preservation, and interleaving probes require explicit approval plus a
+quiescent disposable local stack; unique fixture IDs alone do not isolate concurrent
+writers. Do not stop another local job to create that condition. Native manager probes
+first run both generated observer queries read-only before fixture creation. They do not
+replace the dedicated browser journey's full employee-graph cleanup coverage.
+
 ## Local manager MFA recovery
 
 `scripts/local-manager-mfa-recovery.mjs` supports only `start`, `status`, and `complete`
