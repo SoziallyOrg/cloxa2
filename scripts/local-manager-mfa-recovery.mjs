@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { lstat, readFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
@@ -286,7 +286,7 @@ export function resolveLocalDockerEndpoint({
   };
 }
 
-export async function validateRecoveryEnvironment({
+export async function validateLocalOperatorEnvironment({
   environment = process.env,
   getStatus = getLocalStackStatus,
   root = projectRoot,
@@ -348,6 +348,16 @@ export async function validateRecoveryEnvironment({
     ...settings,
     dockerEndpoint: docker.endpoint,
     dockerEnvironment: docker.environment,
+    stackStatus: status,
+  };
+}
+
+export async function validateRecoveryEnvironment(dependencies = {}) {
+  const environment = dependencies.environment ?? process.env;
+  const settings = await validateLocalOperatorEnvironment(dependencies);
+
+  return {
+    ...settings,
     managerEmail: requireFictionalEmail(environment.CLOXA_LOCAL_MANAGER_EMAIL),
   };
 }
@@ -358,7 +368,12 @@ function sqlUuid(value) {
 
 export function runOperatorSql(
   sql,
-  { dockerEndpoint, environment = process.env, runCommand = execFileSync } = {},
+  {
+    dockerEndpoint,
+    environment = process.env,
+    runCommand = execFileSync,
+    timeoutMs,
+  } = {},
 ) {
   const docker = dockerEndpoint
     ? {
@@ -372,6 +387,22 @@ export function runOperatorSql(
   const endpoint = docker.endpoint;
   const pinnedEnvironment = docker.environment;
   try {
+    if (
+      timeoutMs !== undefined &&
+      (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0)
+    ) {
+      throw new Error();
+    }
+    const commandOptions = {
+      cwd: projectRoot,
+      encoding: "utf8",
+      env: pinnedEnvironment,
+      input: sql,
+      maxBuffer: 1024 * 1024,
+      stdio: ["pipe", "pipe", "pipe"],
+      windowsHide: true,
+    };
+    if (timeoutMs !== undefined) commandOptions.timeout = timeoutMs;
     const output = runCommand(
       "docker",
       [
@@ -390,15 +421,7 @@ export function runOperatorSql(
         "-d",
         "postgres",
       ],
-      {
-        cwd: projectRoot,
-        encoding: "utf8",
-        env: pinnedEnvironment,
-        input: sql,
-        maxBuffer: 1024 * 1024,
-        stdio: ["pipe", "pipe", "pipe"],
-        windowsHide: true,
-      },
+      commandOptions,
     );
     const value = JSON.parse(String(output).trim());
     if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error();
@@ -408,6 +431,205 @@ export function runOperatorSql(
       "Local recovery database operation failed. No private database output was printed.",
     );
   }
+}
+
+export function runOperatorSqlAsync(
+  sql,
+  {
+    clearTimer = clearTimeout,
+    dockerEndpoint,
+    environment = process.env,
+    forceTerminationMs = 500,
+    gracefulTerminationMs = 100,
+    setTimer = setTimeout,
+    signal,
+    spawnCommand = spawn,
+    timeoutMs = 25_000,
+  } = {},
+) {
+  if (
+    !dockerEndpoint ||
+    !Number.isSafeInteger(timeoutMs) ||
+    timeoutMs <= 0 ||
+    !Number.isSafeInteger(gracefulTerminationMs) ||
+    gracefulTerminationMs <= 0 ||
+    !Number.isSafeInteger(forceTerminationMs) ||
+    forceTerminationMs <= 0
+  ) {
+    return Promise.reject(
+      new LocalAuthError(
+        "Local recovery database operation failed. No private database output was printed.",
+      ),
+    );
+  }
+
+  let endpoint;
+  try {
+    endpoint = requireLocalDockerEndpoint(dockerEndpoint);
+  } catch {
+    return Promise.reject(
+      new LocalAuthError(
+        "Local recovery database operation failed. No private database output was printed.",
+      ),
+    );
+  }
+  const pinnedEnvironment = {
+    ...withoutDockerSelection(environment),
+    DOCKER_HOST: endpoint,
+  };
+  if (signal?.aborted) {
+    return Promise.reject(
+      new LocalAuthError(
+        "Local recovery database operation failed. No private database output was printed.",
+      ),
+    );
+  }
+
+  return new Promise((resolve, reject) => {
+    let child;
+    let forceTimer;
+    let gracefulTimer;
+    let operationTimer;
+    let settled = false;
+    let stderrBytes = 0;
+    let stdout = "";
+    let terminationReason;
+
+    const failure = (terminationUnconfirmed = false) =>
+      new LocalAuthError(
+        terminationUnconfirmed
+          ? "Local recovery database process termination was not confirmed. No private database output was printed."
+          : "Local recovery database operation failed. No private database output was printed.",
+      );
+
+    function settleFailure(terminationUnconfirmed = false) {
+      if (settled) return;
+      settled = true;
+      reject(failure(terminationUnconfirmed));
+    }
+
+    function signalOwnedChild(childSignal) {
+      try {
+        child.kill(childSignal);
+      } catch {
+        // Exact owned child may already have exited.
+      }
+    }
+
+    function beginTermination(reason) {
+      if (terminationReason) return;
+      terminationReason = reason;
+      if (operationTimer !== undefined) clearTimer(operationTimer);
+      signalOwnedChild("SIGTERM");
+      gracefulTimer = setTimer(() => {
+        signalOwnedChild("SIGKILL");
+        if (settled) return;
+        forceTimer = setTimer(() => settleFailure(true), forceTerminationMs);
+      }, gracefulTerminationMs);
+    }
+
+    function removeListeners() {
+      signal?.removeEventListener("abort", onAbort);
+      child.removeListener("close", onClose);
+      child.removeListener("error", onError);
+      child.stdout.removeListener("data", onStdout);
+      child.stderr.removeListener("data", onStderr);
+      child.stdin.removeListener("error", onStdinError);
+    }
+
+    function onAbort() {
+      beginTermination("aborted");
+    }
+
+    function onClose(code) {
+      if (operationTimer !== undefined) clearTimer(operationTimer);
+      if (gracefulTimer !== undefined) clearTimer(gracefulTimer);
+      if (forceTimer !== undefined) clearTimer(forceTimer);
+      removeListeners();
+      if (settled) return;
+      if (terminationReason || code !== 0) {
+        settleFailure();
+        return;
+      }
+      try {
+        const value = JSON.parse(stdout.trim());
+        if (!value || typeof value !== "object" || Array.isArray(value))
+          throw new Error();
+        settled = true;
+        resolve(value);
+      } catch {
+        settleFailure();
+      }
+    }
+
+    function onError() {
+      beginTermination("process_error");
+    }
+
+    function onStdinError() {
+      beginTermination("input_error");
+    }
+
+    function onStdout(chunk) {
+      if (settled || terminationReason) return;
+      stdout += chunk;
+      if (Buffer.byteLength(stdout, "utf8") > 1024 * 1024) {
+        beginTermination("output_limit");
+      }
+    }
+
+    function onStderr(chunk) {
+      if (settled || terminationReason) return;
+      stderrBytes += Buffer.byteLength(chunk, "utf8");
+      if (stderrBytes > 1024 * 1024) beginTermination("error_output_limit");
+    }
+
+    try {
+      child = spawnCommand(
+        "docker",
+        [
+          "--host",
+          endpoint,
+          "exec",
+          "-i",
+          databaseContainer,
+          "psql",
+          "-X",
+          "-qAt",
+          "-v",
+          "ON_ERROR_STOP=1",
+          "-U",
+          "postgres",
+          "-d",
+          "postgres",
+        ],
+        {
+          cwd: projectRoot,
+          env: pinnedEnvironment,
+          stdio: ["pipe", "pipe", "pipe"],
+          windowsHide: true,
+        },
+      );
+    } catch {
+      settleFailure();
+      return;
+    }
+
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
+    child.on("close", onClose);
+    child.on("error", onError);
+    child.stdout.on("data", onStdout);
+    child.stderr.on("data", onStderr);
+    child.stdin.on("error", onStdinError);
+    signal?.addEventListener("abort", onAbort, { once: true });
+    operationTimer = setTimer(() => beginTermination("timeout"), timeoutMs);
+    try {
+      child.stdin.end(sql);
+    } catch {
+      beginTermination("input_error");
+    }
+  });
 }
 
 export function operatorDatabase(dependencies = {}) {

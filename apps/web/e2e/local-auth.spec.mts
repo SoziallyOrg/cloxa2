@@ -1,4 +1,3 @@
-import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { createRequire } from "node:module";
 
@@ -15,19 +14,30 @@ import {
   containsServerSecret,
 } from "../../../scripts/local-auth-bundles.mjs";
 import {
-  localOnlyFetch,
-  requireFictionalEmail,
   requireLiteralLoopbackOrigin,
   requireLocalOrigin,
   requireLocalPassword,
 } from "../../../scripts/local-auth-config.mjs";
+import {
+  claimLocalAuthEmployee,
+  cleanupLocalAuthE2eLease,
+  createLocalAuthE2eLease,
+  createLocalAuthE2eOperation,
+  createLocalAuthFixtureFetch,
+  createLocalAuthFixtureDatabase,
+  createSupabaseFixtureStore,
+  localAuthFixtureDeadlines,
+  markLocalAuthInvitationAttempted,
+  prepareLocalAuthEmployeeInvitation,
+  provisionLocalAuthManager,
+  verifyAcceptedLocalAuthEmployee,
+} from "../../../scripts/local-auth-e2e-fixture.mjs";
+import {
+  runOperatorSqlAsync,
+  validateLocalOperatorEnvironment,
+} from "../../../scripts/local-manager-mfa-recovery.mjs";
 import { currentTotp } from "./manager-mfa-fixture.mts";
 
-const managerEmail = requireFictionalEmail(process.env.CLOXA_LOCAL_MANAGER_EMAIL);
-const managerPassword = requireLocalPassword(
-  process.env.CLOXA_LOCAL_MANAGER_PASSWORD,
-  "CLOXA_LOCAL_MANAGER_PASSWORD",
-);
 const employeePassword = requireLocalPassword(
   process.env.CLOXA_LOCAL_EMPLOYEE_PASSWORD,
   "CLOXA_LOCAL_EMPLOYEE_PASSWORD",
@@ -47,71 +57,79 @@ const supabaseOrigin = requireLiteralLoopbackOrigin(
 );
 const requireFromWeb = createRequire(new URL("../package.json", import.meta.url));
 const { createClient } = requireFromWeb("@supabase/supabase-js");
+let fixtureSettingsPromise:
+  ReturnType<typeof validateLocalOperatorEnvironment> | undefined;
 
 type MailMessage = { ID: string; HTML: string; To: Array<{ Address: string }> };
 type MailSummary = { ID: string; To: Array<{ Address: string }> };
 
-function ownerSql(sql: string) {
-  execFileSync(
-    "docker",
-    [
-      "exec",
-      "-i",
-      "supabase_db_cloxa2",
-      "psql",
-      "-X",
-      "-qAt",
-      "-v",
-      "ON_ERROR_STOP=1",
-      "-U",
-      "postgres",
-      "-d",
-      "postgres",
-    ],
-    {
-      input: sql,
-      windowsHide: true,
-      stdio: ["pipe", "pipe", "pipe"],
-    },
-  );
-}
-
-async function clearLocalManagerMfa() {
-  const admin = createClient(supabaseOrigin, process.env.SUPABASE_SECRET_KEY, {
+async function fixtureRuntime(lease: ReturnType<typeof createLocalAuthE2eLease>) {
+  fixtureSettingsPromise ??= validateLocalOperatorEnvironment();
+  const settings = await fixtureSettingsPromise;
+  if (settings.supabaseUrl !== supabaseOrigin) {
+    throw new Error("Lokale fixture-stack wijkt af van de browserconfiguratie.");
+  }
+  const operation = createLocalAuthE2eOperation(lease, {
+    timeoutMs: localAuthFixtureDeadlines.operationMs,
+  });
+  const admin = createClient(settings.supabaseUrl, settings.secretKey, {
     auth: {
       autoRefreshToken: false,
       detectSessionInUrl: false,
       persistSession: false,
     },
-    global: { fetch: localOnlyFetch },
+    global: {
+      fetch: createLocalAuthFixtureFetch({ signal: operation.signal }),
+    },
   });
-  const users = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-  const manager = users.data?.users.find(
-    (user: { email?: string }) =>
-      user.email?.toLowerCase() === managerEmail.toLowerCase(),
-  );
-  if (
-    users.error ||
-    !manager?.id ||
-    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(
-      manager.id,
-    )
-  ) {
-    throw new Error("Lokale manager-MFA-fixture ontbreekt.");
+  return {
+    database: createLocalAuthFixtureDatabase({
+      dockerEndpoint: settings.dockerEndpoint,
+      dockerEnvironment: settings.dockerEnvironment,
+      runSql: runOperatorSqlAsync,
+      timeoutMs: localAuthFixtureDeadlines.sqlMs,
+    }),
+    operation,
+    store: createSupabaseFixtureStore(admin, { signal: operation.signal }),
+  };
+}
+
+async function withDisposableManager(
+  journey: (context: {
+    lease: ReturnType<typeof createLocalAuthE2eLease>;
+    store: ReturnType<typeof createSupabaseFixtureStore>;
+  }) => Promise<void>,
+) {
+  const lease = createLocalAuthE2eLease();
+  const runtime = await fixtureRuntime(lease);
+  let failure: unknown;
+
+  try {
+    await provisionLocalAuthManager(lease, {
+      password: employeePassword,
+      store: runtime.store,
+    });
+    await journey({ lease, store: runtime.store });
+  } catch (error) {
+    failure = error;
   }
 
-  ownerSql(`begin;
-    delete from private.manager_mfa_registrations where auth_user_id='${manager.id}';
-    commit;`);
-  const factors = await admin.auth.admin.mfa.listFactors({ userId: manager.id });
-  if (factors.error) throw new Error("Lokale MFA-factorlijst is niet beschikbaar.");
-  for (const factor of factors.data?.factors ?? []) {
-    const deleted = await admin.auth.admin.mfa.deleteFactor({
-      id: factor.id,
-      userId: manager.id,
-    });
-    if (deleted.error) throw new Error("Lokale MFA-factor kon niet worden gewist.");
+  const cleanup = await cleanupLocalAuthE2eLease(lease, runtime);
+  if (cleanup.status !== "cleaned") {
+    runtime.operation.abort();
+    const cleanupFailure = new Error(
+      `Lokale testfixture is veilig bewaard (${cleanup.remaining.join(", ")}).`,
+    );
+    if (failure) {
+      throw new AggregateError(
+        [failure, cleanupFailure],
+        "Lokale Auth-journey en veilige fixture-opruiming zijn mislukt.",
+      );
+    }
+    throw cleanupFailure;
   }
+  runtime.operation.finish();
+  if (failure) throw failure;
 }
 
 async function blockExternalRequests(context: BrowserContext) {
@@ -248,21 +266,8 @@ async function followPrivateLink(page: Page, link: string) {
   }
 }
 
-test.beforeEach(async ({ context }, testInfo) => {
+test.beforeEach(async ({ context }) => {
   await blockExternalRequests(context);
-  if (
-    testInfo.title === "volledige lokale uitnodiging, aanmelding en wachtwoordherstel"
-  ) {
-    await clearLocalManagerMfa();
-  }
-});
-
-test.afterEach(async ({}, testInfo) => {
-  if (
-    testInfo.title === "volledige lokale uitnodiging, aanmelding en wachtwoordherstel"
-  ) {
-    await clearLocalManagerMfa();
-  }
 });
 
 test("volledige lokale uitnodiging, aanmelding en wachtwoordherstel", async ({
@@ -270,142 +275,155 @@ test("volledige lokale uitnodiging, aanmelding en wachtwoordherstel", async ({
   browser,
 }) => {
   test.setTimeout(90_000);
-  const employeeEmail = `employee.${randomUUID()}@example.test`;
-
-  await login(page, managerEmail, managerPassword);
-  await expectPath(page, "/manager/security/setup");
-  await expect(
-    page.getByRole("heading", { level: 1, name: "Authenticator instellen" }),
-  ).toBeVisible();
-  await page
-    .getByRole("button", { name: "Authenticator instellen", exact: true })
-    .click();
-  const totpSecret = (await page.locator("code").textContent())?.trim();
-  if (!totpSecret) throw new Error("Lokale TOTP-sleutel ontbreekt.");
-  await privateFill(
-    page.getByLabel("Authenticatorcode", { exact: true }),
-    currentTotp(totpSecret),
-  );
-  await page
-    .getByRole("button", { name: "Instelling bevestigen", exact: true })
-    .click();
-  await expectPath(page, "/manager");
-  await expect(
-    page.getByRole("heading", { level: 1, name: "Manager", exact: true }),
-  ).toBeVisible();
-  await privateFill(
-    page.getByLabel("E-mailadres medewerker", { exact: true }),
-    employeeEmail,
-  );
-  await privateFill(
-    page.getByLabel("Weergavenaam (optioneel)", { exact: true }),
-    "Fictieve medewerker",
-  );
-  await privateFill(
-    page.getByLabel("Medewerkerscode (optioneel)", { exact: true }),
-    "LOKAAL-E2E",
-  );
-  await page
-    .getByRole("button", { name: "Uitnodiging versturen", exact: true })
-    .click();
-  await expect(
-    page.getByText(
-      "Als uitnodigen mogelijk is, ontvangt de medewerker een e-mail. Controleer de lokale inbox.",
-    ),
-  ).toBeVisible();
-
-  const invitationLink = await waitForLocalEmailLink(employeeEmail, "invite");
-  // Invitations must work in a different browser: no manager PKCE verifier may be required.
-  const employeeContext = await browser.newContext({
-    baseURL: appOrigin,
-    serviceWorkers: "block",
-  });
-  await blockExternalRequests(employeeContext);
-  const employeePage = await employeeContext.newPage();
-
-  try {
-    await followPrivateLink(employeePage, invitationLink);
-    await expectPath(employeePage, "/accept-invitation");
+  await withDisposableManager(async ({ lease, store }) => {
+    await login(page, lease.manager.email, employeePassword);
+    await expectPath(page, "/manager/security/setup");
     await expect(
-      employeePage.getByRole("heading", { level: 1, name: "Uitnodiging aanvaarden" }),
+      page.getByRole("heading", { level: 1, name: "Authenticator instellen" }),
     ).toBeVisible();
-    await privateFill(
-      employeePage.getByLabel("Nieuw wachtwoord", { exact: true }),
-      employeePassword,
-    );
-    await privateFill(
-      employeePage.getByLabel("Herhaal nieuw wachtwoord", { exact: true }),
-      employeePassword,
-    );
-    await employeePage
-      .getByRole("button", { name: "Wachtwoord instellen", exact: true })
+    await page
+      .getByRole("button", { name: "Authenticator instellen", exact: true })
       .click();
-    await expectPath(employeePage, "/employee");
+    const totpSecret = (await page.locator("code").textContent())?.trim();
+    if (!totpSecret) throw new Error("Lokale TOTP-sleutel ontbreekt.");
+    await privateFill(
+      page.getByLabel("Authenticatorcode", { exact: true }),
+      currentTotp(totpSecret),
+    );
+    await page
+      .getByRole("button", { name: "Instelling bevestigen", exact: true })
+      .click();
+    await expectPath(page, "/manager");
     await expect(
-      employeePage.getByRole("heading", { level: 1, name: "Medewerker", exact: true }),
+      page.getByRole("heading", { level: 1, name: "Manager", exact: true }),
     ).toBeVisible();
 
-    const authCookies = (await employeeContext.cookies()).filter(
-      (cookie) => cookie.name.startsWith("sb-") && cookie.name.includes("auth-token"),
-    );
-    expect(authCookies.length > 0).toBe(true);
-    expect(
-      authCookies.every((cookie) => cookie.httpOnly && cookie.sameSite === "Lax"),
-    ).toBe(true);
-    expect(
-      await employeePage.evaluate(() => document.cookie.includes("auth-token")),
-    ).toBe(false);
-
-    await employeePage.goto("/manager");
-    await expectPath(employeePage, "/unauthorized");
-    await employeePage.goto("/employee");
-    await employeePage.getByRole("button", { name: "Afmelden", exact: true }).click();
-    await expectPath(employeePage, "/login");
-    await employeePage.goto("/employee");
-    await expectPath(employeePage, "/login");
-
-    await login(employeePage, employeeEmail, employeePassword);
-    await expectPath(employeePage, "/employee");
-    await employeePage.getByRole("button", { name: "Afmelden", exact: true }).click();
-    await expectPath(employeePage, "/login");
-    await employeePage.goto("/forgot-password");
+    await prepareLocalAuthEmployeeInvitation(lease, { store });
     await privateFill(
-      employeePage.getByLabel("E-mailadres", { exact: true }),
-      employeeEmail,
+      page.getByLabel("E-mailadres medewerker", { exact: true }),
+      lease.employee.email,
     );
-    await employeePage
-      .getByRole("button", { name: "Herstellink aanvragen", exact: true })
+    await privateFill(
+      page.getByLabel("Weergavenaam (optioneel)", { exact: true }),
+      lease.employee.displayName,
+    );
+    await privateFill(
+      page.getByLabel("Medewerkerscode (optioneel)", { exact: true }),
+      lease.employee.code,
+    );
+    markLocalAuthInvitationAttempted(lease);
+    await page
+      .getByRole("button", { name: "Uitnodiging versturen", exact: true })
       .click();
     await expect(
-      employeePage.getByText(
-        "Als dit e-mailadres bij een account hoort, ontvang je een e-mail met verdere stappen.",
+      page.getByText(
+        "Als uitnodigen mogelijk is, ontvangt de medewerker een e-mail. Controleer de lokale inbox.",
       ),
     ).toBeVisible();
+    await claimLocalAuthEmployee(lease, { store });
 
-    await followPrivateLink(
-      employeePage,
-      await waitForLocalEmailLink(employeeEmail, "recovery"),
-    );
-    await expectPath(employeePage, "/reset-password");
-    await privateFill(
-      employeePage.getByLabel("Nieuw wachtwoord", { exact: true }),
-      resetPassword,
-    );
-    await privateFill(
-      employeePage.getByLabel("Herhaal nieuw wachtwoord", { exact: true }),
-      resetPassword,
-    );
-    await employeePage
-      .getByRole("button", { name: "Wachtwoord opslaan", exact: true })
-      .click();
-    await expectPath(employeePage, "/employee");
-    await employeePage.getByRole("button", { name: "Afmelden", exact: true }).click();
-    await expectPath(employeePage, "/login");
-    await login(employeePage, employeeEmail, resetPassword);
-    await expectPath(employeePage, "/employee");
-  } finally {
-    await employeeContext.close();
-  }
+    const invitationLink = await waitForLocalEmailLink(lease.employee.email, "invite");
+    // Invitations must work in a different browser: no manager PKCE verifier may be required.
+    const employeeContext = await browser.newContext({
+      baseURL: appOrigin,
+      serviceWorkers: "block",
+    });
+    await blockExternalRequests(employeeContext);
+    const employeePage = await employeeContext.newPage();
+
+    try {
+      await followPrivateLink(employeePage, invitationLink);
+      await expectPath(employeePage, "/accept-invitation");
+      await expect(
+        employeePage.getByRole("heading", {
+          level: 1,
+          name: "Uitnodiging aanvaarden",
+        }),
+      ).toBeVisible();
+      await privateFill(
+        employeePage.getByLabel("Nieuw wachtwoord", { exact: true }),
+        employeePassword,
+      );
+      await privateFill(
+        employeePage.getByLabel("Herhaal nieuw wachtwoord", { exact: true }),
+        employeePassword,
+      );
+      await employeePage
+        .getByRole("button", { name: "Wachtwoord instellen", exact: true })
+        .click();
+      await expectPath(employeePage, "/employee");
+      await expect(
+        employeePage.getByRole("heading", {
+          level: 1,
+          name: "Medewerker",
+          exact: true,
+        }),
+      ).toBeVisible();
+      await verifyAcceptedLocalAuthEmployee(lease, { store });
+
+      const authCookies = (await employeeContext.cookies()).filter(
+        (cookie) => cookie.name.startsWith("sb-") && cookie.name.includes("auth-token"),
+      );
+      expect(authCookies.length > 0).toBe(true);
+      expect(
+        authCookies.every((cookie) => cookie.httpOnly && cookie.sameSite === "Lax"),
+      ).toBe(true);
+      expect(
+        await employeePage.evaluate(() => document.cookie.includes("auth-token")),
+      ).toBe(false);
+
+      await employeePage.goto("/manager");
+      await expectPath(employeePage, "/unauthorized");
+      await employeePage.goto("/employee");
+      await employeePage.getByRole("button", { name: "Afmelden", exact: true }).click();
+      await expectPath(employeePage, "/login");
+      await employeePage.goto("/employee");
+      await expectPath(employeePage, "/login");
+
+      await login(employeePage, lease.employee.email, employeePassword);
+      await expectPath(employeePage, "/employee");
+      await employeePage.getByRole("button", { name: "Afmelden", exact: true }).click();
+      await expectPath(employeePage, "/login");
+      await employeePage.goto("/forgot-password");
+      await privateFill(
+        employeePage.getByLabel("E-mailadres", { exact: true }),
+        lease.employee.email,
+      );
+      await employeePage
+        .getByRole("button", { name: "Herstellink aanvragen", exact: true })
+        .click();
+      await expect(
+        employeePage.getByText(
+          "Als dit e-mailadres bij een account hoort, ontvang je een e-mail met verdere stappen.",
+        ),
+      ).toBeVisible();
+
+      await followPrivateLink(
+        employeePage,
+        await waitForLocalEmailLink(lease.employee.email, "recovery"),
+      );
+      await expectPath(employeePage, "/reset-password");
+      await privateFill(
+        employeePage.getByLabel("Nieuw wachtwoord", { exact: true }),
+        resetPassword,
+      );
+      await privateFill(
+        employeePage.getByLabel("Herhaal nieuw wachtwoord", { exact: true }),
+        resetPassword,
+      );
+      await employeePage
+        .getByRole("button", { name: "Wachtwoord opslaan", exact: true })
+        .click();
+      await expectPath(employeePage, "/employee");
+      await employeePage.getByRole("button", { name: "Afmelden", exact: true }).click();
+      await expectPath(employeePage, "/login");
+      await login(employeePage, lease.employee.email, resetPassword);
+      await expectPath(employeePage, "/employee");
+    } finally {
+      await employeeContext.close();
+      await page.context().clearCookies();
+    }
+  });
 });
 
 test("publieke Auth API kan geen account aanmaken", async () => {
@@ -429,17 +447,20 @@ test("publieke Auth API kan geen account aanmaken", async () => {
 });
 
 test("aanmeldfouten onthullen geen accountbestaan", async ({ page }) => {
-  await login(page, managerEmail, `${managerPassword}-incorrect`);
-  const alert = page.getByRole("alert");
-  await expect(alert).toBeVisible();
-  const existingAccountMessage = await alert.textContent();
-  await login(
-    page,
-    `missing.${randomUUID()}@example.test`,
-    `${managerPassword}-incorrect`,
-  );
-  await expect(alert).toBeVisible();
-  expect(await alert.textContent()).toBe(existingAccountMessage);
+  await withDisposableManager(async ({ lease }) => {
+    await login(page, lease.manager.email, `${employeePassword}-incorrect`);
+    const alert = page.getByRole("alert");
+    await expect(alert).toBeVisible();
+    const existingAccountMessage = await alert.textContent();
+    await login(
+      page,
+      `missing.${randomUUID()}@example.test`,
+      `${employeePassword}-incorrect`,
+    );
+    await expect(alert).toBeVisible();
+    expect(await alert.textContent()).toBe(existingAccountMessage);
+    await page.context().clearCookies();
+  });
 });
 
 test("browserbundels bevatten geen serversleutel", async ({ page }) => {

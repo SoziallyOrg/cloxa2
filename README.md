@@ -208,6 +208,35 @@ No hosted project is linked. Commands below operate on local Docker containers o
    SMTP captures mail without sending it to external recipients. Use `example.test`
    addresses and fictional names only.
 
+   Run the isolated local Auth browser journey separately when needed:
+
+   ```bash
+   pnpm test:e2e:local-auth
+   ```
+
+   This command requires the verified local `cloxa2` Docker/Supabase stack, ignored
+   matching local keys, two employee test passwords, and Chromium. It does not use or
+   modify the retained bootstrap manager. Each run creates unique `example.test` manager
+   and employee accounts plus a run-owned organization, worksite, profiles, memberships,
+   invitation, MFA registration, and audit events. Cleanup proves the exact run identity
+   and graph before deleting those rows and accounts; it never runs a broad reset or
+   factor sweep.
+
+   If ownership, an invitation result, database cleanup, or Auth deletion is uncertain,
+   cleanup stops and preserves remaining resources for manual inspection. Complete
+   expected lease/state exists only in the running process; its proof value also
+   persists in server-owned Auth app metadata. Process loss still has no approved
+   automatic cleanup workflow. Replaying cleanup after full success reports a
+   conservative preserved/empty result; if employee deletion succeeds before manager
+   deletion fails, replay preserves the manager. Inspect and remove such fictional
+   leftovers manually only after establishing exact IDs and ownership metadata.
+
+   Fixture Auth/Data requests and Docker SQL clients have per-run deadlines.
+   Cancellation stops new mutations; an already-dispatched Auth deletion or unconfirmed
+   SQL client exit is reported as uncertain and blocks follow-on deletion. Separately
+   approved native verification runs both generated observer queries read-only before
+   fixture creation.
+
 6. Stop local containers without deleting their volumes:
 
    ```bash
