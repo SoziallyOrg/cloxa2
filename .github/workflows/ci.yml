@@ -75,6 +75,30 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Keep the private schema off the API
+        shell: bash
+        run: |
+          # Fail if [api] schemas in supabase/config.toml lists "private".
+          if awk '/^\[/{in_api = ($0 == "[api]")} in_api && /^[[:space:]]*schemas[[:space:]]*=/' supabase/config.toml \
+            | grep -q '"private"'; then
+            echo "supabase/config.toml exposes the private schema through [api] schemas." >&2
+            exit 1
+          fi
+
+      - name: Install pnpm 11.25.0
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          version: 11.25.0
+
+      - name: Install Node 24
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
       - name: Install Supabase CLI
         uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359 # v3.0.1
         with:
@@ -94,6 +118,9 @@ jobs:
           else
             echo "No supabase/tests/*.sql files found; skipping pgTAP suite."
           fi
+
+      - name: Concurrency integration test
+        run: pnpm db:integration
 
       - name: Stop local Supabase stack
         if: always()

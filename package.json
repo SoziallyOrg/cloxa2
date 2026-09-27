@@ -21,8 +21,9 @@
     "db:stop": "supabase stop",
     "db:reset": "supabase db reset --local",
     "db:test": "supabase test db --local",
+    "db:integration": "pnpm --filter @cloxa/db-integration test:integration",
     "db:lint": "supabase db lint --local --schema public,private --level warning --fail-on warning",
-    "db:types": "supabase gen types typescript --local > packages/db/src/database.types.ts"
+    "db:types": "supabase gen types typescript --local > packages/db/src/database.types.ts && prettier --write packages/db/src/database.types.ts"
   },
   "devDependencies": {
     "@types/node": "24.13.6",

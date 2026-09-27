@@ -1,6 +1,7 @@
 packages:
   - apps/*
   - packages/*
+  - supabase/integration
 
 allowBuilds:
   unrs-resolver: true

@@ -36,9 +36,13 @@ Every tenant table carries `organization_id`. Composite foreign keys
 - **Manager:** sees employees and events of assigned sites.
 - **Admin and owner:** see the whole org.
 
-**Privileged roles** (`owner`, `admin`, `manager`) require `aal2` in the JWT for every
-privileged read and write. This is enforced in `private.require_privileged(org_id)` and
-in RLS helpers, not only in the UI.
+**Privileged roles** (`owner`, `admin`, `manager`) require fresh MFA for every
+privileged read and write: `aal2` in the JWT **and** a `totp`/`webauthn` entry in `amr`
+that is at most 12 hours old (missing or malformed claims fail closed). This is enforced
+in the database by `private.has_fresh_mfa()`, used by
+`private.require_privileged(org_id)` and the RLS helpers, not only in the UI. The
+30-minute idle timeout lives in app code; the database cannot see idleness. Without
+fresh MFA a privileged member sees only their own rows, like an employee.
 
 ## Time facts
 
@@ -49,8 +53,9 @@ in RLS helpers, not only in the UI.
   `void`.
 - **Timing:**
   - `occurred_at` is the time the fact refers to. It equals `server_at` for live
-    clocking and the approved time for corrections.
-  - `server_at` is the insert time.
+    clocking and the approved time for corrections. The append trigger enforces
+    `occurred_at = server_at` for every non-`correction` source.
+  - `server_at` is the insert time, stamped by the append trigger.
   - `client_captured_at` is nullable.
 - **Provenance:**
   - `source` is one of `app`, `kiosk`, `mobile` or `correction`.
@@ -60,19 +65,34 @@ in RLS helpers, not only in the UI.
   - `supersedes_event_id` is nullable. The row it points to stops being effective.
   - `correction_id` is nullable.
 - **Integrity:**
-  - `actor_user_id`.
-  - `idempotency_key` is unique per org.
+  - `actor_user_id` (not null). Who the actor is for kiosk events of workers without a
+    login is still to be decided in Phase 3.
+  - `idempotency_key` is unique per `(organization_id, employee_id)`. A replay with the
+    same key returns the original event; one employee's key never touches another's.
   - `prev_hash` and `hash` (bytea).
 
 **Hash chain**
 
 - `hash = sha256(prev_hash || canonical_bytes(row))`. The first event in an org uses 32
   zero bytes as `prev_hash`.
-- Canonical bytes: a `|`-joined text of id, org, site, employee, type, `occurred_at` and
-  `server_at` (both as epoch µs), `client_captured_at` (or empty), source,
-  `supersedes_event_id`, `correction_id` and `actor_user_id`, all UTF-8.
-- Appends take `pg_advisory_xact_lock` on the org, so the chain is linear.
-- `private.verify_clock_chain(org_id)` returns the first broken event, or null.
+- Canonical bytes (`clock_events`): UTF-8 of the `|`-joined id, org, site, employee,
+  type, `occurred_at` and `server_at` (both as epoch µs), `client_captured_at` (epoch
+  µs), source, `supersedes_event_id`, `correction_id`, `actor_user_id`, `device_id`,
+  `geo` (jsonb text). Every null is an empty field (`concat_ws` skips nulls, so each
+  nullable value is coalesced).
+- Canonical bytes (`audit_log`): id, org, `actor_user_id`, action, entity, `entity_id`,
+  `metadata` (jsonb text) and `created_at` (epoch µs), same rules.
+- Appends take `pg_advisory_xact_lock` on the org, so the chain is linear; unique
+  `(organization_id, prev_hash)` makes a fork impossible.
+- `private.hash_chain_heads` stores each chain's head (id, hash, length) so an append
+  finds its predecessor in O(1). Verification walks the links from genesis and uses the
+  head only to detect a removed tail or an edited head.
+- `private.verify_clock_chain(org_id)` / `verify_audit_chain(org_id)` return the first
+  broken row, or null (`service_role` may call them). Owners with fresh MFA use
+  `public.rpc_verify_chains(org)`.
+- **Lock order** inside one transaction: 1003 (per employee) → 1002 (clock chain, per
+  org) → 1001 (audit chain, per org). Future correction RPCs must follow it and must
+  reject an `occurred_at` in the future.
 
 **Effective events** are events that no other event supersedes; a `void` supersedes
 without replacing.
@@ -107,7 +127,8 @@ the whole affected day.
 
 - Columns: `actor_user_id`, `action`, `entity`, `entity_id`, `metadata` jsonb.
 - `metadata` holds no free-text reasons and no PII beyond IDs.
-- Every RPC writes one row, and export downloads write one too.
+- Every RPC writes one row (through `private.write_audit`), and export downloads write
+  one too.
 - A daily root hash is anchored externally (Phase 4).
 
 ## Auth and sessions
