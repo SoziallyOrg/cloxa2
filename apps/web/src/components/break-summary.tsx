@@ -1,10 +1,7 @@
+import { DurationDetails, TimeDetails } from "@/components/exact-details";
 import { nlBE } from "@/i18n/nl-BE";
-import { toBrusselsLocalInput } from "@/lib/corrections/format";
-import {
-  factualTotals,
-  formatExactDuration,
-  type TimeBreak,
-} from "@/lib/time-clock/breaks";
+
+import { factualTotals, type TimeBreak } from "@/lib/time-clock/breaks";
 
 export function BreakSummary({
   breaks,
@@ -24,13 +21,9 @@ export function BreakSummary({
           <ol className="mt-2 space-y-2">
             {breaks.map((b) => (
               <li key={b.id} className="break-words tabular-nums">
-                <time dateTime={b.startedAt}>{toBrusselsLocalInput(b.startedAt)}</time>
+                <TimeDetails value={b.startedAt} />
                 {" – "}
-                {b.endedAt ? (
-                  <time dateTime={b.endedAt}>{toBrusselsLocalInput(b.endedAt)}</time>
-                ) : (
-                  nlBE.breaks.open
-                )}
+                {b.endedAt ? <TimeDetails value={b.endedAt} /> : nlBE.breaks.open}
               </li>
             ))}
           </ol>
@@ -46,9 +39,11 @@ export function BreakSummary({
             <div key={String(label)}>
               <dt className="font-semibold">{label}</dt>
               <dd>
-                {typeof value === "bigint"
-                  ? formatExactDuration(value)
-                  : nlBE.breaks.open}
+                {typeof value === "bigint" ? (
+                  <DurationDetails value={value} />
+                ) : (
+                  nlBE.breaks.open
+                )}
               </dd>
             </div>
           ))}

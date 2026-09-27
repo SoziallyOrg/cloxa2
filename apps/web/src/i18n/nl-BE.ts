@@ -91,7 +91,7 @@ export const nlBE = {
     backToLogin: "Terug naar aanmelden",
   },
   employee: {
-    title: "Medewerker",
+    title: "Tijdklok",
     description:
       "Start en stop je werk op deze werkplek. Tijdstippen komen rechtstreeks van de beveiligde databank.",
     status: "Aangemeld",
@@ -139,7 +139,7 @@ export const nlBE = {
     duration: "Duur",
   },
   corrections: {
-    title: "Correcties",
+    title: "Registraties en aanvragen",
     description:
       "Vraag een aanpassing aan of meld een ontbrekende registratie. Je oorspronkelijke tijdregistratie blijft ongewijzigd.",
     openCorrections: "Correctie aanvragen",
@@ -147,7 +147,7 @@ export const nlBE = {
     reportMissed: "Ontbrekende registratie melden",
     closedEntries: "Recente afgeronde registraties",
     closedEntriesHelp:
-      "Kies een registratie om andere begin- of eindtijdstippen voor te stellen.",
+      "De 20 meest recente afgeronde registraties. Kies een registratie om een andere begin- of eindtijd voor te stellen.",
     noClosedEntries: "Er zijn nog geen afgeronde registraties om te corrigeren.",
     requestCorrection: "Correctie aanvragen",
     adjustment: "Aanpassing van registratie",
@@ -175,7 +175,8 @@ export const nlBE = {
     loadFailure: "Je correctieaanvragen konden niet worden geladen.",
     retry: "Opnieuw proberen",
     myRequests: "Mijn aanvragen",
-    myRequestsHelp: "Ingediende aanvragen blijven zichtbaar met hun huidige status.",
+    myRequestsHelp:
+      "De 50 meest recente aanvragen, met hun huidige status. Dit is geen volledig historisch overzicht.",
     noRequests: "Je hebt nog geen correctieaanvragen.",
     withdraw: "Aanvraag intrekken",
     withdrawing: "Aanvraag intrekken…",
@@ -204,7 +205,7 @@ export const nlBE = {
     },
   },
   manager: {
-    title: "Manager",
+    title: "Overzicht",
     description:
       "Beoordeel correctieaanvragen van je medewerkers en nodig medewerkers uit.",
     status: "Aangemeld",
@@ -253,7 +254,7 @@ export const nlBE = {
       "De code kon niet worden gecontroleerd. Controleer de code en probeer later opnieuw.",
   },
   managerCorrections: {
-    title: "Correcties beoordelen",
+    title: "Tijdaanvragen",
     description:
       "Beoordeel het voorstel van je medewerker. Goedkeuren past de tijdregistratie aan; de oorspronkelijke gegevens blijven bewaard.",
     back: "Terug naar manager",

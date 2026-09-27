@@ -4,7 +4,10 @@ const mocks = vi.hoisted(() => ({
   rpc: vi.fn(),
   auth: vi.fn(),
   refresh: vi.fn(),
+  readEntries: vi.fn(),
 }));
+vi.mock("server-only", () => ({}));
+vi.mock("./server", () => ({ getBreakCorrections: mocks.readEntries }));
 vi.mock("@/lib/supabase/server", () => ({ createSupabaseServerClient: mocks.client }));
 vi.mock("@/lib/auth/session", () => ({ getAuthContext: mocks.auth }));
 vi.mock("next/cache", () => ({ revalidatePath: mocks.refresh }));
@@ -46,6 +49,43 @@ it("preserves Brussels claims and microseconds; retires confirmed UUID and refre
     end_occurrence: "later",
   });
   expect(mocks.refresh).toHaveBeenCalled();
+});
+it("preserves untouched break end from authorized fact and checks parent/break version", async () => {
+  const end = "2010-10-31T01:45:09.123457Z";
+  mocks.readEntries.mockResolvedValue({
+    entries: [
+      {
+        id,
+        version: 2,
+        breaks: [{ logical_break_id: id, version: 3, removed: false, ended_at: end }],
+      },
+    ],
+  });
+  await changeBreakCorrection({
+    ...payload,
+    intent: "adjustment",
+    target_id: id,
+    expected_break_version: 3,
+    end_local: "31/10/2010 02:45",
+    end_expected: end,
+  });
+  expect(mocks.rpc).toHaveBeenCalledWith(
+    "change_break_correction",
+    expect.objectContaining({
+      end_local: "2010-10-31T02:45:09.123457",
+      end_occurrence: "later",
+    }),
+  );
+  mocks.rpc.mockClear();
+  await changeBreakCorrection({
+    ...payload,
+    intent: "adjustment",
+    target_id: id,
+    expected_break_version: 2,
+    end_local: "31/10/2010 02:45",
+    end_expected: end,
+  });
+  expect(mocks.rpc).not.toHaveBeenCalled();
 });
 it.each([
   null,

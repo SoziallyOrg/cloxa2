@@ -8,9 +8,13 @@ const mocks = vi.hoisted(() => ({
   getAuthContext: vi.fn(),
   revalidatePath: vi.fn(),
   rpc: vi.fn(),
+  readEntries: vi.fn(),
 }));
 
 vi.mock("server-only", () => ({}));
+vi.mock("@/lib/corrections/server", () => ({
+  getEmployeeCorrectionRequests: mocks.readEntries,
+}));
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }));
 vi.mock("@/lib/supabase/server", () => ({
   createSupabaseServerClient: mocks.createServerClient,
@@ -89,6 +93,45 @@ beforeEach(() => {
 });
 
 describe("employee correction submission action", () => {
+  it.each(["start", "end"])(
+    "restores untouched %s from authorized read when other endpoint changes",
+    async (endpoint) => {
+      const start = "2026-08-10T08:15:09.123456Z";
+      const end = "2026-08-10T10:00:17.654321Z";
+      mocks.readEntries.mockResolvedValue({
+        entries: [{ id: targetId, startedAt: start, endedAt: end }],
+      });
+      await submitCorrectionRequestAction(
+        initialCorrectionActionState,
+        submissionForm({
+          [`proposed_${endpoint}_local_expected`]: endpoint === "start" ? start : end,
+        }),
+      );
+      expect(mocks.rpc).toHaveBeenCalledWith(
+        "submit_employee_correction_request",
+        expect.objectContaining({
+          proposed_start_local:
+            endpoint === "start" ? "2026-08-10T10:15:09.123456" : "2026-08-10T10:15",
+          proposed_end_local:
+            endpoint === "end" ? "2026-08-10T12:00:17.654321" : "2026-08-10T12:00",
+        }),
+      );
+      expect(mocks.readEntries).toHaveBeenCalledWith(client);
+    },
+  );
+  it.each([
+    null,
+    { entries: [] },
+    { entries: [{ id: targetId, startedAt: "2026-08-10T08:15:00.000002Z" }] },
+  ])("does not submit when expected original cannot be verified %#", async (view) => {
+    mocks.readEntries.mockResolvedValue(view);
+    const result = await submitCorrectionRequestAction(
+      initialCorrectionActionState,
+      submissionForm({ proposed_start_local_expected: "2026-08-10T08:15:00.000001Z" }),
+    );
+    expect(result.status).toBe("error");
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
   it("forwards exact endpoint microseconds without browser timezone interpretation", async () => {
     await submitCorrectionRequestAction(
       initialCorrectionActionState,

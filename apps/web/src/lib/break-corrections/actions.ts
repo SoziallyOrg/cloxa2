@@ -1,4 +1,6 @@
 "use server";
+import { preserveEndpoint } from "@/lib/corrections/local-time";
+import { getBreakCorrections } from "./server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getAuthContext } from "@/lib/auth/session";
@@ -25,6 +27,8 @@ const input = z
     entry_id: uuid.nullable(),
     expected_parent_version: version.nullable(),
     expected_break_version: version.nullable(),
+    start_expected: z.string().max(40).optional(),
+    end_expected: z.string().max(40).optional(),
     start_local: z.string().nullable(),
     end_local: z.string().nullable(),
     start_occurrence: z.enum(["", "earlier", "later"]).nullable(),
@@ -51,6 +55,46 @@ export async function changeBreakCorrection(value: unknown): Promise<BreakAction
     if (auth.state !== "authorized" || auth.role !== (manager ? "manager" : "employee"))
       return { message: breakCopy.failure };
     const client = await createSupabaseServerClient();
+    if (p.start_expected || p.end_expected) {
+      const view = p.intent === "adjustment" ? await getBreakCorrections(client) : null;
+      const entry = view?.entries.find((item) => item.id === p.entry_id);
+      const target = entry?.breaks.find(
+        (item) => item.logical_break_id === p.target_id && !item.removed,
+      );
+      if (
+        !entry ||
+        !target ||
+        entry.version !== p.expected_parent_version ||
+        target.version !== p.expected_break_version
+      )
+        return {
+          message:
+            "De registratie is gewijzigd. Vernieuw de pagina en controleer je aanvraag.",
+        };
+      try {
+        const start = preserveEndpoint(
+          p.start_local ?? "",
+          p.start_occurrence ?? "",
+          p.start_expected ?? "",
+          target.started_at ?? undefined,
+        );
+        const end = preserveEndpoint(
+          p.end_local ?? "",
+          p.end_occurrence ?? "",
+          p.end_expected ?? "",
+          target.ended_at ?? undefined,
+        );
+        p.start_local = start.value;
+        p.start_occurrence = start.occurrence;
+        p.end_local = end.value;
+        p.end_occurrence = end.occurrence;
+      } catch {
+        return {
+          message:
+            "De registratie is gewijzigd. Vernieuw de pagina en controleer je aanvraag.",
+        };
+      }
+    }
     const response = manager
       ? await client.rpc("decide_break_correction", {
           request_id: p.request_id,

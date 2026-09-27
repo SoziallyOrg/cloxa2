@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
+import { DurationDetails } from "@/components/exact-details";
 import { Button } from "@/components/ui/button";
 import { nlBE } from "@/i18n/nl-BE";
 import {
@@ -122,7 +123,7 @@ function PreviewSummary({ preview }: { preview: TimeExportPreview }) {
         <div>
           <dt className="text-sm font-semibold text-muted">{copy.total}</dt>
           <dd className="mt-1 text-xl font-semibold break-words text-ink tabular-nums">
-            {formatExactDuration(preview.totalDurationMicroseconds)}
+            <DurationDetails value={BigInt(preview.totalDurationMicroseconds)} />
           </dd>
         </div>
       </dl>
@@ -344,7 +345,7 @@ export function ManagerExportPanel({
             value={start}
             onChange={(event) => updatePeriod(event.target.value, end)}
             disabled={pending}
-            className="mt-2 min-h-11 w-full min-w-0 rounded-xl border border-rule-strong bg-paper px-3 py-2 text-base outline-none focus:border-focus focus:ring-3 focus:ring-focus/30 disabled:opacity-55"
+            className="mt-2 min-h-11 w-full min-w-0 rounded-control border border-rule-strong bg-paper px-3 py-2 text-base outline-none focus:border-focus focus:ring-3 focus:ring-focus/30 disabled:opacity-55"
           />
         </label>
         <label className="min-w-0 text-sm font-semibold text-ink">
@@ -357,7 +358,7 @@ export function ManagerExportPanel({
             value={end}
             onChange={(event) => updatePeriod(start, event.target.value)}
             disabled={pending}
-            className="mt-2 min-h-11 w-full min-w-0 rounded-xl border border-rule-strong bg-paper px-3 py-2 text-base outline-none focus:border-focus focus:ring-3 focus:ring-focus/30 disabled:opacity-55"
+            className="mt-2 min-h-11 w-full min-w-0 rounded-control border border-rule-strong bg-paper px-3 py-2 text-base outline-none focus:border-focus focus:ring-3 focus:ring-focus/30 disabled:opacity-55"
           />
         </label>
         <div className="sm:col-span-2">
@@ -371,7 +372,7 @@ export function ManagerExportPanel({
           ref={feedbackElement}
           tabIndex={-1}
           role={feedback.status === "error" ? "alert" : "status"}
-          className={`mt-5 rounded-xl border border-rule-strong p-4 text-sm leading-6 ${feedback.status === "error" ? "bg-paper text-danger" : "bg-primary-soft text-ink"}`}
+          className={`mt-5 rounded-control border border-rule-strong p-4 text-sm leading-6 ${feedback.status === "error" ? "bg-paper text-danger" : "bg-primary-soft text-ink"}`}
         >
           {feedback.message}
         </p>
@@ -438,7 +439,7 @@ export function ManagerExportPanel({
           event.preventDefault();
           closeDialog();
         }}
-        className="m-auto max-h-[90dvh] w-[calc(100%-2rem)] max-w-xl overflow-y-auto rounded-2xl border border-rule-strong bg-paper p-4 text-ink backdrop:bg-ink/40 sm:p-6"
+        className="m-auto max-h-[90dvh] w-[calc(100%-2rem)] max-w-xl overflow-y-auto rounded-surface border border-rule-strong bg-paper p-4 text-ink backdrop:bg-ink/40 sm:p-6"
       >
         <form
           aria-busy={pending}

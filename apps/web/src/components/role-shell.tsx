@@ -3,10 +3,12 @@ import type { ReactNode } from "react";
 
 import { LogoutForm } from "@/components/logout-form";
 
-export function RoleShell({
+import { getAuthContext } from "@/lib/auth/session";
+import { WorkspaceShell } from "./workspace-shell";
+import { EmployeeClockScope } from "./employee-clock-provider";
+
+export async function RoleShell({
   description,
-  icon: Icon,
-  status,
   title,
   children,
 }: {
@@ -16,31 +18,24 @@ export function RoleShell({
   status: string;
   title: string;
 }) {
-  return (
-    <main
-      className="mx-auto w-full max-w-6xl flex-1 px-4 py-10 sm:px-6 sm:py-16 lg:px-8"
-      id="main-content"
+  const auth = await getAuthContext();
+  if (auth.state !== "authorized") return null;
+  const shell = (
+    <WorkspaceShell
+      role={auth.role}
+      scope={`${auth.userId}:${auth.organizationId}`}
+      title={title}
+      description={description}
+      account={<LogoutForm />}
     >
-      <div className="flex flex-col items-start justify-between gap-4 border-b border-rule pb-5 sm:flex-row sm:items-center">
-        <div className="flex min-w-0 items-center gap-3">
-          <Icon aria-hidden="true" className="size-6 shrink-0 text-primary" />
-          <h1 className="font-display text-3xl font-semibold tracking-[-0.025em] break-words text-ink sm:text-4xl">
-            {title}
-          </h1>
-        </div>
-        <span className="shrink-0 rounded-full border border-rule-strong bg-signal-soft px-3 py-1 text-xs font-semibold text-signal-ink">
-          {status}
-        </span>
-      </div>
-
-      <div className="mt-5 flex justify-end">
-        <LogoutForm />
-      </div>
-
-      <section className="docket-surface mt-8 min-h-72 rounded-2xl border border-rule-strong p-6 sm:p-10">
-        <p className="max-w-2xl text-lg leading-8 text-muted">{description}</p>
-        {children}
-      </section>
-    </main>
+      {children}
+    </WorkspaceShell>
+  );
+  return auth.role === "employee" ? (
+    <EmployeeClockScope scope={`${auth.userId}:${auth.organizationId}`}>
+      {shell}
+    </EmployeeClockScope>
+  ) : (
+    shell
   );
 }

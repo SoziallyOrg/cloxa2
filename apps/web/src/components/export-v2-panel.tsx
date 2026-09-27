@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { exportV2Action } from "@/lib/time-exports-v2/actions";
 import type { V2Manifest, V2ActionState } from "@/lib/time-exports-v2/model";
+import { readableDuration } from "@/lib/time-clock/readable-duration";
 import { formatExactDuration } from "@/lib/time-clock/breaks";
 import { toBrusselsLocalInput } from "@/lib/corrections/format";
 const blockerCopy = {
@@ -15,7 +16,7 @@ const blockerCopy = {
   artifact_too_large: "De export is te groot. Kies een kleinere periode.",
 };
 const field =
-  "mt-2 min-h-11 w-full min-w-0 rounded-lg border border-rule-strong bg-paper px-3 py-2 text-ink focus-visible:outline-2 focus-visible:outline-focus";
+  "mt-2 min-h-11 w-full min-w-0 rounded-control border border-rule-strong bg-paper px-3 py-2 text-ink focus-visible:outline-2 focus-visible:outline-focus";
 function Downloads({ manifest: m }: { manifest: V2Manifest }) {
   return (
     <div className="mt-3 flex flex-wrap gap-3">
@@ -257,16 +258,28 @@ export function ExportV2Panel({ history }: { history: V2Manifest[] | null }) {
               <p className="mt-2 text-sm">
                 Vastgelegd {toBrusselsLocalInput(m.created_at_utc)} (Brussel)
               </p>
-              <p className="mt-2 text-sm">
-                Bruto:{" "}
-                {formatExactDuration(BigInt(m.total_gross_duration_microseconds))} ·
+              <div className="mt-2 text-sm">
+                Bruto: {readableDuration(BigInt(m.total_gross_duration_microseconds))} ·
                 Pauzes:{" "}
-                {formatExactDuration(
-                  BigInt(m.total_unpaid_break_duration_microseconds),
-                )}{" "}
-                · Netto:{" "}
-                {formatExactDuration(BigInt(m.total_net_worked_duration_microseconds))}
-              </p>
+                {readableDuration(BigInt(m.total_unpaid_break_duration_microseconds))} ·
+                Netto:{" "}
+                {readableDuration(BigInt(m.total_net_worked_duration_microseconds))}
+                <details className="mt-2">
+                  <summary className="cursor-pointer py-2">Exacte totalen</summary>
+                  <p>
+                    Bruto:{" "}
+                    {formatExactDuration(BigInt(m.total_gross_duration_microseconds))} ·
+                    Pauzes:{" "}
+                    {formatExactDuration(
+                      BigInt(m.total_unpaid_break_duration_microseconds),
+                    )}{" "}
+                    · Netto:{" "}
+                    {formatExactDuration(
+                      BigInt(m.total_net_worked_duration_microseconds),
+                    )}
+                  </p>
+                </details>
+              </div>
               <details className="mt-3 text-sm">
                 <summary className="min-h-11 cursor-pointer py-2">
                   Datasetcontrole

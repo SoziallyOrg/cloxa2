@@ -18,7 +18,12 @@ import {
 } from "../scripts/local-auth-e2e-fixture.mjs";
 
 const ids = {
+  break: "91000000-0000-4000-8000-000000000012",
+  breakOperation: "91000000-0000-4000-8000-000000000014",
+  clockRequest: "91000000-0000-4000-8000-000000000013",
   employee: "91000000-0000-4000-8000-000000000006",
+  employeeMembership: "91000000-0000-4000-8000-000000000010",
+  entry: "91000000-0000-4000-8000-000000000011",
   invitation: "91000000-0000-4000-8000-000000000007",
   manager: "91000000-0000-4000-8000-000000000005",
   membership: "91000000-0000-4000-8000-000000000004",
@@ -142,6 +147,66 @@ function scalarGuardDatabase() {
 
 function generatedCleanupSql() {
   return buildLocalAuthCleanupSql(ownEmployee(ownManager(fixtureLease())));
+}
+
+type ClockGraphTable =
+  | "private.time_break_operations"
+  | "private.time_clock_requests"
+  | "public.time_breaks"
+  | "public.time_entries";
+
+function clockGraphGuardQuery(sql: string, table: ClockGraphTable) {
+  const marker = `if exists (\n    select 1 from ${table}`;
+  const start = sql.indexOf(marker);
+  if (start < 0) throw new Error(`Missing ${table} ownership guard.`);
+  const bodyStart = start + "if exists (\n    ".length;
+  const end = sql.indexOf("\n  ) then", bodyStart);
+  if (end < 0) throw new Error(`Incomplete ${table} ownership guard.`);
+  return sql
+    .slice(bodyStart, end)
+    .replaceAll(/::(?:text|timestamptz|uuid)\b/gu, "")
+    .replaceAll(/\bemployee_membership\b/gu, `'${ids.employeeMembership}'`);
+}
+
+function clockGraphDatabase() {
+  const database = new DatabaseSync(":memory:");
+  database.exec(`attach database ':memory:' as public;
+    attach database ':memory:' as private;
+    create table public.time_entries (
+      id text, organization_id text, membership_id text, worksite_id text,
+      origin text, last_correction_request_id text, created_at text
+    );
+    create table public.time_breaks (
+      id text, organization_id text, time_entry_id text,
+      employee_membership_id text, worksite_id text, origin text, created_at text
+    );
+    create table private.time_clock_requests (
+      request_id text, membership_id text, operation text, result_code text,
+      time_entry_id text, worksite_id text, started_at text, ended_at text,
+      processed_at text
+    );
+    create table private.time_break_operations (
+      request_id text, organization_id text, employee_membership_id text,
+      processed_at text, result text
+    );
+    insert into public.time_entries values (
+      '${ids.entry}', '${ids.organization}', '${ids.employeeMembership}',
+      '${ids.worksite}', 'clock', null, '${createdAt}'
+    );
+    insert into public.time_breaks values (
+      '${ids.break}', '${ids.organization}', '${ids.entry}',
+      '${ids.employeeMembership}', '${ids.worksite}', 'live', '${createdAt}'
+    );
+    insert into private.time_clock_requests values (
+      '${ids.clockRequest}', '${ids.employeeMembership}', 'clock_out', 'stopped',
+      '${ids.entry}', '${ids.worksite}', '${createdAt}', '${createdAt}', '${createdAt}'
+    );
+    insert into private.time_break_operations values (
+      '${ids.breakOperation}', '${ids.organization}', '${ids.employeeMembership}',
+      '${createdAt}',
+      '{"request_id":"${ids.breakOperation}","time_entry_id":"${ids.entry}","break_id":"${ids.break}"}'
+    );`);
+  return database;
 }
 
 describe("local Auth E2E ownership", () => {
@@ -797,7 +862,7 @@ describe("local Auth cleanup command boundary", () => {
     expect(sql).toContain("cloxa_local_fixture_proof");
     expect(sql).toContain("pg_catalog.pg_constraint");
     expect(sql).toContain("local_auth_fixture_ownership_unverified");
-    expect(sql).toContain("(actor_user_id = any(fixture_users)) is not true");
+    expect(sql).toContain("audit_event.actor_user_id = any(fixture_users)");
     expect(sql).toContain(ids.manager);
     expect(sql).toContain(ids.employee);
     expect(sql).not.toMatch(/like\s+['"]%/iu);
@@ -870,26 +935,237 @@ describe("local Auth cleanup command boundary", () => {
     }
   });
 
+  it("accepts only the exact valid clock-only graph", () => {
+    const sql = generatedCleanupSql();
+    const database = clockGraphDatabase();
+    try {
+      for (const table of [
+        "public.time_entries",
+        "public.time_breaks",
+        "private.time_clock_requests",
+        "private.time_break_operations",
+      ] as const) {
+        expect(
+          database.prepare(clockGraphGuardQuery(sql, table)).all(),
+          table,
+        ).toHaveLength(0);
+      }
+
+      database.exec(`delete from private.time_clock_requests;
+        insert into private.time_clock_requests values (
+          '${ids.clockRequest}', '${ids.employeeMembership}', 'clock_out',
+          'already_stopped', null, '${ids.worksite}', null, null, '${createdAt}'
+        );`);
+      expect(
+        database
+          .prepare(clockGraphGuardQuery(sql, "private.time_clock_requests"))
+          .all(),
+      ).toHaveLength(0);
+    } finally {
+      database.close();
+    }
+  });
+
+  it("refuses a clock entry with the wrong membership", () => {
+    const database = clockGraphDatabase();
+    try {
+      database.exec(
+        "update public.time_entries set membership_id = '92000000-0000-4000-8000-000000000010'",
+      );
+      expect(
+        database
+          .prepare(clockGraphGuardQuery(generatedCleanupSql(), "public.time_entries"))
+          .all(),
+      ).toHaveLength(1);
+    } finally {
+      database.close();
+    }
+  });
+
+  it.each([
+    ["entry", "time_entry_id", "92000000-0000-4000-8000-000000000011"],
+    ["worksite", "worksite_id", "92000000-0000-4000-8000-000000000008"],
+  ])("refuses a break with the wrong %s", (_label, column, value) => {
+    const database = clockGraphDatabase();
+    try {
+      database.exec(`update public.time_breaks set ${column} = '${value}'`);
+      expect(
+        database
+          .prepare(clockGraphGuardQuery(generatedCleanupSql(), "public.time_breaks"))
+          .all(),
+      ).toHaveLength(1);
+    } finally {
+      database.close();
+    }
+  });
+
+  it.each([
+    ["membership", "membership_id", "92000000-0000-4000-8000-000000000010"],
+    ["worksite", "worksite_id", "92000000-0000-4000-8000-000000000008"],
+    ["entry", "time_entry_id", "92000000-0000-4000-8000-000000000011"],
+  ])("refuses a clock request with the wrong %s", (_label, column, value) => {
+    const database = clockGraphDatabase();
+    try {
+      database.exec(`update private.time_clock_requests set ${column} = '${value}'`);
+      expect(
+        database
+          .prepare(
+            clockGraphGuardQuery(generatedCleanupSql(), "private.time_clock_requests"),
+          )
+          .all(),
+      ).toHaveLength(1);
+    } finally {
+      database.close();
+    }
+  });
+
+  it.each([
+    ["organization", "organization_id", "92000000-0000-4000-8000-000000000003"],
+    ["membership", "employee_membership_id", "92000000-0000-4000-8000-000000000010"],
+  ])("refuses a break operation with the wrong %s", (_label, column, value) => {
+    const database = clockGraphDatabase();
+    try {
+      database.exec(`update private.time_break_operations set ${column} = '${value}'`);
+      expect(
+        database
+          .prepare(
+            clockGraphGuardQuery(
+              generatedCleanupSql(),
+              "private.time_break_operations",
+            ),
+          )
+          .all(),
+      ).toHaveLength(1);
+    } finally {
+      database.close();
+    }
+  });
+
+  it("refuses a cross-tenant break that references an owned entry", () => {
+    const database = clockGraphDatabase();
+    try {
+      database.exec(`update public.time_breaks
+        set organization_id = '92000000-0000-4000-8000-000000000003',
+            employee_membership_id = '92000000-0000-4000-8000-000000000010',
+            worksite_id = '92000000-0000-4000-8000-000000000008'`);
+      expect(
+        database
+          .prepare(clockGraphGuardQuery(generatedCleanupSql(), "public.time_breaks"))
+          .all(),
+      ).toHaveLength(1);
+    } finally {
+      database.close();
+    }
+  });
+
+  it("keeps correction, export, recovery and unknown organization tables fail closed", () => {
+    const sql = generatedCleanupSql();
+    const guardStart = sql.indexOf(
+      "if exists (\n    select 1 from public.audit_events",
+    );
+    const scanStart = sql.indexOf(
+      "where attribute.attname = 'organization_id'",
+      guardStart,
+    );
+    const scanEnd = sql.indexOf("order by namespace.nspname", scanStart);
+    const exclusions = sql.slice(scanStart, scanEnd);
+
+    expect(guardStart).toBeGreaterThan(0);
+    expect(scanStart).toBeGreaterThan(guardStart);
+    expect(exclusions).toContain("'time_entries', 'time_breaks'");
+    for (const unsupported of [
+      "correction_requests",
+      "export_jobs",
+      "manager_mfa_recovery_cases",
+      "future_organization_records",
+    ]) {
+      expect(exclusions).not.toContain(`'${unsupported}'`);
+    }
+  });
+
   it("locks the complete checked graph before proof and keeps foreign keys active", () => {
     const sql = generatedCleanupSql();
-    const firstLock = sql.indexOf("lock table %I.%I in share row exclusive mode");
+    const firstLock = sql.indexOf("lock table %I.%I in %s mode");
     const firstOwnershipCheck = sql.indexOf("if not exists (");
 
     expect(firstLock).toBeGreaterThan(0);
     expect(firstLock).toBeLessThan(firstOwnershipCheck);
     expect(sql).toContain("('auth'::name, 'users'::name)");
     expect(sql).toContain("('public'::name, 'audit_events'::name)");
-    expect(sql).toContain(
-      "alter table public.audit_events disable trigger audit_events_reject_mutation",
-    );
-    expect(sql).toContain(
-      "alter table public.audit_events enable trigger audit_events_reject_mutation",
-    );
+    expect(sql).toContain("('private'::name, 'time_clock_requests'::name)");
+    expect(sql).toContain("order by candidate.schema_name, candidate.relation_name");
+    expect(sql).toContain("then 'access exclusive' else 'share row exclusive'");
     expect(sql).toContain("set local lock_timeout = '5s'");
     expect(sql).toContain("set local statement_timeout = '20s'");
     expect(sql).toContain("set local idle_in_transaction_session_timeout = '20s'");
     expect(sql).toContain(`where id = '${ids.invitation}'::uuid`);
     expect(sql).not.toContain("session_replication_role");
+  });
+
+  it("deletes the proven graph child first and leaves sentinel rows untargeted", () => {
+    const sql = generatedCleanupSql();
+    const deletes = [
+      "delete from private.time_break_operations",
+      "delete from private.time_clock_requests",
+      "delete from public.time_breaks",
+      "delete from public.audit_events",
+      "delete from public.invitations",
+      "delete from public.time_entries",
+      "delete from public.memberships",
+      "delete from public.worksites",
+      "delete from public.profiles",
+      "delete from private.manager_mfa_registrations",
+      "delete from public.organizations",
+    ];
+    const positions = deletes.map((statement) => sql.indexOf(statement));
+
+    expect(positions.every((position) => position > 0)).toBe(true);
+    expect(positions).toEqual([...positions].sort((left, right) => left - right));
+    expect(sql).not.toMatch(/delete from public\.organizations\s*;/u);
+    expect(sql).not.toContain("truncate");
+  });
+
+  it("uses the exact trigger sequence and verifies restoration before commit", () => {
+    const sql = generatedCleanupSql();
+    const transitions = [
+      "alter table private.time_break_operations disable trigger time_break_operation_immutable;",
+      "alter table private.time_clock_requests disable trigger time_clock_operation_immutable;",
+      "alter table public.time_breaks disable trigger time_break_history;",
+      "alter table public.audit_events disable trigger audit_events_reject_mutation;",
+      "alter table public.time_entries disable trigger time_entry_history;",
+      "alter table public.time_entries enable trigger time_entry_history;",
+      "alter table public.audit_events enable trigger audit_events_reject_mutation;",
+      "alter table public.time_breaks enable trigger time_break_history;",
+      "alter table private.time_clock_requests enable trigger time_clock_operation_immutable;",
+      "alter table private.time_break_operations enable trigger time_break_operation_immutable;",
+    ];
+    const positions = transitions.map((statement) => sql.indexOf(statement));
+    const postcondition = sql.indexOf("do $cloxa_local_auth_fixture_postconditions$");
+    const commit = sql.lastIndexOf("commit;");
+
+    expect(positions.every((position) => position > 0)).toBe(true);
+    expect(positions).toEqual([...positions].sort((left, right) => left - right));
+    expect(postcondition).toBeGreaterThan(positions.at(-1)!);
+    expect(sql.slice(postcondition, commit)).toContain(
+      "select pg_catalog.count(*) = 5 into triggers_ready",
+    );
+    expect(commit).toBeGreaterThan(postcondition);
+    expect(sql.match(/\bcommit;/gu)).toHaveLength(1);
+  });
+
+  it("keeps every trigger transition inside the rollback-capable transaction", () => {
+    const sql = generatedCleanupSql();
+    const begin = sql.indexOf("begin;");
+    const commit = sql.lastIndexOf("commit;");
+    const transitions = [
+      ...sql.matchAll(/alter table .*? (?:disable|enable) trigger .*?;/gu),
+    ];
+
+    expect(transitions).toHaveLength(10);
+    for (const transition of transitions) {
+      expect(transition.index).toBeGreaterThan(begin);
+      expect(transition.index).toBeLessThan(commit);
+    }
   });
 
   it("passes the verified Docker endpoint to the pinned operator runner", () => {
@@ -924,6 +1200,7 @@ describe("local Auth cleanup command boundary", () => {
 
     expect(titles).toEqual([
       "volledige lokale uitnodiging, aanmelding en wachtwoordherstel",
+      "begrensde native workspace UX",
       "publieke Auth API kan geen account aanmaken",
       "aanmeldfouten onthullen geen accountbestaan",
       "browserbundels bevatten geen serversleutel",
@@ -934,6 +1211,15 @@ describe("local Auth cleanup command boundary", () => {
     expect(spec).toContain("createLocalAuthFixtureFetch({ signal: operation.signal })");
     expect(spec).toContain("runSql: runOperatorSqlAsync");
     expect(spec).toContain("timeoutMs: localAuthFixtureDeadlines.sqlMs");
+    expect(spec).toContain('record.locator(".record-totals dt")');
+    expect(spec).toContain('record.locator(".record-totals dd")');
+    expect(spec).toContain('record.locator(".record-exact dt")');
+    expect(spec).toContain('record.locator(".record-exact dd")');
+    expect(spec).toContain('exactAttributes(exactTimes, "datetime")');
+    expect(spec).toContain('item.locator(":scope > p")');
+    expect(spec).not.toContain(
+      'const compact = await record.locator(".record-totals").innerText()',
+    );
     expect(config).toContain("testMatch: /local-auth\\.spec\\.mts/u");
     expect(config).not.toContain("globalSetup");
     expect(packageSource).toContain(

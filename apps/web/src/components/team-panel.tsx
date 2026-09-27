@@ -31,7 +31,7 @@ const invitationLabels = {
   revoked: "Ingetrokken",
 };
 const inputClass =
-  "mt-2 min-h-11 w-full min-w-0 rounded-xl border border-rule-strong bg-paper px-3 py-2 text-ink outline-none focus-visible:ring-3 focus-visible:ring-focus disabled:opacity-55";
+  "mt-2 min-h-11 w-full min-w-0 rounded-control border border-rule-strong bg-paper px-3 py-2 text-ink outline-none focus-visible:ring-3 focus-visible:ring-focus disabled:opacity-55";
 const headingClass = "font-display text-3xl font-semibold tracking-[-0.025em] text-ink";
 
 function useTeamChange(view: TeamView, operations: TeamOperations) {
@@ -89,7 +89,7 @@ function useTeamChange(view: TeamView, operations: TeamOperations) {
       ref={feedback}
       tabIndex={-1}
       role={success ? "status" : "alert"}
-      className="mt-3 rounded-lg text-sm leading-6 text-ink outline-none focus:ring-3 focus:ring-focus"
+      className="mt-3 rounded-control text-sm leading-6 text-ink outline-none focus:ring-3 focus:ring-focus"
     >
       {state.message}
     </p>

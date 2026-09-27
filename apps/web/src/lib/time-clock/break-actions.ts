@@ -10,6 +10,7 @@ import { parseBreakResponse } from "./break-response";
 export async function submitBreakAction(
   _previous: TimeClockActionState,
   form: FormData,
+  expectedScope?: string,
 ): Promise<TimeClockActionState> {
   void _previous;
   const fail = (): TimeClockActionState => ({
@@ -30,7 +31,13 @@ export async function submitBreakAction(
   try {
     const supabase = await createSupabaseServerClient();
     const context = await getAuthContext(supabase);
-    if (context.state !== "authorized" || context.role !== "employee") return fail();
+    if (
+      context.state !== "authorized" ||
+      context.role !== "employee" ||
+      (expectedScope !== undefined &&
+        `${context.userId}:${context.organizationId}` !== expectedScope)
+    )
+      return fail();
     const { data, error } = await supabase.rpc(operation, { request_id: id });
     if (error) return fail();
     const result = parseBreakResponse(data, id, operation);

@@ -37,6 +37,53 @@ import {
   validateLocalOperatorEnvironment,
 } from "../../../scripts/local-manager-mfa-recovery.mjs";
 import { currentTotp } from "./manager-mfa-fixture.mts";
+function minuteInput(instant: string) {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Brussels",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(instant));
+  const part = (name: string) => parts.find((p) => p.type === name)!.value;
+  return `${part("day")}/${part("month")}/${part("year")} ${part("hour")}:${part("minute")}`;
+}
+
+async function exactVisibleTexts(locator: Locator) {
+  const values: string[] = [];
+  for (let index = 0; index < (await locator.count()); index += 1) {
+    values.push(await locator.nth(index).innerText());
+  }
+  return values;
+}
+
+async function expectExactVisibleTexts(locator: Locator, expected: string[]) {
+  expect(await locator.count()).toBe(expected.length);
+  for (const [index, value] of expected.entries()) {
+    expect(await locator.nth(index).innerText()).toBe(value);
+  }
+}
+
+async function exactAttributes(locator: Locator, name: string) {
+  const values: Array<string | null> = [];
+  for (let index = 0; index < (await locator.count()); index += 1) {
+    values.push(await locator.nth(index).getAttribute(name));
+  }
+  return values;
+}
+
+async function expectExactAttributes(
+  locator: Locator,
+  name: string,
+  expected: Array<string | null>,
+) {
+  expect(await locator.count()).toBe(expected.length);
+  for (const [index, value] of expected.entries()) {
+    expect(await locator.nth(index).getAttribute(name)).toBe(value);
+  }
+}
 
 const employeePassword = requireLocalPassword(
   process.env.CLOXA_LOCAL_EMPLOYEE_PASSWORD,
@@ -424,6 +471,347 @@ test("volledige lokale uitnodiging, aanmelding en wachtwoordherstel", async ({
       await page.context().clearCookies();
     }
   });
+});
+
+test("begrensde native workspace UX", async ({ page: manager, browser }) => {
+  test.setTimeout(90_000);
+  const started = Date.now();
+  await withDisposableManager(async ({ lease, store }) => {
+    // Reuse the reviewed lease and cleanup. No direct business-row manufacturing.
+    const settings = await fixtureSettingsPromise!;
+    const readFacts = async () => {
+      const facts = await runOperatorSqlAsync(
+        `begin read only; set local statement_timeout='5s'; set local lock_timeout='1s';
+select jsonb_build_object(
+ 'entries',coalesce((select jsonb_agg(jsonb_build_object('id',id,'startedAt',started_at,'endedAt',ended_at) order by started_at) from public.time_entries where organization_id='${lease.organization.id}'::uuid),'[]'::jsonb),
+ 'breaks',coalesce((select jsonb_agg(jsonb_build_object('startedAt',started_at,'endedAt',ended_at) order by started_at) from public.time_breaks where organization_id='${lease.organization.id}'::uuid),'[]'::jsonb),
+ 'requests',coalesce((select jsonb_agg(jsonb_build_object('id',id,'status',status,'end',proposed_ended_at) order by created_at) from public.correction_requests where organization_id='${lease.organization.id}'::uuid),'[]'::jsonb),
+ 'clockRequests',(select count(*) from private.time_clock_requests c join public.memberships m on m.id=c.membership_id where m.organization_id='${lease.organization.id}'::uuid)
+); rollback;`,
+        {
+          dockerEndpoint: settings.dockerEndpoint,
+          environment: settings.dockerEnvironment,
+          timeoutMs: localAuthFixtureDeadlines.sqlMs,
+        },
+      );
+      return facts as {
+        entries: { id: string; startedAt: string; endedAt: string | null }[];
+        breaks: { startedAt: string; endedAt: string | null }[];
+        requests: { id: string; status: string; end: string }[];
+        clockRequests: number;
+      };
+    };
+    await login(manager, lease.manager.email, employeePassword);
+    await expectPath(manager, "/manager/security/setup");
+    await manager
+      .getByRole("button", { name: "Authenticator instellen", exact: true })
+      .click();
+    const secret = (await manager.locator("code").textContent())?.trim();
+    if (!secret) throw new Error("Run-owned manager setup unavailable.");
+    await privateFill(
+      manager.getByLabel("Authenticatorcode", { exact: true }),
+      currentTotp(secret),
+    );
+    await manager
+      .getByRole("button", { name: "Instelling bevestigen", exact: true })
+      .click();
+    await expectPath(manager, "/manager");
+    await prepareLocalAuthEmployeeInvitation(lease, { store });
+    await privateFill(
+      manager.getByLabel("E-mailadres medewerker", { exact: true }),
+      lease.employee.email,
+    );
+    await privateFill(
+      manager.getByLabel("Weergavenaam (optioneel)", { exact: true }),
+      lease.employee.displayName,
+    );
+    await privateFill(
+      manager.getByLabel("Medewerkerscode (optioneel)", { exact: true }),
+      lease.employee.code,
+    );
+    markLocalAuthInvitationAttempted(lease);
+    await manager
+      .getByRole("button", { name: "Uitnodiging versturen", exact: true })
+      .click();
+    await expect(
+      manager.getByText(
+        "Als uitnodigen mogelijk is, ontvangt de medewerker een e-mail. Controleer de lokale inbox.",
+      ),
+    ).toBeVisible();
+    await claimLocalAuthEmployee(lease, { store });
+    const invitation = await waitForLocalEmailLink(lease.employee.email, "invite");
+    const context = await browser.newContext({
+      baseURL: appOrigin,
+      serviceWorkers: "block",
+      viewport: { width: 1440, height: 900 },
+    });
+    await blockExternalRequests(context);
+    const employee = await context.newPage();
+    try {
+      // Anonymous and wrong-role new routes, without borrowing retained sessions.
+      for (const path of [
+        "/employee/registrations",
+        "/employee/requests",
+        "/manager/more",
+      ]) {
+        await employee.goto(path);
+        await expectPath(employee, "/login");
+      }
+      await manager.goto("/employee/registrations");
+      await expectPath(manager, "/unauthorized");
+      await manager.goto("/manager");
+      await followPrivateLink(employee, invitation);
+      await expectPath(employee, "/accept-invitation");
+      await privateFill(
+        employee.getByLabel("Nieuw wachtwoord", { exact: true }),
+        employeePassword,
+      );
+      await privateFill(
+        employee.getByLabel("Herhaal nieuw wachtwoord", { exact: true }),
+        employeePassword,
+      );
+      await employee
+        .getByRole("button", { name: "Wachtwoord instellen", exact: true })
+        .click();
+      await expectPath(employee, "/employee");
+      await verifyAcceptedLocalAuthEmployee(lease, { store });
+      const header = employee.locator(".clock-controls-header");
+      const status = employee.getByLabel("Huidige werkstatus");
+      await expect(
+        header.getByRole("button", { name: "Start werk", exact: true }),
+      ).toBeEnabled();
+      console.log(
+        "NATIVE UX: disposable invitation, manager MFA and anonymous/role guards passed.",
+      );
+      let held = 0;
+      await employee.route("**/*", async (route) => {
+        // Test-only request boundary; production deadlines and action payload unchanged.
+        if (
+          route.request().method() === "POST" &&
+          route.request().postData()?.includes("clock_in")
+        ) {
+          held++;
+          await new Promise((resolve) => setTimeout(resolve, 400));
+        }
+        await route.fallback();
+      });
+      await header
+        .getByRole("button", { name: "Start werk", exact: true })
+        .evaluate((element) => {
+          (element as HTMLButtonElement).click();
+          (element as HTMLButtonElement).click();
+        });
+      await expect(
+        header.getByRole("button", { name: "Start werk — bezig…", exact: true }),
+      ).toBeDisabled();
+      for (const button of await employee.locator(".clock-controls button").all())
+        await expect(button).toBeDisabled();
+      await expect(status).toContainText("Aan het werk");
+      await expect(employee.locator(".clock-feedback[role=status]")).toHaveCount(1);
+      await expect(header.locator(".clock-feedback")).toBeFocused();
+      const first = await readFacts();
+      expect(first.entries.length).toBe(1);
+      expect(first.entries[0]!.endedAt).toBeNull();
+      expect(first.clockRequests).toBe(1);
+      expect(held).toBe(1);
+      const navigate = async (name: string, path: string) => {
+        const before = await employee.locator(".workspace-header").boundingBox();
+        await employee.evaluate(() => {
+          const bag = window as unknown as {
+            uxLoading: boolean;
+            uxObserver: MutationObserver;
+          };
+          bag.uxLoading = false;
+          bag.uxObserver = new MutationObserver(() => {
+            if (
+              document
+                .querySelector(".workspace-work-status")
+                ?.textContent?.includes("wordt gecontroleerd")
+            )
+              bag.uxLoading = true;
+          });
+          bag.uxObserver.observe(document.body, {
+            childList: true,
+            subtree: true,
+            characterData: true,
+          });
+        });
+        await employee
+          .getByRole("navigation", { name: "Medewerkernavigatie" })
+          .getByRole("link", { name, exact: true })
+          .click();
+        await expectPath(employee, path);
+        await expect(status).toContainText("Aan het werk");
+        const after = await employee.locator(".workspace-header").boundingBox();
+        expect(after!.height).toBe(before!.height);
+        expect(
+          await employee.evaluate(() => {
+            const bag = window as unknown as {
+              uxLoading: boolean;
+              uxObserver: MutationObserver;
+            };
+            bag.uxObserver.disconnect();
+            return bag.uxLoading;
+          }),
+        ).toBe(false);
+        await expect(employee.locator(".clock-feedback[role]")).toHaveCount(0);
+      };
+      await navigate("Registraties", "/employee/registrations");
+      await navigate("Aanvragen", "/employee/requests");
+      await employee.evaluate(() => window.dispatchEvent(new Event("focus")));
+      await expect(
+        header.getByRole("button", { name: "Start pauze", exact: true }),
+      ).toBeEnabled();
+      await header.getByRole("button", { name: "Start pauze", exact: true }).click();
+      await expect(status).toContainText("Met pauze");
+      expect((await readFacts()).breaks.filter((b) => b.endedAt === null).length).toBe(
+        1,
+      );
+      await expect(header.getByRole("button")).toHaveCount(1);
+      await header
+        .getByRole("button", { name: "Pauze beëindigen", exact: true })
+        .click();
+      await expect(status).toContainText("Aan het werk");
+      expect((await readFacts()).breaks.filter((b) => b.endedAt === null).length).toBe(
+        0,
+      );
+      await header.getByRole("button", { name: "Start pauze", exact: true }).click();
+      await expect(status).toContainText("Met pauze");
+      await header
+        .getByRole("button", { name: "Pauze beëindigen", exact: true })
+        .click();
+      await expect(status).toContainText("Aan het werk");
+      await header.getByRole("button", { name: "Stop werk", exact: true }).click();
+      await expect(
+        header.getByRole("button", { name: "Start werk", exact: true }),
+      ).toBeEnabled();
+      const completed = await readFacts();
+      expect(completed.entries[0]!.endedAt).not.toBeNull();
+      expect(completed.breaks.length).toBe(2);
+      console.log(
+        "NATIVE UX: real Next links, single clock-in request, coordinated controls, two breaks and clock-out passed.",
+      );
+      await employee
+        .getByRole("navigation", { name: "Medewerkernavigatie" })
+        .getByRole("link", { name: "Registraties", exact: true })
+        .click();
+      const record = employee.getByTestId("closed-entries");
+      await expect(record.locator(".registration-record")).toHaveCount(1);
+      await expect(record.locator(".record-totals")).toContainText("Bruto");
+      await expect(record.locator(".record-totals")).toContainText("Pauze");
+      await expect(record.locator(".record-totals")).toContainText("Netto");
+      const totalLabels = await exactVisibleTexts(record.locator(".record-totals dt"));
+      const totalValues = await exactVisibleTexts(record.locator(".record-totals dd"));
+      await record.getByText("Details van registratie", { exact: true }).click();
+      const exactLabels = await exactVisibleTexts(record.locator(".record-exact dt"));
+      const exactValues = await exactVisibleTexts(record.locator(".record-exact dd"));
+      const exactTimes = record.locator(".record-details time");
+      const exactTimeTexts = await exactVisibleTexts(exactTimes);
+      const exactTimeValues = await exactAttributes(exactTimes, "datetime");
+      const breakItems = record.locator(".record-details ol > li");
+      const breakDetails: Array<{
+        lines: string[];
+        timeTexts: string[];
+        timeValues: Array<string | null>;
+      }> = [];
+      for (let index = 0; index < (await breakItems.count()); index += 1) {
+        const item = breakItems.nth(index);
+        const times = item.locator("time");
+        breakDetails.push({
+          lines: await exactVisibleTexts(item.locator(":scope > p")),
+          timeTexts: await exactVisibleTexts(times),
+          timeValues: await exactAttributes(times, "datetime"),
+        });
+      }
+      await employee.setViewportSize({ width: 390, height: 844 });
+      await expectExactVisibleTexts(record.locator(".record-totals dt"), totalLabels);
+      await expectExactVisibleTexts(record.locator(".record-totals dd"), totalValues);
+      await expectExactVisibleTexts(record.locator(".record-exact dt"), exactLabels);
+      await expectExactVisibleTexts(record.locator(".record-exact dd"), exactValues);
+      await expectExactVisibleTexts(exactTimes, exactTimeTexts);
+      await expectExactAttributes(exactTimes, "datetime", exactTimeValues);
+      expect(await breakItems.count()).toBe(breakDetails.length);
+      for (const [index, expectedBreak] of breakDetails.entries()) {
+        const item = breakItems.nth(index);
+        const times = item.locator("time");
+        await expectExactVisibleTexts(item.locator(":scope > p"), expectedBreak.lines);
+        await expectExactVisibleTexts(times, expectedBreak.timeTexts);
+        await expectExactAttributes(times, "datetime", expectedBreak.timeValues);
+      }
+      expect(
+        await employee.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth,
+        ),
+      ).toBe(true);
+      await employee.setViewportSize({ width: 1440, height: 900 });
+      await record
+        .getByRole("button", { name: "Correctie aanvragen", exact: true })
+        .click();
+      await employee
+        .locator('input[name="proposed_start_local"]')
+        .fill(
+          minuteInput(
+            new Date(
+              Date.parse(completed.entries[0]!.startedAt) - 60_000,
+            ).toISOString(),
+          ),
+        );
+      await employee
+        .getByLabel("Reden", { exact: true })
+        .fill("Fictieve native UX-controle: alleen start wijzigen.");
+      await employee
+        .getByRole("button", { name: "Aanvraag indienen", exact: true })
+        .click();
+      await expect.poll(async () => (await readFacts()).requests.length).toBe(1);
+      const request = (await readFacts()).requests[0]!;
+      expect(request.end).toBe(completed.entries[0]!.endedAt);
+      await employee
+        .getByRole("navigation", { name: "Medewerkernavigatie" })
+        .getByRole("link", { name: "Aanvragen", exact: true })
+        .click();
+      await expect(
+        employee.getByText("Fictieve native UX-controle: alleen start wijzigen."),
+      ).toBeVisible();
+      await manager.goto("/manager/corrections");
+      await manager.getByRole("button", { name: "Goedkeuren", exact: true }).click();
+      await manager
+        .getByRole("button", { name: "Goedkeuren en toepassen", exact: true })
+        .click();
+      await expect
+        .poll(async () => (await readFacts()).requests[0]!.status)
+        .toBe("approved");
+      await employee
+        .getByRole("navigation", { name: "Medewerkernavigatie" })
+        .getByRole("link", { name: "Registraties", exact: true })
+        .click();
+      await employee.reload();
+      await expect(record).toContainText("Gecorrigeerd");
+      await employee.goto(`/employee/registrations#decision-${request.id}`);
+      await expect(employee.locator(`#decision-${request.id}`)).toHaveAttribute(
+        "open",
+        "",
+      );
+      expect((await readFacts()).entries[0]!.endedAt).toBe(
+        completed.entries[0]!.endedAt,
+      );
+      await employee.goto("/manager/more");
+      await expectPath(employee, "/unauthorized");
+      await employee.goto("/employee");
+      await employee.locator(".workspace-account summary").click();
+      await employee.getByRole("button", { name: "Afmelden", exact: true }).click();
+      await expectPath(employee, "/login");
+      await expect(employee.locator(".workspace-work-status")).toHaveCount(0);
+      console.log(
+        "NATIVE UX: compact/exact registrations, unchanged endpoint precision, approved decision permalink and logout passed.",
+      );
+    } finally {
+      await context.close();
+      await manager.context().close();
+    }
+  });
+  console.log(
+    `NATIVE UX: owned lease cleanup confirmed; duration ${Date.now() - started}ms. Native refusal/late-scope race not independently induced; covered service-free.`,
+  );
 });
 
 test("publieke Auth API kan geen account aanmaken", async () => {

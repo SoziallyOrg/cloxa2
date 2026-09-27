@@ -59,6 +59,29 @@ writers. Do not stop another local job to create that condition. Native manager 
 first run both generated observer queries read-only before fixture creation. They do not
 replace the dedicated browser journey's full employee-graph cleanup coverage.
 
+## One-time preserved fixture recovery
+
+`scripts/local-auth-preserved-fixture-recovery.mjs` is a fixed, local-only recovery
+command for preserved UX fixture run `a3a76fea-4c19-45cd-9fa4-750432f20d94`. It refuses
+every other run, organization, manager, employee, or preservation digest. Before any
+mutation, it re-establishes shared server-owned fixture proof, exact Auth identities and
+factor state, complete discovered foreign-key coverage, exact graph IDs/cardinalities,
+and tight creation-time boundary under same locks used by generic fixture cleanup.
+
+Run only after separate source review and explicit native approval:
+
+```bash
+pnpm local:preserved-fixture-recovery --confirm-local-development --confirm-run a3a76fea-4c19-45cd-9fa4-750432f20d94 --confirm-organization 6ba3fda2-97f5-4b0b-86a3-4e3f372fd164 --confirm-manager-user e5a5b363-c46a-4bf9-b43c-5165a4776124 --confirm-employee-user a449e191-5d60-47d2-bde9-03dadd04bc49 --confirm-preservation-sha256 88f34aaed7ab9fc190dc5ec781d250ffc4b25487e2b472ba1b4c1af622592947
+```
+
+Command first runs read-only catalog and snapshot transactions. Proven graph then uses
+`buildLocalAuthCleanupSql` through `cleanupLocalAuthE2eLease`: database cleanup first,
+employee Auth deletion second, manager Auth deletion last. Protected temporary evidence
+records each confirmed boundary. Ownership proof remains only while resources may remain
+and is redacted after complete cleanup. Existing evidence makes command one-time;
+ambiguity or mismatch stops with remaining resources preserved. Command does not reset
+database, sweep by marker/email, delete factors directly, or handle another fixture.
+
 ## Local manager MFA recovery
 
 `scripts/local-manager-mfa-recovery.mjs` supports only `start`, `status`, and `complete`

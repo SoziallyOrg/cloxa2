@@ -64,6 +64,18 @@ beforeEach(() => {
 });
 
 describe("employee time-clock action", () => {
+  it.each(["other:organization-one", "verified-user:other"])(
+    "rejects changed workspace identity %s",
+    async (scope) => {
+      const result = await submitTimeClockAction(
+        initialTimeClockActionState,
+        clockForm(),
+        scope,
+      );
+      expect(result.status).toBe("error");
+      expect(mocks.rpc).not.toHaveBeenCalled();
+    },
+  );
   it("authorizes employee and passes only client request ID to clock-in RPC", async () => {
     await expect(
       submitTimeClockAction(initialTimeClockActionState, clockForm()),

@@ -52,13 +52,14 @@ function successMessage(
 export async function submitTimeClockAction(
   _previous: TimeClockActionState,
   formData: FormData,
+  expectedScope?: string,
 ): Promise<TimeClockActionState> {
   void _previous;
   const requestId = readText(formData, "request_id");
   const operation = readText(formData, "operation");
 
   if (operation === "start_break" || operation === "end_break")
-    return submitBreakAction(_previous, formData);
+    return submitBreakAction(_previous, formData, expectedScope);
 
   if (!isRequestId(requestId) || !isClockOperation(operation)) {
     return failureState();
@@ -68,7 +69,12 @@ export async function submitTimeClockAction(
     const supabase = await createSupabaseServerClient();
     const context = await getAuthContext(supabase);
 
-    if (context.state !== "authorized" || context.role !== "employee") {
+    if (
+      context.state !== "authorized" ||
+      context.role !== "employee" ||
+      (expectedScope !== undefined &&
+        `${context.userId}:${context.organizationId}` !== expectedScope)
+    ) {
       return failureState();
     }
 

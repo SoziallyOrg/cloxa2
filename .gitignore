@@ -9,6 +9,10 @@ coverage/
 # Test artifacts
 playwright-report/
 test-results/
+output/playwright/ux-results/
+output/playwright/acceptance-ux-*/
+output/playwright/responsive-ux-*/
+output/playwright/workspace-ux-*/
 
 # Local configuration and credentials
 .env

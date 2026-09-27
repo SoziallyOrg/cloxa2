@@ -693,15 +693,29 @@ do $cloxa_local_auth_fixture$
 declare
   fixture_users uuid[] := ${users};
   employee_user uuid := ${employeeId}::uuid;
+  employee_membership uuid;
   has_rows boolean;
   relation record;
+  triggers_ready boolean;
 begin
+  -- Global cleanup lock order is schema then relation. Tables whose row-delete
+  -- triggers must change are locked AccessExclusive immediately; no lock upgrade
+  -- occurs after ownership proof.
   for relation in
-    select distinct candidate.schema_name, candidate.relation_name
+    select candidate.schema_name, candidate.relation_name,
+      case when (candidate.schema_name, candidate.relation_name) in (
+        ('private', 'time_break_operations'),
+        ('private', 'time_clock_requests'),
+        ('public', 'audit_events'),
+        ('public', 'time_breaks'),
+        ('public', 'time_entries')
+      ) then 'access exclusive' else 'share row exclusive' end as lock_mode
     from (
       values
+        ('auth'::name, 'mfa_factors'::name),
         ('auth'::name, 'users'::name),
         ('private'::name, 'manager_mfa_registrations'::name),
+        ('private'::name, 'time_clock_requests'::name),
         ('public'::name, 'audit_events'::name),
         ('public'::name, 'invitations'::name),
         ('public'::name, 'memberships'::name),
@@ -729,8 +743,8 @@ begin
     order by candidate.schema_name, candidate.relation_name
   loop
     execute pg_catalog.format(
-      'lock table %I.%I in share row exclusive mode',
-      relation.schema_name, relation.relation_name
+      'lock table %I.%I in %s mode',
+      relation.schema_name, relation.relation_name, relation.lock_mode
     );
   end loop;
 
@@ -801,11 +815,27 @@ begin
         and membership.employee_code = ${employeeCode}
         and membership.created_at >= ${startedAt}::timestamptz)
     ) is not true
-  ) or exists (
-    select 1 from public.memberships
-    where user_id = any(fixture_users) and organization_id <> ${organizationId}::uuid
-  ) then
+  ) or (select pg_catalog.count(*) from public.memberships
+        where organization_id = ${organizationId}::uuid
+          and id = ${membershipId}::uuid) > 1
+    or (employee_user is not null and (
+      select pg_catalog.count(*) from public.memberships
+      where organization_id = ${organizationId}::uuid and user_id = employee_user
+    ) > 1)
+    or exists (
+      select 1 from public.memberships
+      where user_id = any(fixture_users) and organization_id <> ${organizationId}::uuid
+    ) then
     raise exception using errcode = '42501', message = 'local_auth_fixture_ownership_unverified';
+  end if;
+
+  if employee_user is not null then
+    select membership.id into employee_membership
+    from public.memberships as membership
+    where membership.organization_id = ${organizationId}::uuid
+      and membership.user_id = employee_user
+      and membership.role = 'employee' and membership.status = 'active'
+      and membership.employee_code = ${employeeCode};
   end if;
 
   if exists (
@@ -850,13 +880,181 @@ begin
   end if;
 
   if exists (
-    select 1 from public.audit_events
-    where organization_id = ${organizationId}::uuid
-      and (actor_user_id = any(fixture_users)) is not true
-  ) or exists (
-    select 1 from public.audit_events
-    where organization_id <> ${organizationId}::uuid
-      and actor_user_id = any(fixture_users)
+    select 1 from auth.mfa_factors as factor
+    where factor.user_id = any(fixture_users) and (
+      factor.user_id = ${managerId}::uuid and factor.factor_type = 'totp'
+      and factor.status = 'verified'
+      and factor.created_at >= ${startedAt}::timestamptz
+    ) is not true
+  ) or (select pg_catalog.count(*) from auth.mfa_factors
+        where user_id = ${managerId}::uuid) > 1
+    or exists (
+      select 1 from private.manager_mfa_registrations as registration
+      where (registration.auth_user_id = any(fixture_users)
+        or registration.provider_factor_id in (
+          select factor.id from auth.mfa_factors as factor
+          where factor.user_id = any(fixture_users)
+        )) and (
+          registration.auth_user_id = ${managerId}::uuid
+          and registration.registered_at >= ${startedAt}::timestamptz
+          and exists (
+            select 1 from auth.mfa_factors as factor
+            where factor.id = registration.provider_factor_id
+              and factor.user_id = ${managerId}::uuid
+              and factor.factor_type = 'totp' and factor.status = 'verified'
+          )
+        ) is not true
+    ) then
+    raise exception using errcode = '42501', message = 'local_auth_fixture_ownership_unverified';
+  end if;
+
+  if exists (
+    select 1 from public.time_entries as entry
+    where (
+      entry.organization_id = ${organizationId}::uuid
+      or entry.membership_id = ${membershipId}::uuid
+      or (employee_membership is not null and entry.membership_id = employee_membership)
+      or entry.worksite_id = ${worksiteId}::uuid
+    ) and (
+      employee_membership is not null
+      and entry.organization_id = ${organizationId}::uuid
+      and entry.membership_id = employee_membership
+      and entry.worksite_id = ${worksiteId}::uuid
+      and entry.origin = 'clock'
+      and entry.last_correction_request_id is null
+      and entry.created_at >= ${startedAt}::timestamptz
+    ) is not true
+  ) then
+    raise exception using errcode = '42501', message = 'local_auth_fixture_ownership_unverified';
+  end if;
+
+  if exists (
+    select 1 from public.time_breaks as break_record
+    where (
+      break_record.organization_id = ${organizationId}::uuid
+      or break_record.employee_membership_id = ${membershipId}::uuid
+      or (employee_membership is not null
+        and break_record.employee_membership_id = employee_membership)
+      or break_record.worksite_id = ${worksiteId}::uuid
+      or exists (
+        select 1 from public.time_entries as entry
+        where entry.id = break_record.time_entry_id
+          and entry.organization_id = ${organizationId}::uuid
+      )
+    ) and (
+      employee_membership is not null
+      and break_record.organization_id = ${organizationId}::uuid
+      and break_record.employee_membership_id = employee_membership
+      and break_record.worksite_id = ${worksiteId}::uuid
+      and break_record.origin = 'live'
+      and break_record.created_at >= ${startedAt}::timestamptz
+      and exists (
+        select 1 from public.time_entries as entry
+        where entry.id = break_record.time_entry_id
+          and entry.organization_id = ${organizationId}::uuid
+          and entry.membership_id = employee_membership
+          and entry.worksite_id = ${worksiteId}::uuid
+          and entry.origin = 'clock'
+          and entry.last_correction_request_id is null
+      )
+    ) is not true
+  ) then
+    raise exception using errcode = '42501', message = 'local_auth_fixture_ownership_unverified';
+  end if;
+
+  if exists (
+    select 1 from private.time_clock_requests as request
+    where (
+      request.membership_id = ${membershipId}::uuid
+      or (employee_membership is not null and request.membership_id = employee_membership)
+      or request.worksite_id = ${worksiteId}::uuid
+      or exists (
+        select 1 from public.time_entries as entry
+        where entry.id = request.time_entry_id
+          and entry.organization_id = ${organizationId}::uuid
+      )
+    ) and (
+      employee_membership is not null
+      and request.membership_id = employee_membership
+      and request.worksite_id = ${worksiteId}::uuid
+      and request.processed_at >= ${startedAt}::timestamptz
+      and (
+        (request.time_entry_id is null and request.operation = 'clock_out'
+          and request.result_code = 'already_stopped'
+          and request.started_at is null and request.ended_at is null)
+        or exists (
+          select 1 from public.time_entries as entry
+          where entry.id = request.time_entry_id
+            and entry.organization_id = ${organizationId}::uuid
+            and entry.membership_id = employee_membership
+            and entry.worksite_id = ${worksiteId}::uuid
+            and entry.origin = 'clock'
+            and entry.last_correction_request_id is null
+        )
+      )
+    ) is not true
+  ) then
+    raise exception using errcode = '42501', message = 'local_auth_fixture_ownership_unverified';
+  end if;
+
+  if exists (
+    select 1 from private.time_break_operations as operation_record
+    where (
+      operation_record.organization_id = ${organizationId}::uuid
+      or operation_record.employee_membership_id = ${membershipId}::uuid
+      or (employee_membership is not null
+        and operation_record.employee_membership_id = employee_membership)
+      or exists (
+        select 1 from public.time_entries as entry
+        where entry.id::text = operation_record.result ->> 'time_entry_id'
+          and entry.organization_id = ${organizationId}::uuid
+      )
+      or exists (
+        select 1 from public.time_breaks as break_record
+        where break_record.id::text = operation_record.result ->> 'break_id'
+          and break_record.organization_id = ${organizationId}::uuid
+      )
+    ) and (
+      employee_membership is not null
+      and operation_record.organization_id = ${organizationId}::uuid
+      and operation_record.employee_membership_id = employee_membership
+      and operation_record.processed_at >= ${startedAt}::timestamptz
+      and operation_record.result ->> 'request_id' = operation_record.request_id::text
+      and (
+        operation_record.result ->> 'time_entry_id' is null
+        or exists (
+          select 1 from public.time_entries as entry
+          where entry.id::text = operation_record.result ->> 'time_entry_id'
+            and entry.organization_id = ${organizationId}::uuid
+            and entry.membership_id = employee_membership
+            and entry.worksite_id = ${worksiteId}::uuid
+            and entry.origin = 'clock'
+            and entry.last_correction_request_id is null
+        )
+      )
+      and (
+        operation_record.result ->> 'break_id' is null
+        or exists (
+          select 1 from public.time_breaks as break_record
+          where break_record.id::text = operation_record.result ->> 'break_id'
+            and break_record.organization_id = ${organizationId}::uuid
+            and break_record.employee_membership_id = employee_membership
+            and break_record.worksite_id = ${worksiteId}::uuid
+        )
+      )
+    ) is not true
+  ) then
+    raise exception using errcode = '42501', message = 'local_auth_fixture_ownership_unverified';
+  end if;
+
+  if exists (
+    select 1 from public.audit_events as audit_event
+    where (audit_event.organization_id = ${organizationId}::uuid
+      or audit_event.actor_user_id = any(fixture_users)) and (
+        audit_event.organization_id = ${organizationId}::uuid
+        and audit_event.actor_user_id = any(fixture_users)
+        and audit_event.created_at >= ${startedAt}::timestamptz
+      ) is not true
   ) then
     raise exception using errcode = '42501', message = 'local_auth_fixture_ownership_unverified';
   end if;
@@ -869,8 +1067,15 @@ begin
     where attribute.attname = 'organization_id' and attribute.attnum > 0
       and not attribute.attisdropped and class.relkind in ('r', 'p')
       and namespace.nspname in ('public', 'private')
-      and not (namespace.nspname = 'public'
-        and class.relname in ('worksites', 'memberships', 'invitations', 'audit_events'))
+      and not (
+        (namespace.nspname = 'public' and class.relname in (
+          'worksites', 'memberships', 'invitations', 'audit_events',
+          'time_entries', 'time_breaks'
+        ))
+        or (namespace.nspname = 'private'
+          and class.relname = 'time_break_operations')
+      )
+    order by namespace.nspname, class.relname
   loop
     execute pg_catalog.format(
       'select exists (select 1 from %I.%I where organization_id = $1)',
@@ -903,6 +1108,7 @@ begin
         or (namespace.nspname = 'private' and class.relname = 'manager_mfa_registrations'
           and attribute.attname = 'auth_user_id')
       )
+    order by namespace.nspname, class.relname, attribute.attname
   loop
     execute pg_catalog.format(
       'select exists (select 1 from %I.%I where %I = any($1))',
@@ -913,22 +1119,159 @@ begin
     end if;
   end loop;
 
+  select pg_catalog.count(*) = 5 into triggers_ready
+  from (
+    values
+      ('private.time_break_operations'::pg_catalog.regclass, 'time_break_operation_immutable'::name),
+      ('private.time_clock_requests'::pg_catalog.regclass, 'time_clock_operation_immutable'::name),
+      ('public.audit_events'::pg_catalog.regclass, 'audit_events_reject_mutation'::name),
+      ('public.time_breaks'::pg_catalog.regclass, 'time_break_history'::name),
+      ('public.time_entries'::pg_catalog.regclass, 'time_entry_history'::name)
+  ) as expected(relation_id, trigger_name)
+  join pg_catalog.pg_trigger as trigger
+    on trigger.tgrelid = expected.relation_id and trigger.tgname = expected.trigger_name
+  where not trigger.tgisinternal and trigger.tgenabled = 'O';
+  if not triggers_ready then
+    raise exception using errcode = '42501', message = 'local_auth_fixture_ownership_unverified';
+  end if;
 end;
 $cloxa_local_auth_fixture$;
-delete from private.manager_mfa_registrations
-where auth_user_id = any(${users});
+alter table private.time_break_operations disable trigger time_break_operation_immutable;
+alter table private.time_clock_requests disable trigger time_clock_operation_immutable;
+alter table public.time_breaks disable trigger time_break_history;
 alter table public.audit_events disable trigger audit_events_reject_mutation;
+alter table public.time_entries disable trigger time_entry_history;
+delete from private.time_break_operations
+where organization_id = ${organizationId}::uuid
+  and employee_membership_id in (
+    select id from public.memberships
+    where organization_id = ${organizationId}::uuid and user_id = ${employeeId}::uuid
+  );
+delete from private.time_clock_requests
+where membership_id in (
+    select id from public.memberships
+    where organization_id = ${organizationId}::uuid and user_id = ${employeeId}::uuid
+  ) and worksite_id = ${worksiteId}::uuid
+  and (time_entry_id is null or exists (
+    select 1 from public.time_entries as entry
+    where entry.id = private.time_clock_requests.time_entry_id
+      and entry.organization_id = ${organizationId}::uuid
+      and entry.membership_id = private.time_clock_requests.membership_id
+      and entry.worksite_id = ${worksiteId}::uuid
+  ));
+delete from public.time_breaks
+where organization_id = ${organizationId}::uuid
+  and employee_membership_id in (
+    select id from public.memberships
+    where organization_id = ${organizationId}::uuid and user_id = ${employeeId}::uuid
+  ) and worksite_id = ${worksiteId}::uuid
+  and exists (
+    select 1 from public.time_entries as entry
+    where entry.id = public.time_breaks.time_entry_id
+      and entry.organization_id = ${organizationId}::uuid
+      and entry.membership_id = public.time_breaks.employee_membership_id
+      and entry.worksite_id = ${worksiteId}::uuid
+  );
 delete from public.audit_events where organization_id = ${organizationId}::uuid;
-alter table public.audit_events enable trigger audit_events_reject_mutation;
 delete from public.invitations
 where id = ${invitationId}::uuid and organization_id = ${organizationId}::uuid;
+delete from public.time_entries
+where organization_id = ${organizationId}::uuid
+  and membership_id in (
+    select id from public.memberships
+    where organization_id = ${organizationId}::uuid and user_id = ${employeeId}::uuid
+  ) and worksite_id = ${worksiteId}::uuid
+  and origin = 'clock' and last_correction_request_id is null;
 delete from public.memberships
 where organization_id = ${organizationId}::uuid
   and (id = ${membershipId}::uuid or user_id = ${employeeId}::uuid);
 delete from public.worksites
 where id = ${worksiteId}::uuid and organization_id = ${organizationId}::uuid;
 delete from public.profiles where user_id = any(${users});
+delete from private.manager_mfa_registrations
+where auth_user_id = ${managerId}::uuid;
 delete from public.organizations where id = ${organizationId}::uuid;
+alter table public.time_entries enable trigger time_entry_history;
+alter table public.audit_events enable trigger audit_events_reject_mutation;
+alter table public.time_breaks enable trigger time_break_history;
+alter table private.time_clock_requests enable trigger time_clock_operation_immutable;
+alter table private.time_break_operations enable trigger time_break_operation_immutable;
+do $cloxa_local_auth_fixture_postconditions$
+declare
+  fixture_users uuid[] := ${users};
+  has_rows boolean;
+  relation record;
+  triggers_ready boolean;
+begin
+  select pg_catalog.count(*) = 5 into triggers_ready
+  from (
+    values
+      ('private.time_break_operations'::pg_catalog.regclass, 'time_break_operation_immutable'::name),
+      ('private.time_clock_requests'::pg_catalog.regclass, 'time_clock_operation_immutable'::name),
+      ('public.audit_events'::pg_catalog.regclass, 'audit_events_reject_mutation'::name),
+      ('public.time_breaks'::pg_catalog.regclass, 'time_break_history'::name),
+      ('public.time_entries'::pg_catalog.regclass, 'time_entry_history'::name)
+  ) as expected(relation_id, trigger_name)
+  join pg_catalog.pg_trigger as trigger
+    on trigger.tgrelid = expected.relation_id and trigger.tgname = expected.trigger_name
+  where not trigger.tgisinternal and trigger.tgenabled = 'O';
+  if not triggers_ready then
+    raise exception using errcode = '55000', message = 'local_auth_fixture_cleanup_incomplete';
+  end if;
+
+  if exists (select 1 from public.organizations where id = ${organizationId}::uuid)
+    or exists (select 1 from public.profiles where user_id = any(fixture_users))
+    or exists (select 1 from private.manager_mfa_registrations
+      where auth_user_id = any(fixture_users))
+    or exists (select 1 from private.time_clock_requests
+      where worksite_id = ${worksiteId}::uuid
+        or membership_id = ${membershipId}::uuid) then
+    raise exception using errcode = '55000', message = 'local_auth_fixture_cleanup_incomplete';
+  end if;
+
+  for relation in
+    select namespace.nspname as schema_name, class.relname as relation_name
+    from pg_catalog.pg_attribute as attribute
+    join pg_catalog.pg_class as class on class.oid = attribute.attrelid
+    join pg_catalog.pg_namespace as namespace on namespace.oid = class.relnamespace
+    where attribute.attname = 'organization_id' and attribute.attnum > 0
+      and not attribute.attisdropped and class.relkind in ('r', 'p')
+      and namespace.nspname in ('public', 'private')
+    order by namespace.nspname, class.relname
+  loop
+    execute pg_catalog.format(
+      'select exists (select 1 from %I.%I where organization_id = $1)',
+      relation.schema_name, relation.relation_name
+    ) into has_rows using ${organizationId}::uuid;
+    if has_rows then
+      raise exception using errcode = '55000', message = 'local_auth_fixture_cleanup_incomplete';
+    end if;
+  end loop;
+
+  for relation in
+    select namespace.nspname as schema_name, class.relname as relation_name,
+      attribute.attname as column_name
+    from pg_catalog.pg_constraint as constraint_record
+    join pg_catalog.pg_class as class on class.oid = constraint_record.conrelid
+    join pg_catalog.pg_namespace as namespace on namespace.oid = class.relnamespace
+    join pg_catalog.pg_attribute as attribute
+      on attribute.attrelid = class.oid and attribute.attnum = constraint_record.conkey[1]
+    where constraint_record.contype = 'f'
+      and constraint_record.confrelid = 'auth.users'::pg_catalog.regclass
+      and pg_catalog.array_length(constraint_record.conkey, 1) = 1
+      and namespace.nspname in ('public', 'private')
+    order by namespace.nspname, class.relname, attribute.attname
+  loop
+    execute pg_catalog.format(
+      'select exists (select 1 from %I.%I where %I = any($1))',
+      relation.schema_name, relation.relation_name, relation.column_name
+    ) into has_rows using fixture_users;
+    if has_rows then
+      raise exception using errcode = '55000', message = 'local_auth_fixture_cleanup_incomplete';
+    end if;
+  end loop;
+end;
+$cloxa_local_auth_fixture_postconditions$;
 select pg_catalog.json_build_object('status', 'database_cleaned');
 commit;`;
 }

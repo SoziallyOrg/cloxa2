@@ -1,5 +1,7 @@
 "use server";
 
+import { getEmployeeCorrectionRequests } from "@/lib/corrections/server";
+import { preserveEndpoint } from "@/lib/corrections/local-time";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -164,6 +166,37 @@ export async function submitCorrectionRequestAction(
       return submissionFailure();
     }
 
+    const startExpected = readText(formData, "proposed_start_local_expected");
+    const endExpected = readText(formData, "proposed_end_local_expected");
+    if (startExpected || endExpected) {
+      const view =
+        input.requestKind === "adjustment"
+          ? await getEmployeeCorrectionRequests(supabase)
+          : null;
+      const entry = view?.entries.find((item) => item.id === targetTimeEntryId);
+      try {
+        const start = preserveEndpoint(
+          input.proposedStartLocal,
+          input.proposedStartOccurrence,
+          startExpected,
+          entry?.startedAt,
+        );
+        const end = preserveEndpoint(
+          input.proposedEndLocal,
+          input.proposedEndOccurrence,
+          endExpected,
+          entry?.endedAt,
+        );
+        input.proposedStartLocal = start.value;
+        input.proposedStartOccurrence = start.occurrence;
+        input.proposedEndLocal = end.value;
+        input.proposedEndOccurrence = end.occurrence;
+      } catch {
+        return submissionFailure(
+          "De registratie is gewijzigd of kan niet worden gecontroleerd. Vernieuw de pagina en controleer je aanvraag.",
+        );
+      }
+    }
     const { data, error } = await supabase.rpc("submit_employee_correction_request", {
       employee_reason: input.employeeReason,
       proposed_end_local: normalizeBelgianWallTime(input.proposedEndLocal),

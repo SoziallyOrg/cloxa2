@@ -1,6 +1,7 @@
 import { FilePenLine } from "lucide-react";
 import type { Metadata } from "next";
 
+import { getEmployeeProvenance } from "@/lib/corrections/provenance-server";
 import { CorrectionRequestPanel } from "@/components/correction-request-panel";
 import { RoleShell } from "@/components/role-shell";
 import { nlBE } from "@/i18n/nl-BE";
@@ -14,6 +15,7 @@ export const metadata: Metadata = {
 export default async function EmployeeCorrectionsPage() {
   await requireRole("employee");
   const view = await getEmployeeCorrectionRequests();
+  const provenance = view ? await getEmployeeProvenance(view.entries) : null;
 
   return (
     <RoleShell
@@ -22,7 +24,7 @@ export default async function EmployeeCorrectionsPage() {
       status={nlBE.employee.status}
       title={nlBE.corrections.title}
     >
-      <CorrectionRequestPanel view={view} />
+      <CorrectionRequestPanel view={view} provenance={provenance} />
     </RoleShell>
   );
 }

@@ -52,6 +52,22 @@ beforeEach(() => {
   });
 });
 describe("break actions", () => {
+  it("rejects changed actor-bound scope without adding form fields", async () => {
+    mocks.context.mockResolvedValue({
+      state: "authorized",
+      role: "employee",
+      userId: "user",
+      organizationId: "org",
+    });
+    expect((await submitBreakAction(initial, form(), "other:org")).status).toBe(
+      "error",
+    );
+    expect(mocks.rpc).not.toHaveBeenCalled();
+    expect((await submitBreakAction(initial, form(), "user:org")).status).toBe(
+      "success",
+    );
+    expect(mocks.rpc).toHaveBeenCalledWith("start_break", { request_id: id });
+  });
   it.each([
     ["start_break", { ...empty, result_code: "no_open_shift", time_entry_id: null }],
     ["end_break", { ...empty, result_code: "no_open_shift", time_entry_id: null }],

@@ -1,19 +1,30 @@
 import { EventEmitter } from "node:events";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { PassThrough } from "node:stream";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createLocalAuthE2eLease } from "../scripts/local-auth-e2e-fixture.mjs";
 import {
+  buildClockGraphSql,
   buildControlledCleanupSql,
+  buildCrossTenantClockRefusalSql,
   buildOwnershipRefusalSql,
   buildTriggerRollbackSql,
+  createClockGraphTimeline,
+  createNativeHarnessAllocation,
+  createNativeRecoveryEvidence,
   createNativeSessionIdentity,
   drainOwnedSessions,
   parsePostgresErrorEvidence,
+  runNativeRecoveryPlan,
   runNativeInterleavingScenario,
   runObserverSqlSmokeCheck,
   startBoundedOperatorSql,
+  validateClockGraphTimeline,
+  writeNativeRecoveryEnvelopeAtomic,
 } from "./local-auth-e2e-cleanup.postgres.mjs";
 
 const ids = {
@@ -21,6 +32,79 @@ const ids = {
   gate: 701,
   insert: 703,
 };
+const recoveryRoots: string[] = [];
+
+type MutableRecoveryLease = {
+  cleanup: { database: string };
+  employee: {
+    emailAbsent: boolean;
+    invitationAttempted: boolean;
+    invitationId: string | null;
+    state: string;
+    userId: string | null;
+  };
+  manager: { emailAbsent: boolean; state: string; userId: string | null };
+  managerMembership: { state: string };
+  managerProfile: { state: string };
+  organization: { state: string };
+  worksite: { state: string };
+};
+
+function deterministicUuid(
+  index: number,
+): `${string}-${string}-${string}-${string}-${string}` {
+  return `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`;
+}
+
+function recoveryAllocation(events: string[] = []) {
+  let index = 0;
+  return createNativeHarnessAllocation({
+    createId: () => {
+      index += 1;
+      events.push(`allocate:${index}`);
+      return deterministicUuid(index);
+    },
+    now: () => new Date("2026-09-13T10:00:00.000Z"),
+  });
+}
+
+function ownManager(lease: MutableRecoveryLease, userId: string) {
+  lease.manager.emailAbsent = true;
+  lease.manager.state = "owned";
+  lease.manager.userId = userId;
+  lease.organization.state = "owned";
+  lease.worksite.state = "owned";
+  lease.managerProfile.state = "owned";
+  lease.managerMembership.state = "owned";
+}
+
+function ownEmployee(
+  lease: MutableRecoveryLease,
+  { invitationId, userId }: { invitationId: string; userId: string },
+) {
+  lease.employee.emailAbsent = true;
+  lease.employee.invitationAttempted = true;
+  lease.employee.invitationId = invitationId;
+  lease.employee.state = "owned";
+  lease.employee.userId = userId;
+}
+
+function cleanTarget(lease: MutableRecoveryLease) {
+  lease.cleanup.database = "cleaned";
+  lease.employee.state = "deleted";
+  lease.manager.state = "deleted";
+}
+
+function cleanSentinel(lease: MutableRecoveryLease) {
+  lease.cleanup.database = "cleaned";
+  lease.manager.state = "deleted";
+}
+
+async function temporaryRecoveryRoot() {
+  const root = await mkdtemp(join(tmpdir(), "cloxa-native-recovery-test-"));
+  recoveryRoots.push(root);
+  return root;
+}
 
 function fixtureLease(offset = 0) {
   const values = [
@@ -41,6 +125,45 @@ function fixtureLease(offset = 0) {
   lease.managerProfile.state = "owned";
   lease.managerMembership.state = "owned";
   return lease;
+}
+
+function ownedClockFixture(offset = 0) {
+  const lease = fixtureLease(offset);
+  lease.employee.emailAbsent = true;
+  lease.employee.invitationAttempted = true;
+  lease.employee.invitationId = `a700000${offset}-0000-4000-8000-000000000007`;
+  lease.employee.state = "owned";
+  lease.employee.userId = `a800000${offset}-0000-4000-8000-000000000008`;
+  return {
+    graph: {
+      breakIds: [
+        `b100000${offset}-0000-4000-8000-000000000011`,
+        `b200000${offset}-0000-4000-8000-000000000012`,
+      ],
+      breakOperationIds: [
+        `b300000${offset}-0000-4000-8000-000000000013`,
+        `b400000${offset}-0000-4000-8000-000000000014`,
+        `b500000${offset}-0000-4000-8000-000000000015`,
+        `b600000${offset}-0000-4000-8000-000000000016`,
+      ],
+      clockRequestIds: [
+        `b700000${offset}-0000-4000-8000-000000000017`,
+        `b800000${offset}-0000-4000-8000-000000000018`,
+      ],
+      employeeMembershipId: `a900000${offset}-0000-4000-8000-000000000009`,
+      entryId: `c100000${offset}-0000-4000-8000-000000000010`,
+    },
+    lease,
+  };
+}
+
+function generatedBreakRows(sql: string) {
+  const pattern =
+    /insert into public\.time_breaks\s*\([^)]*\)\s*values\s*\(\s*'[^']+'::uuid,\s*'[^']+'::uuid,\s*'[^']+'::uuid,\s*'[^']+'::uuid,\s*'[^']+'::uuid,\s*'([^']+)'::timestamptz,\s*'([^']+)'::timestamptz\s*\);/gu;
+  return [...sql.matchAll(pattern)].map((match) => ({
+    createdAt: match[2],
+    startedAt: match[1],
+  }));
 }
 
 function deferred<T>() {
@@ -191,6 +314,7 @@ function scenarioOptions(
   observe = observations(),
   finalizeLease = vi.fn(async () => ({ remaining: [], status: "cleaned" })),
 ) {
+  const { graph, lease } = ownedClockFixture();
   return {
     deadlines: {
       childMs: 1_000,
@@ -202,7 +326,8 @@ function scenarioOptions(
       scenarioMs: 1_000,
     },
     finalizeLease,
-    lease: fixtureLease(),
+    graph,
+    lease,
     observe,
     sentinelLease: fixtureLease(1),
     settings: {
@@ -214,8 +339,422 @@ function scenarioOptions(
   };
 }
 
-afterEach(() => {
+function recoverySteps(
+  allocation: ReturnType<typeof recoveryAllocation>,
+  events: string[] = [],
+) {
+  const stopped = () => ({ ownedProcessesStopped: true });
+  return {
+    abortOwnedOperations: vi.fn(() => events.push("abort")),
+    cleanupSentinel: vi.fn(async () => {
+      events.push("mutation:sentinel-cleanup");
+      cleanSentinel(allocation.sentinelLease);
+      return stopped();
+    }),
+    createClockGraph: vi.fn(async () => {
+      events.push("mutation:clock-graph");
+      return stopped();
+    }),
+    crossTenantRefusal: vi.fn(async () => {
+      events.push("mutation:cross-tenant-refusal");
+      return stopped();
+    }),
+    finishSentinelOperation: vi.fn(() => events.push("sentinel-operation-finished")),
+    interleavingCleanup: vi.fn(async () => {
+      events.push("mutation:interleaving-cleanup");
+      cleanTarget(allocation.targetLease);
+      return stopped();
+    }),
+    observerSmoke: vi.fn(async () => {
+      events.push("read:observer-smoke");
+      return stopped();
+    }),
+    ownershipRefusal: vi.fn(async () => {
+      events.push("mutation:ownership-refusal");
+      return stopped();
+    }),
+    provisionSentinelManager: vi.fn(async () => {
+      events.push("mutation:sentinel-manager");
+      ownManager(allocation.sentinelLease, deterministicUuid(102));
+    }),
+    provisionTargetEmployee: vi.fn(async () => {
+      events.push("mutation:target-employee");
+      ownEmployee(allocation.targetLease, {
+        invitationId: allocation.invitationId,
+        userId: deterministicUuid(103),
+      });
+      return {
+        employeeMembershipId: allocation.graph.employeeMembershipId,
+        invitationId: allocation.invitationId,
+        userId: allocation.targetLease.employee.userId,
+      };
+    }),
+    provisionTargetManager: vi.fn(async () => {
+      events.push("mutation:target-manager");
+      ownManager(allocation.targetLease, deterministicUuid(101));
+    }),
+    triggerRollback: vi.fn(async (triggerBoundary: string) => {
+      events.push(`mutation:trigger:${triggerBoundary}`);
+      return stopped();
+    }),
+  };
+}
+
+afterEach(async () => {
   vi.useRealTimers();
+  await Promise.all(
+    recoveryRoots.splice(0).map((root) => rm(root, { force: true, recursive: true })),
+  );
+});
+
+describe("native recovery evidence", () => {
+  it("preallocates identities and atomically checkpoints the complete workflow", async () => {
+    const events: string[] = [];
+    const allocation = recoveryAllocation(events);
+    const allocationEvents = events.filter((event) => event.startsWith("allocate:"));
+    const controlledIds = [
+      allocation.targetLease.runId,
+      allocation.targetLease.proof,
+      allocation.targetLease.organization.id,
+      allocation.targetLease.worksite.id,
+      allocation.targetLease.managerMembership.id,
+      allocation.sentinelLease.runId,
+      allocation.sentinelLease.proof,
+      allocation.sentinelLease.organization.id,
+      allocation.sentinelLease.worksite.id,
+      allocation.sentinelLease.managerMembership.id,
+      allocation.invitationId,
+      allocation.graph.employeeMembershipId,
+      allocation.graph.entryId,
+      ...allocation.graph.breakIds,
+      ...allocation.graph.clockRequestIds,
+      ...allocation.graph.breakOperationIds,
+      allocation.crossTenantRefusalRequestId,
+    ];
+    expect(allocationEvents).toHaveLength(22);
+    expect(new Set(controlledIds).size).toBe(22);
+
+    const root = await temporaryRecoveryRoot();
+    const writes: Array<Record<string, unknown>> = [];
+    const writeAtomic = vi.fn(async (filePath, envelope) => {
+      const snapshot = structuredClone(envelope) as Record<string, unknown>;
+      writes.push(snapshot);
+      events.push(`write:${String(snapshot.currentPhase)}:${String(snapshot.status)}`);
+      await writeNativeRecoveryEnvelopeAtomic(filePath, envelope);
+    });
+    const printRecoveryPath = vi.fn((filePath: string) => {
+      events.push(`print:${filePath}`);
+    });
+    let tick = 0;
+    const result = await runNativeRecoveryPlan({
+      allocation,
+      evidenceOptions: {
+        now: () => new Date(Date.parse("2026-09-13T10:00:01.000Z") + tick++),
+        temporaryRoot: root,
+        writeAtomic,
+      },
+      printRecoveryPath,
+      steps: recoverySteps(allocation, events),
+    });
+
+    const firstMutation = events.findIndex((event) => event.startsWith("mutation:"));
+    const initialWrite = events.indexOf("write:identities_allocated:active");
+    const printedPath = printRecoveryPath.mock.calls[0]?.[0];
+    expect(initialWrite).toBeGreaterThan(events.lastIndexOf("allocate:22"));
+    expect(firstMutation).toBeGreaterThan(initialWrite);
+    expect(events.findIndex((event) => event.startsWith("print:"))).toBeLessThan(
+      firstMutation,
+    );
+    expect(printedPath).toBe(result.evidencePath);
+    expect(printedPath).toContain(allocation.targetLease.runId);
+
+    const initial = writes[0] as {
+      allocations: Record<string, unknown>;
+      currentPhase: string;
+      sentinel: { manager: { userId: string | null }; proof: string };
+      status: string;
+      target: { manager: { userId: string | null }; proof: string };
+    };
+    expect(initial).toMatchObject({
+      allocations: {
+        applications: allocation.identity,
+        crossTenantRefusalRequestId: allocation.crossTenantRefusalRequestId,
+        graph: allocation.graph,
+        invitationId: allocation.invitationId,
+      },
+      createdAt: "2026-09-13T10:00:01.000Z",
+      currentPhase: "identities_allocated",
+      harness: "local-auth-e2e-native-postgresql-cleanup",
+      nativeCleanupHarness: true,
+      schema: "cloxa.native-cleanup-recovery",
+      sentinel: {
+        employee: { email: allocation.sentinelLease.employee.email },
+        manager: { email: allocation.sentinelLease.manager.email },
+        managerMembership: { id: allocation.sentinelLease.managerMembership.id },
+        marker: allocation.sentinelLease.marker,
+        organization: { id: allocation.sentinelLease.organization.id },
+        runId: allocation.sentinelLease.runId,
+        startedAt: allocation.sentinelLease.startedAt,
+        worksite: { id: allocation.sentinelLease.worksite.id },
+      },
+      status: "active",
+      target: {
+        employee: { email: allocation.targetLease.employee.email },
+        manager: { email: allocation.targetLease.manager.email },
+        managerMembership: { id: allocation.targetLease.managerMembership.id },
+        marker: allocation.targetLease.marker,
+        organization: { id: allocation.targetLease.organization.id },
+        runId: allocation.targetLease.runId,
+        startedAt: allocation.targetLease.startedAt,
+        worksite: { id: allocation.targetLease.worksite.id },
+      },
+      updatedAt: "2026-09-13T10:00:01.000Z",
+      version: 1,
+    });
+    expect(initial.target.manager.userId).toBeNull();
+    expect(initial.sentinel.manager.userId).toBeNull();
+    expect(initial.target.proof).toBe(allocation.targetLease.proof);
+    expect(initial.sentinel.proof).toBe(allocation.sentinelLease.proof);
+    expect(JSON.stringify(initial)).not.toMatch(
+      /password|secret|service_role|access_token|refresh_token|cookie|mfa|docker/iu,
+    );
+
+    const targetManagerCheckpoint = writes.find(
+      (item) => item.currentPhase === "target_manager_provisioned",
+    ) as { target: { manager: { state: string; userId: string } } };
+    const sentinelManagerCheckpoint = writes.find(
+      (item) => item.currentPhase === "sentinel_manager_provisioned",
+    ) as { sentinel: { manager: { state: string; userId: string } } };
+    const employeeCheckpoint = writes.find(
+      (item) => item.currentPhase === "target_employee_provisioned",
+    ) as {
+      target: {
+        employee: { invitationId: string; state: string; userId: string };
+      };
+    };
+    expect(targetManagerCheckpoint.target.manager).toEqual({
+      email: allocation.targetLease.manager.email,
+      emailAbsent: true,
+      state: "owned",
+      userId: deterministicUuid(101),
+    });
+    expect(sentinelManagerCheckpoint.sentinel.manager).toEqual({
+      email: allocation.sentinelLease.manager.email,
+      emailAbsent: true,
+      state: "owned",
+      userId: deterministicUuid(102),
+    });
+    expect(employeeCheckpoint.target.employee).toMatchObject({
+      invitationId: allocation.invitationId,
+      state: "owned",
+      userId: deterministicUuid(103),
+    });
+
+    const serialized = await readFile(result.evidencePath, "utf8");
+    const finalEvidence = JSON.parse(serialized);
+    const phases = finalEvidence.checkpoints.map(
+      (checkpoint: { phase: string }) => checkpoint.phase,
+    );
+    expect(phases.slice(0, 7)).toEqual([
+      "identities_allocated",
+      "target_manager_provisioned",
+      "sentinel_manager_provisioned",
+      "target_employee_provisioned",
+      "clock_graph_allocated_created",
+      "ownership_refusal_passed",
+      "cross_tenant_refusal_passed",
+    ]);
+    const triggerCheckpoints = finalEvidence.checkpoints.filter(
+      (checkpoint: { phase: string }) =>
+        checkpoint.phase === "trigger_boundary_rollback_passed",
+    );
+    expect(triggerCheckpoints).toHaveLength(10);
+    expect(
+      triggerCheckpoints.map(
+        (checkpoint: { details: { index: number } }) => checkpoint.details.index,
+      ),
+    ).toEqual([...Array(10).keys()]);
+    expect(phases.slice(-5)).toEqual([
+      "interleaving_cleanup_completed",
+      "target_auth_cleanup_completed",
+      "sentinel_cleanup_completed",
+      "owned_processes_confirmed_stopped",
+      "cleaned",
+    ]);
+    expect(writeAtomic).toHaveBeenCalledTimes(phases.length);
+    expect(finalEvidence).toMatchObject({
+      confirmations: {
+        ownedChildrenStopped: true,
+        sentinelCleaned: true,
+        targetAuthCleaned: true,
+      },
+      currentPhase: "cleaned",
+      resourcesRemaining: false,
+      status: "cleaned",
+    });
+    expect(finalEvidence.target.proof).toBeNull();
+    expect(finalEvidence.sentinel.proof).toBeNull();
+    expect(finalEvidence.target.proofStatus).toBe("redacted_after_cleanup");
+    expect(finalEvidence.sentinel.proofStatus).toBe("redacted_after_cleanup");
+    expect(serialized).not.toContain(allocation.targetLease.proof);
+    expect(serialized).not.toContain(allocation.sentinelLease.proof);
+    expect(serialized).not.toMatch(
+      /password|service_role|access_token|refresh_token/iu,
+    );
+    await expect(readFile(`${result.evidencePath}.next`, "utf8")).rejects.toMatchObject(
+      { code: "ENOENT" },
+    );
+    expect(events.indexOf("write:cleaned:cleaned")).toBeGreaterThan(
+      events.indexOf("sentinel-operation-finished"),
+    );
+  });
+
+  it("blocks every external step when the initial atomic write fails", async () => {
+    const events: string[] = [];
+    const allocation = recoveryAllocation(events);
+    const steps = recoverySteps(allocation, events);
+    const printRecoveryPath = vi.fn();
+
+    await expect(
+      runNativeRecoveryPlan({
+        allocation,
+        evidenceOptions: {
+          temporaryRoot: await temporaryRecoveryRoot(),
+          writeAtomic: vi.fn(async () => {
+            throw new Error("synthetic initial write failure");
+          }),
+        },
+        printRecoveryPath,
+        steps,
+      }),
+    ).rejects.toThrow("could not be created before mutation");
+
+    expect(events.filter((event) => event.startsWith("allocate:"))).toHaveLength(22);
+    expect(events.some((event) => event.startsWith("mutation:"))).toBe(false);
+    expect(steps.observerSmoke).not.toHaveBeenCalled();
+    expect(steps.provisionTargetManager).not.toHaveBeenCalled();
+    expect(steps.abortOwnedOperations).toHaveBeenCalledOnce();
+    expect(printRecoveryPath).not.toHaveBeenCalled();
+  });
+
+  it("retains exact recovery identities while sanitizing a simulated failure", async () => {
+    const allocation = recoveryAllocation();
+    const steps = recoverySteps(allocation);
+    const providerSecret = "synthetic-provider-password-and-token";
+    steps.provisionSentinelManager.mockImplementationOnce(async () => {
+      ownManager(allocation.sentinelLease, deterministicUuid(102));
+      const error = new Error(
+        `provider rejected ${providerSecret} ${allocation.targetLease.proof}`,
+      );
+      error.name = "ProviderError";
+      throw error;
+    });
+    const printed: string[] = [];
+    let caught: (Error & { cause?: Error }) | undefined;
+    try {
+      await runNativeRecoveryPlan({
+        allocation,
+        evidenceOptions: { temporaryRoot: await temporaryRecoveryRoot() },
+        printRecoveryPath: (filePath: string) => printed.push(filePath),
+        steps,
+      });
+    } catch (error) {
+      caught = error as Error & { cause?: Error };
+    }
+
+    const recoveryPath = printed[0];
+    if (!recoveryPath) throw new Error("Recovery evidence path was not printed.");
+    expect(caught).toBeDefined();
+    expect(caught?.message).toContain(recoveryPath);
+    expect(caught?.message).not.toContain(allocation.targetLease.proof);
+    expect(caught?.cause?.name).toBe("ProviderError");
+    expect(caught?.cause?.message).not.toContain(providerSecret);
+    expect(printed.join("\n")).not.toContain(allocation.targetLease.proof);
+    expect(steps.provisionTargetEmployee).not.toHaveBeenCalled();
+    expect(steps.abortOwnedOperations).toHaveBeenCalledOnce();
+
+    const serialized = await readFile(recoveryPath, "utf8");
+    const failedEvidence = JSON.parse(serialized);
+    expect(failedEvidence).toMatchObject({
+      allocations: {
+        crossTenantRefusalRequestId: allocation.crossTenantRefusalRequestId,
+        graph: allocation.graph,
+        invitationId: allocation.invitationId,
+      },
+      currentPhase: "target_manager_provisioned",
+      failure: {
+        message: "Native cleanup phase failed; fixture resources were preserved.",
+        name: "ProviderError",
+      },
+      resourcesRemaining: true,
+      status: "failed",
+    });
+    expect(failedEvidence.target.manager.userId).toBe(deterministicUuid(101));
+    expect(failedEvidence.sentinel.manager.userId).toBe(deterministicUuid(102));
+    expect(failedEvidence.target.proof).toBe(allocation.targetLease.proof);
+    expect(failedEvidence.sentinel.proof).toBe(allocation.sentinelLease.proof);
+    expect(failedEvidence.checkpoints.at(-1)).toMatchObject({
+      lastConfirmedPhase: "target_manager_provisioned",
+      phase: "failed",
+    });
+    expect(serialized).not.toContain(providerSecret);
+  });
+
+  it("stops before the next mutation when a later checkpoint fails", async () => {
+    const allocation = recoveryAllocation();
+    const steps = recoverySteps(allocation);
+    const root = await temporaryRecoveryRoot();
+    let writes = 0;
+    const writeAtomic = vi.fn(async (filePath, envelope) => {
+      writes += 1;
+      if (writes > 1) throw new Error("synthetic checkpoint failure");
+      await writeNativeRecoveryEnvelopeAtomic(filePath, envelope);
+    });
+    const printed: string[] = [];
+
+    let caught: Error | undefined;
+    try {
+      await runNativeRecoveryPlan({
+        allocation,
+        evidenceOptions: { temporaryRoot: root, writeAtomic },
+        printRecoveryPath: (filePath: string) => printed.push(filePath),
+        steps,
+      });
+    } catch (error) {
+      caught = error as Error;
+    }
+
+    const recoveryPath = printed[0];
+    if (!recoveryPath) throw new Error("Recovery evidence path was not printed.");
+    expect(caught?.message).toContain(`Recovery evidence: ${recoveryPath}`);
+    expect(steps.provisionTargetManager).toHaveBeenCalledOnce();
+    expect(steps.provisionSentinelManager).not.toHaveBeenCalled();
+    expect(steps.abortOwnedOperations).toHaveBeenCalledOnce();
+    expect(writeAtomic).toHaveBeenCalledTimes(3);
+    const retained = JSON.parse(await readFile(recoveryPath, "utf8"));
+    expect(retained).toMatchObject({
+      currentPhase: "identities_allocated",
+      status: "active",
+    });
+    expect(retained.target.proof).toBe(allocation.targetLease.proof);
+    expect(retained.allocations.graph).toEqual(allocation.graph);
+  });
+
+  it("refuses a cleaned report until both fixtures and child exits are confirmed", async () => {
+    const allocation = recoveryAllocation();
+    const evidence = await createNativeRecoveryEvidence({
+      allocation,
+      temporaryRoot: await temporaryRecoveryRoot(),
+    });
+
+    await expect(evidence.complete()).rejects.toThrow(
+      "success conditions were not confirmed",
+    );
+    const retained = JSON.parse(await readFile(evidence.path, "utf8"));
+    expect(retained.status).toBe("active");
+    expect(retained.resourcesRemaining).toBe(true);
+    expect(retained.target.proof).toBe(allocation.targetLease.proof);
+  });
 });
 
 describe("native cleanup SQL boundaries", () => {
@@ -248,6 +787,203 @@ describe("native cleanup SQL boundaries", () => {
     expect(buildTriggerRollbackSql(lease, identity)).toContain(
       "disable trigger audit_events_reject_mutation;\nselect 1 / 0;",
     );
+  });
+
+  it("builds a deterministic clock graph compatible with production timing", async () => {
+    const { graph, lease } = ownedClockFixture();
+    const now = new Date("2026-09-06T10:00:01.000Z");
+    const timeline = createClockGraphTimeline(lease, { now: () => now });
+    const timelineBreaks = timeline.breaks as [
+      { createdAt: string; endedAt: string; startedAt: string },
+      { createdAt: string; endedAt: string; startedAt: string },
+    ];
+    const graphSql = buildClockGraphSql(lease, graph, { now: () => now });
+    const liveBreakMigration = await readFile(
+      new URL(
+        "../supabase/migrations/20260903230921_employee_live_breaks.sql",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+
+    expect(liveBreakMigration).toMatch(
+      /isfinite\(started_at\)[\s\S]*?isfinite\(created_at\)[\s\S]*?created_at\s*=\s*started_at/u,
+    );
+    expect(timeline).toEqual({
+      breaks: [
+        {
+          createdAt: "2026-09-06T10:00:00.002Z",
+          endedAt: "2026-09-06T10:00:00.003Z",
+          startedAt: "2026-09-06T10:00:00.002Z",
+        },
+        {
+          createdAt: "2026-09-06T10:00:00.004Z",
+          endedAt: "2026-09-06T10:00:00.005Z",
+          startedAt: "2026-09-06T10:00:00.004Z",
+        },
+      ],
+      entry: {
+        createdAt: "2026-09-06T10:00:00.001Z",
+        endedAt: "2026-09-06T10:00:00.006Z",
+        startedAt: "2026-09-06T10:00:00.001Z",
+      },
+    });
+    expect(generatedBreakRows(graphSql)).toEqual(
+      timelineBreaks.map(({ createdAt, startedAt }) => ({
+        createdAt,
+        startedAt,
+      })),
+    );
+    expect(
+      timelineBreaks.every(
+        ({ createdAt, startedAt }) =>
+          createdAt === startedAt &&
+          Date.parse(createdAt) >= Date.parse(lease.startedAt),
+      ),
+    ).toBe(true);
+    expect(
+      [
+        timeline.entry.startedAt,
+        timelineBreaks[0].startedAt,
+        timelineBreaks[0].endedAt,
+        timelineBreaks[1].startedAt,
+        timelineBreaks[1].endedAt,
+        timeline.entry.endedAt,
+      ].map(Date.parse),
+    ).toEqual([...Array(6)].map((_, index) => Date.parse(lease.startedAt) + index + 1));
+    expect(graphSql).not.toContain("clock_timestamp()");
+    expect(graphSql).not.toContain("interval '");
+    expect(graphSql).toMatch(
+      /'clock_in', 'started', id,\s*worksite_id, started_at, null, '2026-09-06T10:00:00\.001Z'::timestamptz/u,
+    );
+    expect(graphSql).toMatch(
+      /'clock_out', 'stopped', id,\s*worksite_id, started_at, ended_at, '2026-09-06T10:00:00\.006Z'::timestamptz/u,
+    );
+
+    const mismatchedBreakCreation = structuredClone(timeline);
+    mismatchedBreakCreation.breaks[0].createdAt = now.toISOString();
+    expect(() =>
+      validateClockGraphTimeline(lease, mismatchedBreakCreation, { now: () => now }),
+    ).toThrow("Native clock graph timeline is invalid.");
+
+    const beforeLease = structuredClone(timeline);
+    beforeLease.breaks[0].createdAt = new Date(
+      Date.parse(lease.startedAt) - 1,
+    ).toISOString();
+    beforeLease.breaks[0].startedAt = beforeLease.breaks[0].createdAt;
+    expect(() =>
+      validateClockGraphTimeline(lease, beforeLease, { now: () => now }),
+    ).toThrow("Native clock graph timeline is invalid.");
+
+    expect(() =>
+      createClockGraphTimeline(lease, {
+        now: () => new Date(Date.parse(lease.startedAt) + 5),
+      }),
+    ).toThrow("Native clock graph timeline is invalid.");
+  });
+
+  it("matches adjacent production row and update contracts", async () => {
+    const { graph, lease } = ownedClockFixture();
+    const now = new Date("2026-09-06T10:00:01.000Z");
+    const timeline = createClockGraphTimeline(lease, { now: () => now });
+    const graphSql = buildClockGraphSql(lease, graph, { now: () => now });
+    const [clockMigration, correctionMigration, breakMigration, historyMigration] =
+      await Promise.all(
+        [
+          "20260902193519_employee_time_clock.sql",
+          "20260903094913_manager_correction_review.sql",
+          "20260903230921_employee_live_breaks.sql",
+          "20260904082654_historical_break_corrections_export_v2.sql",
+        ].map((name) =>
+          readFile(new URL(`../supabase/migrations/${name}`, import.meta.url), "utf8"),
+        ),
+      );
+
+    expect(clockMigration).toMatch(/ended_at is null or ended_at >= started_at/u);
+    expect(correctionMigration).toMatch(/version integer not null default 1/u);
+    expect(correctionMigration).toMatch(
+      /origin in \('clock', 'approved_missed_entry'\)/u,
+    );
+    expect(correctionMigration).toMatch(/new\.version := old\.version \+ 1/u);
+    expect(breakMigration).toMatch(/ended_at > started_at/u);
+    expect(breakMigration).toMatch(
+      /to_jsonb\(new\) - array\['ended_at', 'version'\][\s\S]*?new\.version := old\.version \+ 1/u,
+    );
+    expect(breakMigration).toMatch(
+      /operation = 'clock_out'[\s\S]*?result_code in \('stopped', 'already_stopped', 'open_break'\)/u,
+    );
+    expect(breakMigration).toMatch(/octet_length\(payload_hash\) = 32/u);
+    expect(historyMigration).toMatch(
+      /private\.effective_time_breaks\(old\.id\)[\s\S]*?b\.ended_at > new\.ended_at/u,
+    );
+
+    expect(graphSql).toContain("'clock', null");
+    expect(graphSql.match(/insert into public\.time_breaks/gu)).toHaveLength(2);
+    expect(graphSql.match(/update public\.time_breaks/gu)).toHaveLength(2);
+    expect(graphSql).toContain("pg_catalog.sha256(pg_catalog.convert_to(");
+    expect(graphSql).toContain("'started_at'");
+    expect(graphSql).toContain("'ended_at'");
+    expect(graphSql).toContain("'version'");
+
+    let operationCursor = 0;
+    for (const [index, operationId] of graph.breakOperationIds.entries()) {
+      const blockStart = graphSql.indexOf(
+        "insert into private.time_break_operations",
+        operationCursor,
+      );
+      const blockEnd = graphSql.indexOf("\n);", blockStart);
+      const breakId = graph.breakIds[Math.floor(index / 2)];
+      expect(blockStart).toBeGreaterThanOrEqual(0);
+      expect(blockEnd).toBeGreaterThan(blockStart);
+      expect(breakId).toBeDefined();
+      const operationBlock = graphSql.slice(blockStart, blockEnd);
+      const breakTimeline = timeline.breaks[Math.floor(index / 2)];
+      const isEnding = index % 2 === 1;
+      expect(operationBlock).toContain(`'request_id', '${operationId}'::uuid`);
+      expect(operationBlock).toContain(isEnding ? "'end_break'" : "'start_break'");
+      expect(operationBlock).toContain(
+        `'result_code', '${isEnding ? "ended" : "started"}'`,
+      );
+      expect(operationBlock).toContain(`'break_id', '${breakId}'::uuid`);
+      expect(operationBlock).toContain(`'time_entry_id', '${graph.entryId}'::uuid`);
+      expect(operationBlock).toContain(
+        `'started_at', '${breakTimeline.startedAt}'::timestamptz`,
+      );
+      expect(operationBlock).toContain(
+        `'ended_at', ${isEnding ? `'${breakTimeline.endedAt}'::timestamptz` : "null"}`,
+      );
+      expect(operationBlock).toContain(`'version', ${isEnding ? 2 : 1}`);
+      expect(operationBlock).toContain(
+        `), '${
+          isEnding ? breakTimeline.endedAt : breakTimeline.startedAt
+        }'::timestamptz`,
+      );
+      operationCursor = blockEnd + 3;
+    }
+  });
+
+  it("prepares exact clock graph and cross-tenant refusal probes", () => {
+    const { graph, lease } = ownedClockFixture();
+    const sentinel = fixtureLease(1);
+    const identity = createNativeSessionIdentity(lease.runId);
+    const graphSql = buildClockGraphSql(lease, graph, {
+      now: () => new Date("2026-09-06T10:00:01.000Z"),
+    });
+    const refusalSql = buildCrossTenantClockRefusalSql(
+      lease,
+      sentinel,
+      graph,
+      identity,
+      "d1000000-0000-4000-8000-000000000019",
+    );
+
+    expect(graphSql).toContain("'entry_count'");
+    expect(graphSql).toContain("'break_count'");
+    expect(graphSql).toContain("'clock_request_count'");
+    expect(graphSql).toContain("'break_operation_count'");
+    expect(refusalSql).toContain(graph.entryId);
+    expect(refusalSql).toContain(sentinel.organization.id);
+    expect(refusalSql).toContain("local_auth_fixture_ownership_unverified");
   });
 
   it("retains only structured PostgreSQL error evidence", () => {

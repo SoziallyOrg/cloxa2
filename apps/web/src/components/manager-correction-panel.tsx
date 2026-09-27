@@ -1,11 +1,12 @@
 "use client";
+import { TimeDetails } from "@/components/exact-details";
+import { StatusBadge } from "@/components/ui/status-badge";
 
-import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { BreakSummary } from "@/components/break-summary";
 import { Button } from "@/components/ui/button";
 import { nlBE } from "@/i18n/nl-BE";
-import { formatBelgianDateTime, toBrusselsLocalInput } from "@/lib/corrections/format";
+import { formatBelgianDateTime } from "@/lib/corrections/format";
 import { decideCorrectionRequestAction } from "@/lib/manager-corrections/actions";
 import type {
   DecisionActionState,
@@ -14,25 +15,12 @@ import type {
 } from "@/lib/manager-corrections/model";
 
 const copy = nlBE.managerCorrections;
-const offsetFormatter = new Intl.DateTimeFormat("nl-BE", {
-  timeZone: "Europe/Brussels",
-  timeZoneName: "shortOffset",
-});
-function exactTime(value: string) {
-  const offset = offsetFormatter
-    .formatToParts(new Date(value))
-    .find((part) => part.type === "timeZoneName")?.value;
-  return `${toBrusselsLocalInput(value)} (${offset})`;
-}
 function Interval({ start, end }: { start: string; end: string }) {
   return (
-    <p className="mt-2 flex flex-col gap-1 text-sm leading-6 text-ink tabular-nums">
-      <time dateTime={start}>{exactTime(start)}</time>
-      <span>
-        <span aria-hidden="true">– </span>
-        <time dateTime={end}>{exactTime(end)}</time>
-      </span>
-    </p>
+    <div className="mt-2 grid gap-2 text-sm">
+      <TimeDetails value={start} />
+      <TimeDetails value={end} />
+    </div>
   );
 }
 
@@ -94,7 +82,7 @@ export function ManagerCorrectionPanel({
         data-testid={`review-${request.id}`}
       >
         <details className="group py-5">
-          <summary className="cursor-pointer rounded-lg text-ink outline-none focus-visible:ring-3 focus-visible:ring-focus">
+          <summary className="cursor-pointer rounded-control text-ink outline-none focus-visible:ring-3 focus-visible:ring-focus">
             <span className="ml-2 font-semibold break-words">
               {request.employeeDisplayName || copy.employeeFallback}
             </span>
@@ -104,13 +92,13 @@ export function ManagerCorrectionPanel({
                 ? nlBE.corrections.adjustment
                 : nlBE.corrections.missedEntry}
             </span>
-            <span className="mt-2 ml-6 inline-block rounded-full border border-rule-strong bg-signal-soft px-3 py-1 text-xs font-semibold text-signal-ink">
+            <StatusBadge status={request.status}>
               {nlBE.corrections.status[request.status]}
-            </span>
+            </StatusBadge>
           </summary>
           <div className="mt-5 min-w-0">
             <div className="grid gap-4 lg:grid-cols-2">
-              <div className="min-w-0 bg-paper-strong p-4">
+              <div className="min-w-0 rounded-surface bg-paper-strong p-4">
                 <h3 className="font-semibold text-ink">{copy.original}</h3>
                 {request.originalStartedAt && request.originalEndedAt ? (
                   <Interval
@@ -124,7 +112,7 @@ export function ManagerCorrectionPanel({
                   <BreakSummary breaks={request.breaks} />
                 ) : null}
               </div>
-              <div className="min-w-0 bg-primary-soft p-4">
+              <div className="min-w-0 rounded-surface bg-primary-soft p-4">
                 <h3 className="font-semibold text-primary-strong">{copy.proposal}</h3>
                 <Interval
                   start={request.proposedStartedAt}
@@ -187,16 +175,13 @@ export function ManagerCorrectionPanel({
 
   return (
     <div className="mt-6 min-w-0">
-      <Button asChild variant="quiet">
-        <Link href="/manager">{copy.back}</Link>
-      </Button>
-      <p className="mt-4 text-sm leading-6 text-muted">{copy.timezone}</p>
+      <p className="text-sm leading-6 text-muted">{copy.timezone}</p>
       {feedback.message && !selection ? (
         <p
           ref={feedbackControl}
           tabIndex={-1}
           role={feedback.status === "error" ? "alert" : "status"}
-          className="mt-5 rounded-xl border border-rule-strong bg-primary-soft p-4 text-sm leading-6 text-ink"
+          className="mt-5 rounded-control border border-rule-strong bg-primary-soft p-4 text-sm leading-6 text-ink"
         >
           {feedback.message}
         </p>
@@ -261,7 +246,7 @@ export function ManagerCorrectionPanel({
           event.preventDefault();
           closeDialog();
         }}
-        className="m-auto max-h-[90dvh] w-[calc(100%-2rem)] max-w-xl overflow-y-auto rounded-2xl border border-rule-strong bg-paper p-4 text-ink backdrop:bg-ink/40 sm:p-6"
+        className="m-auto max-h-[90dvh] w-[calc(100%-2rem)] max-w-xl overflow-y-auto rounded-surface border border-rule-strong bg-paper p-4 text-ink backdrop:bg-ink/40 sm:p-6"
       >
         {selection ? (
           <form
@@ -313,6 +298,16 @@ export function ManagerCorrectionPanel({
               start={selection.request.proposedStartedAt}
               end={selection.request.proposedEndedAt}
             />
+            {feedback.message ? (
+              <p
+                ref={dialogFeedback}
+                tabIndex={-1}
+                role={feedback.status === "error" ? "alert" : "status"}
+                className="mt-4 text-sm leading-6 text-danger"
+              >
+                {feedback.message}
+              </p>
+            ) : null}
             <fieldset disabled={pending} className="mt-5 min-w-0">
               <label htmlFor="manager-note" className="block text-sm font-semibold">
                 {selection.decision === "reject"
@@ -327,7 +322,7 @@ export function ManagerCorrectionPanel({
                 maxLength={500}
                 aria-invalid={Boolean(feedback.noteError)}
                 aria-describedby={`manager-note-help${feedback.noteError ? " manager-note-error" : ""}`}
-                className="mt-2 min-h-28 w-full min-w-0 resize-y rounded-xl border border-rule-strong bg-paper px-3 py-2 text-base outline-none focus:border-focus focus:ring-3 focus:ring-focus/30 disabled:opacity-55"
+                className="mt-2 min-h-28 w-full min-w-0 resize-y rounded-control border border-rule-strong bg-paper px-3 py-2 text-base outline-none focus:border-focus focus:ring-3 focus:ring-focus/30 disabled:opacity-55"
               />
               <p id="manager-note-help" className="mt-1 text-sm leading-6 text-muted">
                 {copy.noteHelp}
@@ -350,16 +345,6 @@ export function ManagerCorrectionPanel({
                 </Button>
               </div>
             </fieldset>
-            {feedback.message ? (
-              <p
-                ref={dialogFeedback}
-                tabIndex={-1}
-                role={feedback.status === "error" ? "alert" : "status"}
-                className="mt-4 text-sm leading-6 text-danger"
-              >
-                {feedback.message}
-              </p>
-            ) : null}
             <p role="status" className="sr-only">
               {pending ? copy.working : ""}
             </p>

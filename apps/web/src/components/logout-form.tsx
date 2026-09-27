@@ -13,7 +13,11 @@ export function LogoutForm() {
   const [state, action, pending] = useActionState(logoutAction, initialState);
 
   return (
-    <form action={action} className="grid gap-2">
+    <form
+      action={action}
+      className="grid gap-2"
+      onSubmit={() => window.dispatchEvent(new Event("cloxa:signing-out"))}
+    >
       <Button disabled={pending} type="submit" variant="secondary">
         {pending ? nlBE.auth.pending : nlBE.auth.logout}
       </Button>

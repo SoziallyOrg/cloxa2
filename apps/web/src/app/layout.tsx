@@ -5,6 +5,7 @@ import "@fontsource/barlow-condensed/600.css";
 
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { SiteChrome } from "@/components/site-chrome";
 import { nlBE } from "@/i18n/nl-BE";
 
 import "./globals.css";
@@ -42,9 +43,9 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
           data-impeccable-contract
           dangerouslySetInnerHTML={{ __html: designContract }}
         />
-        <SiteHeader />
-        {children}
-        <SiteFooter />
+        <SiteChrome header={<SiteHeader />} footer={<SiteFooter />}>
+          {children}
+        </SiteChrome>
       </body>
     </html>
   );

@@ -18,6 +18,16 @@ colors:
   signal-soft: "#fae7be"
   signal-ink: "#5d3500"
   danger: "#a13c34"
+  status-success-ink: "#205c3b"
+  status-success-fill: "#e0efe3"
+  status-attention-ink: "#5d3500"
+  status-attention-fill: "#fae7be"
+  status-error-ink: "#8c2926"
+  status-error-fill: "#f9e3df"
+  status-info-ink: "#0e4a67"
+  status-info-fill: "#d9e8ed"
+  status-neutral-ink: "#45515a"
+  status-neutral-fill: "#e9e9e4"
   focus: "#0e4a67"
 typography:
   display:
@@ -178,8 +188,8 @@ components:
     rounded: "{rounded.2xl}"
     padding: "1.5rem"
   role-status:
-    backgroundColor: "{colors.signal-soft}"
-    textColor: "{colors.signal-ink}"
+    backgroundColor: "{colors.status-neutral-fill}"
+    textColor: "{colors.status-neutral-ink}"
     typography: "{typography.status}"
     rounded: "{rounded.full}"
     padding: "0.25rem 0.75rem"
@@ -424,10 +434,12 @@ descriptor copy.
 
 ### Role Shell
 
-Role shell uses a ruled content dossier beneath a simple ruled title row. Status appears
-as a full-radius Carbon-Copy Amber pill with Amber Ink, Inspector Rule border, and
-compact status typography. Title wraps instead of truncating; mobile status sits below
-the heading. At 640px, title and status share a row.
+Role shell keeps the ruled dossier and condensed title, with smaller page gutters and
+16/24px content padding. No minimum empty panel height. Shared navigation exposes actual
+role routes with 44px targets, wrapping links and `aria-current="page"`. Login status is
+neutral; logout remains a compact separate control. Duplicate dashboard button groups
+are removed. Employee clock status is available on each authenticated working screen
+with a direct clock link; it is not an OS/background notification.
 
 ### Employee Time Clock
 
@@ -456,10 +468,11 @@ pauze" is available. Disabled clock-out references its visible Dutch explanation
 controls share pending state; result feedback receives keyboard focus.
 
 Entry rows show ordered unpaid break intervals followed by stacked Bruto, Afgeronde
-pauzes, and Netto gewerkt labels and values. Tabular numerals preserve exact six-digit
-fractional seconds; open gross/net values and break ends read "Nog open". Machine
-timestamps retain UTC while visible intervals use Europe/Brussels. Keep labels above
-values at all widths, including 320px, rather than introducing a wide totals table.
+pauzes, and Netto gewerkt labels and values. Tabular numerals show readable minute
+durations with exact microseconds in secondary disclosures; open gross/net values and
+break ends read "Nog open". Machine timestamps retain UTC while visible intervals use
+Europe/Brussels. Keep labels above values at all widths, including 320px, rather than
+introducing a wide totals table.
 
 Correction forms show existing intervals and factual totals before editable claim
 fields. Manager comparisons put the original shift interval before "Onbetaalde pauzes"
@@ -492,15 +505,18 @@ distinct in labels and help copy.
 
 - **Form layout:** stack timestamp and occurrence controls through tablet widths; pair
   them at 1024px. Keep grid children shrinkable and actions full-width at 320px.
-- **Wall-time entry:** use text fields for `dd/mm/yyyy HH:mm` in Europe/Brussels, with
-  optional seconds and up to six fractional digits. Preserve source timestamp precision
-  in prefilled values. Repeated autumn hours require explicit earlier/later occurrence
-  selectors for each endpoint.
+- **Wall-time entry:** default to `dd/mm/yyyy HH:mm`. Existing endpoint precision is
+  preserved independently; edited minutes mean seconds 00. The server compares expected
+  snapshots with authorized current reads and restores only matching factual endpoints.
+  No client original supplies authority. Spring gaps retain server rejection and receive
+  inline help. Only genuinely repeated Brussels times reveal an explicit first/summer
+  (UTC+02) or second/winter (UTC+01) choice; editing clears that choice. Known unchanged
+  instants retain their occurrence. Exact source values remain in secondary disclosures.
 - **Keyboard flow:** move focus to form heading on open or target change. Return focus
   to initiating control on close; keep opening controls' expanded state available to
   assistive technology.
 - **Claim history:** use unboxed ruled rows with proposed time range, wrapping reason
-  text, and existing amber status pill. Offer secondary withdrawal action on pending
+  text, and semantic status badge. Offer secondary withdrawal action on pending
   requests. Resolved requests expose outcome, decision time, and manager note when
   present. Preserve line breaks in reasons and notes; keep long text inside mobile
   width.
@@ -508,14 +524,14 @@ distinct in labels and help copy.
 ### Original / Proposal Comparison
 
 Review rows remain unboxed inside the ruled dossier. Native disclosure summaries keep
-employee identity, code, request type, and amber status visible before expansion.
+employee identity, code, request type, and semantic status visible before expansion.
 
 - **Fact / claim:** pair flat Pressed Paper for original facts with Pale Cobalt Wash for
   proposed values. Use explicit headings as well as material contrast. Missing facts
   receive a plain explanation in the original field.
-- **Exact times:** show each endpoint on its own line with tabular numerals. Preserve
-  source fractional seconds through microsecond precision and show Europe/Brussels
-  offset beside local time; repeated autumn hours remain distinguishable.
+- **Exact times:** ordinary comparisons show minutes. Native secondary disclosures
+  retain seconds/microseconds and Brussels offsets when they conceal a difference or
+  identify a repeated hour. Never round stored facts or exported values.
 - **Record context:** place employee reason, submission time, decision time, and manager
   note beneath the comparison. Preserve line breaks and wrap long names, codes, reasons,
   and notes. Keep completed rows readable without decision controls.
@@ -591,10 +607,9 @@ failure uses an alert, while empty facts and empty request history use plain cop
   breaks explicitly say that they no longer count while earlier versions remain.
 - **Request form:** one select chooses missed, adjustment, or removal intent. Adjustment
   and removal add a current-break selector; missed and adjustment requests show paired
-  start/end fields from 640px. Wall-time fields accept `dd/mm/jjjj uu:mm`, optional
-  seconds through six fractional digits, and separate first/second occurrence selects
-  for repeated winter time. Removal hides time fields. Every request requires a reason
-  of at most 500 characters.
+  start/end fields from 640px. Shared minute fields preserve unchanged exact endpoints.
+  Only ambiguous winter times reveal occurrence choices. Removal hides time fields.
+  Every request requires a reason of at most 500 characters.
 - **History:** requests remain unboxed rows separated by Hairline Rules. Each row keeps
   submitted parent version, work period, original break snapshot, proposal, reason,
   decision note, applied revision identifier, and decision time readable with wrapping
@@ -652,7 +667,7 @@ active, disabled, or live-state treatment appropriate to its behavior.
 - **Do** lead shells with one broad dossier and divide responsibility with rules or
   material fields.
 - **Do** reserve cobalt for actions, focus, icons, and workflow trace markers.
-- **Do** reserve amber for inspection marks, selections, and status communication.
+- **Do** reserve amber for inspection marks, selections, and pending/attention states.
 - **Do** use condensed type for landmarks and humanist type for explanations and
   controls.
 - **Do** preserve a linear, readable workflow at the 320px minimum viewport.
@@ -664,3 +679,114 @@ active, disabled, or live-state treatment appropriate to its behavior.
 - **Don't** turn every content group into an independent rounded card or pill.
 - **Don't** add decorative gradients; the ruled 32px paper texture is the implemented
   gradient language.
+
+## Acceptance UX semantics (2026-09-07)
+
+Shared `StatusBadge` pairs explicit text with semantic CSS tokens. Green
+approved/success, amber pending/attention, red rejected/error, blue
+corrected/information, gray withdrawn/neutral. "Aangemeld" is neutral. Precision A logo
+and primary palette unchanged. Measured text/fill contrast: success 6.64:1, attention
+8.73:1, error 6.94:1, information 7.62:1, neutral 6.69:1. All exceed 4.5:1; meaning
+never depends on color alone.
+
+Readable duration is a display convention, not payroll rounding. Positive sub-minute
+values read "Minder dan 1 min". Exact arithmetic and export serializers are unchanged.
+Exact export row data remains inside existing record disclosures; ordinary v1 overview
+and v2 history totals show minutes with exact detail available.
+
+Employee work indicator uses a read-only, actor/organization-bound server action. It
+refreshes on navigation, focus/pageshow/visibility return and completed clock/break
+actions. Pending or failed reads never mean stopped. Hidden pages and logout clear the
+visible clock; stale async responses cannot replace a newer/account-switched result. No
+persistent browser storage, interval polling or realtime subscription. Manager security
+routes keep their existing MFA flow and do not use workspace navigation.
+
+Recent registration/request lists explicitly state their 20/50 bounds. No "Gecorrigeerd"
+record badge is fabricated from versions or a bounded request list. Existing SELECT
+grants/RLS allow reading the factual last-correction pointer and immutable added origin.
+Existing effective-break reads provide current revision IDs, including removals.
+Referenced decisions are fetched directly, independent of the last 50 requests, and must
+be approved with the matching application ID. Each badge opens its real decision with a
+local permalink. This shows the latest linked time decision and current break revisions,
+not a reconstruction of all older facts. No schema/RPC/permission expansion.
+
+## Responsive workspace (2026-09-07, incremental UX pass)
+
+These authenticated workspace rules supersede the earlier wrapped role navigation and
+ruled role-panel treatment. Public and MFA shells retain their existing presentation.
+Precision A assets, palette and fonts are unchanged.
+
+- One shared `WorkspaceShell` renders the production and isolated preview header,
+  account disclosure, navigation, work status and content surface. `RoleShell` still
+  loads the authorized identity on the server; protected pages/actions retain their
+  existing checks. `SiteChrome` suppresses public header/footer only on workspace paths.
+- Compact navigation is a single bottom row: employee **Tijdklok / Registraties /
+  Aanvragen**; manager **Overzicht / Aanvragen / Team / Meer**. Icons always accompany
+  text. There is only one focusable primary navigation tree. At 58rem (928 CSS px at
+  default text size), a 12rem rail leaves enough room for forms and comparisons. The
+  same DOM becomes the rail; no mobile/desktop navigation copies.
+- Requests use **Werktijd / Pauzes** secondary navigation. Exports and the invitation
+  shortcut live under **Meer**; legacy export stays inside an explicit disclosure. New
+  employee browsing routes separate records and requests. `/employee/corrections`
+  remains the combined compatibility view, including old request/decision anchors.
+- One sticky employee status line remains visible while scrolling. It reuses the
+  actor-scoped reader and refresh/clear/stale-result protections. Account/logout is a
+  compact header disclosure, closable with Escape or outside pointer interaction.
+- Semantic shapes: `--shape-control: 12px` for buttons, fields, navigation and
+  interactive disclosures; `--shape-surface: 16px` for content/comparison panels and
+  dialogs; `--shape-badge: 9999px` for status pills. Flat rows/dividers stay flat. Use
+  role tokens, not an all-elements radius override. Dense workspace surfaces are plain
+  paper.
+- Flexible content uses min-width zero, bounded readable widths and wrapping, never
+  essential-label truncation. Controls target 44px minimum and readable 1rem field text.
+  Dialog feedback precedes fields so Tab after a focused error returns to form controls.
+- Safe-area padding is included in measured navigation height. ResizeObserver reserves
+  bottom space and updates document scroll-padding for focus. Sticky header remains
+  compact; dialogs use the visual viewport's available height and scroll internally. If
+  a focused field and unzoomed visual viewport indicate keyboard occlusion >120px,
+  bottom navigation moves into document flow, remaining available. Viewport-resizing
+  keyboards use the ordinary responsive layout. No zoom suppression or hidden actions.
+
+Verification uses CSS pixels: 320/360/375/390/412/430/512/600/639/640/641/768/834/880/
+927/928/929/1023/1024/1025/1137/1280/1440, plus 740×360 landscape and 640px with doubled
+root text. Browser-zoom-equivalent reflow and synthetic visualViewport occlusion are
+probes, not proof of a real phone keyboard, notch, pinch zoom or Safari. Chromium is
+available locally; WebKit is absent and was not installed. Native Next routing and
+Supabase journeys are not proven by this isolated presentation harness.
+
+## Shared grid and clock continuity (2026-09-09)
+
+This continuation replaces the separate employee status strip. Header title, actions,
+secondary navigation and main surface share the 12rem desktop rail, 72rem content
+maximum and responsive, safe-area-aware gutters. Desktop rail fills the viewport below
+the measured header; its active state is quiet. Mobile bottom navigation and semantic
+shape tokens remain unchanged.
+
+Employee status and quick actions live together inside the header; Account stays
+separate. Header and panel use one instance-local coordinator under the employee layout,
+surviving sibling page-shell remounts. Fresh page identity gates that cached layout
+scope. Existing page/action authorization remains authoritative; manager/MFA layout is
+unchanged. No browser storage or module-global user cache.
+
+Confirmed reads survive ordinary navigation. Refreshes deduplicate and reuse a
+confirmation for 5 seconds; confirmation expires after 30 seconds, triggering a fresh
+read with controls disabled until confirmed. Read UI deadline is 8 seconds; late, older,
+conflicting or old-scope responses cannot restore authority. A frozen server timestamp
+cannot extend freshness. Logout/scope changes clear live state. Read deadlines do not
+cancel underlying Server Action transport or unlock mutations.
+
+Header/panel share a synchronous mutation lock. Only request_id and operation enter
+FormData; expected user/organization scope is a separate server-validated argument.
+Unacknowledged operations retain their request ID and permit only the same intent after
+status verification. Successful operations require a consistent server read; no
+optimistic work-state claim. Existing clock/break RPCs and interlocks stay intact.
+
+Registration rows group ranges, badge, Bruto/Pauze/Netto and short break ranges. One
+registration Details disclosure contains exact timestamps, durations and versions.
+Correction decisions stay separately accessible; permalinks open collapsed ancestors.
+Overnight dates and repeated-hour occurrence labels remain explicit. Arithmetic, export
+contracts and display rounding policy are unchanged.
+
+Wide alignment checks include 1280/1366/1440/1536/1600/1800/1920/2160/2560 CSS px.
+Synthetic router/action tests and source-boundary assertions are not native Next
+navigation, real action transport, session or physical-phone verification.

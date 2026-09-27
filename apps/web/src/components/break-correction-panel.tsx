@@ -1,5 +1,9 @@
 "use client";
-import Link from "next/link";
+import { AppliedCorrections } from "@/components/applied-corrections";
+import type { Provenance } from "@/lib/corrections/provenance";
+import { LocalTimeField } from "@/components/local-time-field";
+import { DurationDetails, TimeDetails } from "@/components/exact-details";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { changeBreakCorrection } from "@/lib/break-corrections/actions";
@@ -9,11 +13,12 @@ import type {
   BreakIntent,
   BreakView,
 } from "@/lib/break-corrections/model";
+import { minuteInput } from "@/lib/corrections/local-time";
 import { toBrusselsLocalInput } from "@/lib/corrections/format";
-import { exactMicroseconds, formatExactDuration } from "@/lib/time-clock/breaks";
+import { exactMicroseconds } from "@/lib/time-clock/breaks";
 
 const field =
-  "mt-2 min-h-11 w-full min-w-0 rounded-lg border border-rule-strong bg-paper px-3 py-2 text-base text-ink focus-visible:outline-2 focus-visible:outline-focus disabled:opacity-50";
+  "mt-2 min-h-11 w-full min-w-0 rounded-control border border-rule-strong bg-paper px-3 py-2 text-base text-ink focus-visible:outline-2 focus-visible:outline-focus disabled:opacity-50";
 const emptyIntent = {
   entry_id: null,
   target_id: null,
@@ -28,8 +33,26 @@ const emptyIntent = {
 };
 function interval(start: string | null, end: string | null) {
   return start && end
-    ? `${toBrusselsLocalInput(start)} – ${toBrusselsLocalInput(end)} (Brussel)`
+    ? `${minuteInput(start)} – ${minuteInput(end)} (Brussel)`
     : "Geen geldend interval";
+}
+function ExactInterval({
+  label,
+  start,
+  end,
+}: {
+  label: string;
+  start: string | null;
+  end: string | null;
+}) {
+  if (!start || !end) return null;
+  return (
+    <div className="mt-3">
+      <p className="font-semibold">{label}</p>
+      <TimeDetails value={start} />
+      <TimeDetails value={end} />
+    </div>
+  );
 }
 function useOperation() {
   const ids = useRef(new Map<string, string>());
@@ -58,50 +81,14 @@ function useOperation() {
   }
   return { run, pending, feedback, focus };
 }
-function LocalTime({
-  name,
-  label,
-  defaultValue,
-}: {
-  name: string;
-  label: string;
-  defaultValue: string;
-}) {
-  return (
-    <div className="min-w-0">
-      <label className="block font-semibold">
-        {label}
-        <input
-          className={field}
-          name={name}
-          required
-          defaultValue={defaultValue}
-          placeholder="dd/mm/jjjj uu:mm"
-          autoComplete="off"
-        />
-      </label>
-      <label className="mt-3 block text-sm">
-        {label}: herhaalde wintertijd
-        <select
-          className={field}
-          aria-label={`${label}: herhaalde wintertijd`}
-          name={`${name}_occurrence`}
-          defaultValue=""
-        >
-          <option value="">Kies bij een herhaalde tijd</option>
-          <option value="earlier">Eerste keer</option>
-          <option value="later">Tweede keer</option>
-        </select>
-      </label>
-    </div>
-  );
-}
 export function BreakCorrectionPanel({
   view,
   manager,
+  provenance = null,
 }: {
   view: BreakView | null;
   manager: boolean;
+  provenance?: Provenance | null;
 }) {
   const [entryId, setEntryId] = useState(view?.entries[0]?.id ?? "");
   const [intent, setIntent] = useState<BreakIntent>("missed_break");
@@ -112,12 +99,6 @@ export function BreakCorrectionPanel({
   const target = effective.find((b) => b.logical_break_id === targetId);
   return (
     <div className="mt-6 min-w-0">
-      <Link
-        className="font-semibold text-primary underline underline-offset-4"
-        href={manager ? "/manager" : "/employee"}
-      >
-        Terug naar werkruimte
-      </Link>
       <p
         ref={feedbackRef}
         tabIndex={-1}
@@ -155,7 +136,11 @@ export function BreakCorrectionPanel({
                     >
                       {view.entries.map((e) => (
                         <option key={e.id} value={e.id}>
-                          {interval(e.started_at, e.ended_at)}
+                          {minuteInput(e.started_at)} –{" "}
+                          {minuteInput(e.started_at).slice(0, 10) ===
+                          minuteInput(e.ended_at).slice(0, 10)
+                            ? minuteInput(e.ended_at).slice(11)
+                            : minuteInput(e.ended_at)}
                         </option>
                       ))}
                     </select>
@@ -168,9 +153,11 @@ export function BreakCorrectionPanel({
                       <h3 className="font-semibold">
                         Geldende feiten · werkperiode versie {entry.version}
                       </h3>
-                      <p className="mt-2 text-sm break-words">
-                        {interval(entry.started_at, entry.ended_at)}
-                      </p>
+                      <div className="mt-2 text-sm">
+                        <TimeDetails value={entry.started_at} />
+                        <TimeDetails value={entry.ended_at} />
+                      </div>
+                      <AppliedCorrections provenance={provenance?.[entry.id]} />
                       <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-3">
                         {[
                           [
@@ -204,7 +191,7 @@ export function BreakCorrectionPanel({
                           <div key={String(label)}>
                             <dt className="text-muted">{String(label)}</dt>
                             <dd className="mt-1 break-words tabular-nums">
-                              {formatExactDuration(value as bigint)}
+                              {<DurationDetails value={value as bigint} />}
                             </dd>
                           </div>
                         ))}
@@ -254,6 +241,14 @@ export function BreakCorrectionPanel({
                           intent === "removal"
                             ? null
                             : String(data.get("end_occurrence")),
+                        start_expected:
+                          intent === "adjustment"
+                            ? String(data.get("start_expected") ?? "")
+                            : "",
+                        end_expected:
+                          intent === "adjustment"
+                            ? String(data.get("end_expected") ?? "")
+                            : "",
                         reason: String(data.get("reason")),
                       });
                     }}
@@ -303,30 +298,29 @@ export function BreakCorrectionPanel({
                           key={`${entryId}-${intent}-${targetId}`}
                           className="grid gap-5 sm:grid-cols-2"
                         >
-                          <LocalTime
+                          <LocalTimeField
                             name="start"
                             label="Begin pauze"
-                            defaultValue={
-                              target?.started_at
-                                ? toBrusselsLocalInput(target.started_at)
-                                : ""
+                            instant={
+                              intent === "adjustment"
+                                ? (target?.started_at ?? undefined)
+                                : undefined
                             }
                           />
-                          <LocalTime
+                          <LocalTimeField
                             name="end"
                             label="Einde pauze"
-                            defaultValue={
-                              target?.ended_at
-                                ? toBrusselsLocalInput(target.ended_at)
-                                : ""
+                            instant={
+                              intent === "adjustment"
+                                ? (target?.ended_at ?? undefined)
+                                : undefined
                             }
                           />
                         </div>
                       )}
                       <p className="text-sm text-muted">
-                        Gebruik dd/mm/jjjj uu:mm, eventueel :ss.ffffff. Alle tijden zijn
-                        lokale Brusselse tijden. Bij de wintertijd kiest u de eerste of
-                        tweede keer.
+                        Vul datum en tijd in als dd/mm/jjjj uu:mm. Ongewijzigde tijden
+                        blijven exact behouden.
                       </p>
                       <label className="block font-semibold">
                         Reden
@@ -359,9 +353,14 @@ export function BreakCorrectionPanel({
             </h2>
             {!view.requests.length && <p className="mt-4">Nog geen pauzeaanvragen.</p>}
             {view.requests.map((r) => (
-              <article key={r.id} className="border-b border-rule py-6 break-words">
+              <article
+                key={r.id}
+                id={`request-${r.id}`}
+                className="border-b border-rule py-6 break-words"
+              >
                 <h3 className="text-lg font-semibold">
-                  {copy.kinds[r.request_kind]} · {copy.statuses[r.status]}
+                  {copy.kinds[r.request_kind]}{" "}
+                  <StatusBadge status={r.status}>{copy.statuses[r.status]}</StatusBadge>
                 </h3>
                 <p className="mt-2 text-sm text-muted">
                   Ingediend {toBrusselsLocalInput(r.created_at)} · Werkperiode versie{" "}
@@ -403,6 +402,33 @@ export function BreakCorrectionPanel({
                     ? "Niet meer meetellen als pauze; geschiedenis blijft bewaard."
                     : interval(r.proposed_started_at, r.proposed_ended_at)}
                 </p>
+                <details className="mt-3 text-sm">
+                  <summary className="min-h-11 cursor-pointer py-2 text-primary">
+                    Tijdstippen en versies vergelijken
+                  </summary>
+                  <ExactInterval
+                    label="Oorspronkelijke pauze"
+                    start={r.original_snapshot?.started_at ?? null}
+                    end={r.original_snapshot?.ended_at ?? null}
+                  />
+                  <ExactInterval
+                    label="Voorgestelde pauze"
+                    start={r.proposed_started_at}
+                    end={r.proposed_ended_at}
+                  />
+                  {manager && (
+                    <ExactInterval
+                      label="Huidige pauze"
+                      start={r.current_snapshot?.started_at ?? null}
+                      end={r.current_snapshot?.ended_at ?? null}
+                    />
+                  )}
+                  {r.applied_revision_id && (
+                    <p className="mt-3 break-all">
+                      Toegepaste revisie: {r.applied_revision_id}
+                    </p>
+                  )}
+                </details>
                 {r.status === "pending" && r.stale && (
                   <p className="mt-3 font-semibold text-danger">
                     Verouderde aanvraag. De vastgelegde versie is veranderd.
@@ -412,11 +438,6 @@ export function BreakCorrectionPanel({
                 {r.manager_note && (
                   <p className="mt-3 whitespace-pre-wrap">
                     Toelichting beheerder: {r.manager_note}
-                  </p>
-                )}
-                {r.applied_revision_id && (
-                  <p className="mt-3 text-sm break-all">
-                    Nieuwe pauzeversie vastgelegd: {r.applied_revision_id}
                   </p>
                 )}
                 {r.decided_at && (
