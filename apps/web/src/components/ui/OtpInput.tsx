@@ -22,7 +22,7 @@ export function OtpInput(props: OtpInputProps) {
       pattern="[0-9]*"
       className={cx(
         "focus-ring min-h-touch-target w-full rounded-md border-2 border-border bg-surface px-4",
-        "text-otp font-mono tracking-[0.4em] text-ink",
+        "font-mono text-otp tracking-[0.4em] text-ink",
         "aria-invalid:border-status-error",
       )}
     />
