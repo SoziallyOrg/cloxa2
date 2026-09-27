@@ -98,13 +98,23 @@ importers:
         version: 4.1.11(@types/node@24.13.6)(vite@8.2.2(@types/node@24.13.6)(jiti@2.7.0))
 
   packages/db:
+    dependencies:
+      zod:
+        specifier: 4.5.4
+        version: 4.5.4
     devDependencies:
+      '@supabase/supabase-js':
+        specifier: 2.112.4
+        version: 2.112.4
       '@types/node':
         specifier: 24.13.6
         version: 24.13.6
       typescript:
         specifier: 6.0.3
         version: 6.0.3
+      vitest:
+        specifier: 4.1.11
+        version: 4.1.11(@types/node@24.13.6)(vite@8.2.2(@types/node@24.13.6)(jiti@2.7.0))
 
   packages/domain:
     devDependencies:

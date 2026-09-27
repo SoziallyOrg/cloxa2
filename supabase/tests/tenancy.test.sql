@@ -116,7 +116,10 @@ select is(
       and pg_catalog.has_table_privilege('authenticated', c.oid, 'SELECT')
     order by 1
   ),
-  array['audit_log', 'clock_events', 'employees', 'memberships', 'organizations', 'site_assignments', 'sites'],
+  array[
+    'audit_log', 'clock_events', 'correction_requests', 'employees', 'invitations', 'memberships',
+    'organizations', 'schedules', 'site_assignments', 'sites'
+  ],
   'authenticated may SELECT every public table (RLS decides rows)'
 );
 
@@ -136,9 +139,18 @@ select is(
     'private.can_see_employee(uuid)',
     'private.current_membership(uuid)',
     'private.is_privileged(uuid)',
+    'rpc_accept_membership()',
     'rpc_clock(text,uuid,uuid,timestamp with time zone)',
+    'rpc_decide_correction(uuid,text,text)',
+    'rpc_invite_member(uuid,text,text,text,uuid[],text,text,text)',
     'rpc_my_status()',
-    'rpc_verify_chains(uuid)'
+    'rpc_request_correction(text,uuid[],jsonb,text)',
+    'rpc_revoke_invitation(uuid)',
+    'rpc_schedule_for(uuid,date,date)',
+    'rpc_set_schedule(uuid,date,jsonb)',
+    'rpc_sign_out_everywhere(uuid)',
+    'rpc_verify_chains(uuid)',
+    'rpc_withdraw_correction(uuid)'
   ],
   'authenticated executes only the RLS helpers and the public RPC wrappers'
 );

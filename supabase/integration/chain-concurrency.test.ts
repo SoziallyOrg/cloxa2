@@ -6,11 +6,12 @@
  * Fixtures use random ids and are left in place: clock_events and audit_log
  * are append-only by design, and local DB state is disposable.
  */
-import { execSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 
 import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+
+import { databaseUrl } from "./database-url";
 
 const ORGS = 2;
 const EMPLOYEES_PER_ORG = 2;
@@ -26,23 +27,6 @@ interface Employee {
 }
 
 type Outcome = { ok: true; id: string } | { ok: false; code: string; message: string };
-
-function databaseUrl(): string {
-  const fromEnv = process.env.SUPABASE_DB_URL;
-  if (fromEnv) return fromEnv;
-
-  const output = execSync("supabase status -o json", {
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "ignore"],
-  });
-  const status = JSON.parse(output) as { DB_URL?: unknown };
-  if (typeof status.DB_URL !== "string") {
-    throw new Error(
-      "`supabase status` reported no DB_URL. Is the local stack running?",
-    );
-  }
-  return status.DB_URL;
-}
 
 let sql: postgres.Sql;
 const organizationIds: string[] = [];

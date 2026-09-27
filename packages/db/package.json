@@ -11,8 +11,13 @@
   "scripts": {
     "typecheck": "tsc --noEmit"
   },
+  "dependencies": {
+    "zod": "4.5.4"
+  },
   "devDependencies": {
+    "@supabase/supabase-js": "2.112.4",
     "@types/node": "24.13.6",
-    "typescript": "6.0.3"
+    "typescript": "6.0.3",
+    "vitest": "4.1.11"
   }
 }

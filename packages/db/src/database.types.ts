@@ -136,6 +136,13 @@ export type Database = {
         };
         Relationships: [
           {
+            foreignKeyName: "clock_events_correction_fkey";
+            columns: ["organization_id", "correction_id"];
+            isOneToOne: false;
+            referencedRelation: "correction_requests";
+            referencedColumns: ["organization_id", "id"];
+          },
+          {
             foreignKeyName: "clock_events_employee_fkey";
             columns: ["organization_id", "employee_id"];
             isOneToOne: false;
@@ -155,6 +162,69 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "clock_events";
             referencedColumns: ["organization_id", "id"];
+          },
+        ];
+      };
+      correction_requests: {
+        Row: {
+          created_at: string;
+          decided_at: string | null;
+          decided_by: string | null;
+          decision_note: string | null;
+          employee_id: string;
+          id: string;
+          kind: string;
+          organization_id: string;
+          proposed: Json;
+          reason: string;
+          requested_by: string;
+          status: string;
+          target_event_ids: string[];
+        };
+        Insert: {
+          created_at?: string;
+          decided_at?: string | null;
+          decided_by?: string | null;
+          decision_note?: string | null;
+          employee_id: string;
+          id?: string;
+          kind: string;
+          organization_id: string;
+          proposed?: Json;
+          reason: string;
+          requested_by: string;
+          status?: string;
+          target_event_ids?: string[];
+        };
+        Update: {
+          created_at?: string;
+          decided_at?: string | null;
+          decided_by?: string | null;
+          decision_note?: string | null;
+          employee_id?: string;
+          id?: string;
+          kind?: string;
+          organization_id?: string;
+          proposed?: Json;
+          reason?: string;
+          requested_by?: string;
+          status?: string;
+          target_event_ids?: string[];
+        };
+        Relationships: [
+          {
+            foreignKeyName: "correction_requests_employee_fkey";
+            columns: ["organization_id", "employee_id"];
+            isOneToOne: false;
+            referencedRelation: "employees";
+            referencedColumns: ["organization_id", "id"];
+          },
+          {
+            foreignKeyName: "correction_requests_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
           },
         ];
       };
@@ -205,6 +275,76 @@ export type Database = {
           },
           {
             foreignKeyName: "employees_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      invitations: {
+        Row: {
+          created_at: string;
+          email: string;
+          employee_id: string;
+          expires_at: string;
+          id: string;
+          invited_by: string;
+          membership_id: string | null;
+          organization_id: string;
+          role: string;
+          site_ids: string[];
+          status: string;
+          updated_at: string;
+          user_id: string | null;
+        };
+        Insert: {
+          created_at?: string;
+          email: string;
+          employee_id: string;
+          expires_at?: string;
+          id?: string;
+          invited_by: string;
+          membership_id?: string | null;
+          organization_id: string;
+          role: string;
+          site_ids?: string[];
+          status?: string;
+          updated_at?: string;
+          user_id?: string | null;
+        };
+        Update: {
+          created_at?: string;
+          email?: string;
+          employee_id?: string;
+          expires_at?: string;
+          id?: string;
+          invited_by?: string;
+          membership_id?: string | null;
+          organization_id?: string;
+          role?: string;
+          site_ids?: string[];
+          status?: string;
+          updated_at?: string;
+          user_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "invitations_employee_fkey";
+            columns: ["organization_id", "employee_id"];
+            isOneToOne: false;
+            referencedRelation: "employees";
+            referencedColumns: ["organization_id", "id"];
+          },
+          {
+            foreignKeyName: "invitations_membership_fkey";
+            columns: ["organization_id", "membership_id"];
+            isOneToOne: false;
+            referencedRelation: "memberships";
+            referencedColumns: ["organization_id", "id"];
+          },
+          {
+            foreignKeyName: "invitations_organization_id_fkey";
             columns: ["organization_id"];
             isOneToOne: false;
             referencedRelation: "organizations";
@@ -276,6 +416,57 @@ export type Database = {
           updated_at?: string;
         };
         Relationships: [];
+      };
+      schedules: {
+        Row: {
+          created_at: string;
+          created_by: string;
+          employee_id: string;
+          id: string;
+          notified_at: string | null;
+          organization_id: string;
+          pattern: Json;
+          valid_from: string;
+          version: number;
+        };
+        Insert: {
+          created_at?: string;
+          created_by: string;
+          employee_id: string;
+          id?: string;
+          notified_at?: string | null;
+          organization_id: string;
+          pattern: Json;
+          valid_from: string;
+          version: number;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string;
+          employee_id?: string;
+          id?: string;
+          notified_at?: string | null;
+          organization_id?: string;
+          pattern?: Json;
+          valid_from?: string;
+          version?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "schedules_employee_fkey";
+            columns: ["organization_id", "employee_id"];
+            isOneToOne: false;
+            referencedRelation: "employees";
+            referencedColumns: ["organization_id", "id"];
+          },
+          {
+            foreignKeyName: "schedules_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       site_assignments: {
         Row: {
@@ -379,6 +570,37 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      rpc_accept_membership: {
+        Args: never;
+        Returns: {
+          membership_id: string;
+          organization_id: string;
+        }[];
+      };
+      rpc_admin_create_organization: {
+        Args: {
+          p_name: string;
+          p_owner_display_name?: string;
+          p_owner_user_id: string;
+        };
+        Returns: {
+          employee_id: string;
+          membership_id: string;
+          organization_id: string;
+          site_id: string;
+        }[];
+      };
+      rpc_auth_attempt: {
+        Args: { p_email_hash: string; p_ip_hash?: string; p_kind: string };
+        Returns: {
+          allowed: boolean;
+          retry_after: number;
+        }[];
+      };
+      rpc_auth_attempt_reset: {
+        Args: { p_email_hash: string };
+        Returns: undefined;
+      };
       rpc_clock: {
         Args: {
           p_client_captured_at?: string;
@@ -412,6 +634,47 @@ export type Database = {
           isSetofReturn: false;
         };
       };
+      rpc_decide_correction: {
+        Args: { p_decision: string; p_id: string; p_note?: string };
+        Returns: {
+          created_at: string;
+          decided_at: string | null;
+          decided_by: string | null;
+          decision_note: string | null;
+          employee_id: string;
+          id: string;
+          kind: string;
+          organization_id: string;
+          proposed: Json;
+          reason: string;
+          requested_by: string;
+          status: string;
+          target_event_ids: string[];
+        };
+        SetofOptions: {
+          from: "*";
+          to: "correction_requests";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
+      rpc_invite_member: {
+        Args: {
+          p_display_name: string;
+          p_email: string;
+          p_employee_code?: string;
+          p_language?: string;
+          p_org: string;
+          p_role: string;
+          p_site_ids: string[];
+          p_statute?: string;
+        };
+        Returns: string;
+      };
+      rpc_link_invited_user: {
+        Args: { p_invitation_id: string; p_user_id: string };
+        Returns: string;
+      };
       rpc_my_status: {
         Args: never;
         Returns: {
@@ -425,12 +688,98 @@ export type Database = {
           state: string;
         }[];
       };
+      rpc_request_correction: {
+        Args: {
+          p_kind: string;
+          p_proposed: Json;
+          p_reason: string;
+          p_target_event_ids: string[];
+        };
+        Returns: {
+          created_at: string;
+          decided_at: string | null;
+          decided_by: string | null;
+          decision_note: string | null;
+          employee_id: string;
+          id: string;
+          kind: string;
+          organization_id: string;
+          proposed: Json;
+          reason: string;
+          requested_by: string;
+          status: string;
+          target_event_ids: string[];
+        };
+        SetofOptions: {
+          from: "*";
+          to: "correction_requests";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
+      rpc_revoke_invitation: { Args: { p_id: string }; Returns: undefined };
+      rpc_schedule_for: {
+        Args: { p_employee_id: string; p_from: string; p_to: string };
+        Returns: {
+          day: string;
+          end_at: string;
+          start_at: string;
+        }[];
+      };
+      rpc_set_schedule: {
+        Args: { p_employee_id: string; p_pattern: Json; p_valid_from: string };
+        Returns: {
+          created_at: string;
+          created_by: string;
+          employee_id: string;
+          id: string;
+          notified_at: string | null;
+          organization_id: string;
+          pattern: Json;
+          valid_from: string;
+          version: number;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "schedules";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
+      rpc_sign_out_everywhere: {
+        Args: { p_employee_id: string };
+        Returns: number;
+      };
       rpc_verify_chains: {
         Args: { p_org: string };
         Returns: {
           audit_broken_row_id: string;
           clock_broken_event_id: string;
         }[];
+      };
+      rpc_withdraw_correction: {
+        Args: { p_id: string };
+        Returns: {
+          created_at: string;
+          decided_at: string | null;
+          decided_by: string | null;
+          decision_note: string | null;
+          employee_id: string;
+          id: string;
+          kind: string;
+          organization_id: string;
+          proposed: Json;
+          reason: string;
+          requested_by: string;
+          status: string;
+          target_event_ids: string[];
+        };
+        SetofOptions: {
+          from: "*";
+          to: "correction_requests";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
       };
     };
     Enums: {
