@@ -1,17 +1,86 @@
 /*
  * Tailwind 4 theme tokens. Keep in sync with `tokens.ts` — colours are
- * WCAG AA (>=4.5:1) against `--color-paper`.
+ * WCAG AA (>=4.5:1, AAA >=7:1 for body text) against `--color-paper`.
+ * Dark mode follows the OS preference (`prefers-color-scheme`), no toggle.
  */
 @theme {
   --color-ink: #15212a;
   --color-paper: #f8f6ee;
+  --color-surface: #ffffff;
+  --color-border: #cbd2d9;
   --color-primary: #0e4a67;
+  --color-primary-contrast: #ffffff;
+
+  /* Status colours: always paired with a text label, never colour alone. */
+  --color-status-working: #15803d;
+  --color-status-working-bg: #dcfce7;
+  --color-status-break: #b45309;
+  --color-status-break-bg: #fef3c7;
+  --color-status-off: #44515c;
+  --color-status-off-bg: #e6e9ec;
+  --color-status-error: #b91c1c;
+  --color-status-error-bg: #fee2e2;
+
   --color-success: #15803d;
   --color-warning: #b45309;
   --color-danger: #b91c1c;
 
-  --font-size-base: 18px;
+  /* Type scale: 18px base, up to ~40px for the status sentence. */
+  --text-base: 18px;
+  --text-lg: 20px;
+  --text-xl: 24px;
+  --text-2xl: 28px;
+  --text-status: 36px;
+  --text-status--line-height: 1.2;
+  --text-otp: 32px;
 
+  /* Spacing (in addition to Tailwind's default scale). */
   --spacing-touch-target: 48px;
+  --spacing-button-lg: 56px;
   --spacing-primary-action: 72px;
+  --spacing-bottom-nav: 64px;
+  --spacing-kiosk-tile: 96px;
+  --spacing-pin-key: 80px;
+
+  /* Radius. */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+
+  /* Focus ring: at least 3px, always visible, never colour-only. */
+  --focus-ring-width: 3px;
+  --focus-ring-color: #0e4a67;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-ink: #f2f4f6;
+    --color-paper: #10171d;
+    --color-surface: #1a252d;
+    --color-border: #3a4750;
+    --color-primary: #4f9ec9;
+    --color-primary-contrast: #0a1a22;
+
+    --color-status-working: #4ade80;
+    --color-status-working-bg: #14432a;
+    --color-status-break: #fbbf24;
+    --color-status-break-bg: #4a3506;
+    --color-status-off: #b7c1c8;
+    --color-status-off-bg: #2a343b;
+    --color-status-error: #f87171;
+    --color-status-error-bg: #4a1414;
+
+    --focus-ring-color: #7cc1e8;
+  }
+}
+
+/* Not part of @theme (no utility needed): a shared, always-visible focus
+   style applied via a class, never inline styles (CSP forbids those). */
+.focus-ring {
+  outline: none;
+}
+
+.focus-ring:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: 2px;
 }

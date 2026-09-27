@@ -20,3 +20,15 @@ export function formatBrusselsDate(date: Date): string {
     year: "numeric",
   }).format(date);
 }
+
+/** Format a UTC instant as a short Brussels day label, e.g. "ma 28 sep". */
+export function formatBrusselsShortDate(date: Date): string {
+  return new Intl.DateTimeFormat(LOCALE, {
+    timeZone: BRUSSELS_TIME_ZONE,
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  })
+    .format(date)
+    .replace(/\./g, "");
+}
