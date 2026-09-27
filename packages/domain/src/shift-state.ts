@@ -1,13 +1,10 @@
 /**
- * Pure derivation of a shift's current state from an ordered list of clock
- * events. No I/O, no wall-clock reads: callers supply the event log.
+ * Pure derivation of a shift's current state from an ordered list of
+ * effective clock events. No I/O, no wall-clock reads: callers supply the
+ * event log, already filtered by `effectiveEvents` and sorted.
  */
 
-export type ClockEventType = "clock_in" | "clock_out" | "break_start" | "break_end";
-
-export interface ClockEvent {
-  readonly type: ClockEventType;
-}
+import type { ClockEvent, ClockEventType } from "./clock-event";
 
 export type ShiftState = "off" | "working" | "on_break";
 
@@ -32,18 +29,31 @@ const TRANSITIONS: Record<ShiftState, Partial<Record<ClockEventType, ShiftState>
 };
 
 /**
- * Fold an ordered event log into a shift state, rejecting any sequence that
- * contains an out-of-order transition (e.g. `break_end` while `off`).
+ * Look up the next shift state for an event type, or `undefined` if that
+ * event is not valid while in `state`. Shared by `deriveShiftState` and
+ * `validateSequence` so the transition table has one home.
+ */
+export function nextShiftState(
+  state: ShiftState,
+  type: ClockEventType,
+): ShiftState | undefined {
+  return TRANSITIONS[state][type];
+}
+
+/**
+ * Fold an ordered, effective event log into a shift state, rejecting any
+ * sequence that contains an out-of-order transition (e.g. `break_end` while
+ * `off`).
  */
 export function deriveShiftState(
-  events: readonly ClockEvent[],
+  events: readonly Pick<ClockEvent, "type">[],
 ): DeriveShiftStateResult {
   let state: ShiftState = "off";
 
   for (const [index, event] of events.entries()) {
-    const nextState: ShiftState | undefined = TRANSITIONS[state][event.type];
+    const next = nextShiftState(state, event.type);
 
-    if (nextState === undefined) {
+    if (next === undefined) {
       return {
         ok: false,
         error: `Invalid transition: "${event.type}" is not allowed while shift state is "${state}".`,
@@ -51,7 +61,7 @@ export function deriveShiftState(
       };
     }
 
-    state = nextState;
+    state = next;
   }
 
   return { ok: true, state };

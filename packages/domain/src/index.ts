@@ -1,9 +1,16 @@
+export type { ClockEvent, ClockEventSource, ClockEventType } from "./clock-event";
+export { effectiveEvents } from "./effective-events";
 export type {
-  ClockEvent,
-  ClockEventType,
   DeriveShiftStateFailure,
   DeriveShiftStateResult,
   DeriveShiftStateSuccess,
   ShiftState,
 } from "./shift-state";
-export { deriveShiftState } from "./shift-state";
+export { deriveShiftState, nextShiftState } from "./shift-state";
+export type { Shift, ShiftBreak } from "./shifts";
+export { deriveShifts } from "./shifts";
+export type { SequenceProblem } from "./validate-sequence";
+export { validateSequence } from "./validate-sequence";
+export type { DeviationFromSchedule, PlannedBlock } from "./deviation";
+export { deviationFromSchedule } from "./deviation";
+export { brusselsDayKey } from "./brussels-day-key";
