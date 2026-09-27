@@ -1,0 +1,17 @@
+/*
+ * Tailwind 4 theme tokens. Keep in sync with `tokens.ts` — colours are
+ * WCAG AA (>=4.5:1) against `--color-paper`.
+ */
+@theme {
+  --color-ink: #15212a;
+  --color-paper: #f8f6ee;
+  --color-primary: #0e4a67;
+  --color-success: #15803d;
+  --color-warning: #b45309;
+  --color-danger: #b91c1c;
+
+  --font-size-base: 18px;
+
+  --spacing-touch-target: 48px;
+  --spacing-primary-action: 72px;
+}

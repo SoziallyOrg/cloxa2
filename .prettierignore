@@ -1,14 +1,10 @@
 .next
 .pnpm-store
+.turbo
 coverage
+next-env.d.ts
 node_modules
 playwright-report
 pnpm-lock.yaml
 supabase/.temp
 test-results
-BUSINESS_PLAN.md
-MASTER.md
-.codex
-apps/web/AGENTS.md
-apps/web/CLAUDE.md
-.impeccable
