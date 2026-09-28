@@ -13,8 +13,10 @@ export default async function MfaSetupPage() {
   if (await hasVerifiedTotp()) redirect("/manage/beveiliging/controle");
 
   return (
-    <AuthShell title={t("mfa.setupTitle")}>
-      <p className="text-lg">{t("mfa.setupIntro")}</p>
+    <AuthShell
+      title={t("mfa.setupTitle")}
+      intro={<p className="text-body text-ink-2">{t("mfa.setupIntro")}</p>}
+    >
       <MfaEnrolment />
       <SessionActions />
     </AuthShell>

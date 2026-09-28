@@ -10,7 +10,7 @@ export interface PairingCodeCardProps {
   pairUrl: string;
 }
 
-/** The one-time code, large enough to read from across the counter. */
+/** The one-time code, huge and monospaced: readable from across the counter. */
 export function PairingCodeCard({
   deviceName,
   code,
@@ -18,21 +18,20 @@ export function PairingCodeCard({
   pairUrl,
 }: PairingCodeCardProps) {
   return (
-    <div
-      role="status"
-      className="flex flex-col gap-3 rounded-lg border-2 border-ink bg-paper p-6"
-    >
-      <p className="text-lg font-semibold">
+    <div role="status" className="flex flex-col items-center gap-4 py-2 text-center">
+      <p className="text-body text-ink-2">
         {t("manageKiosks.codeHeading", { name: deviceName })}
       </p>
       <p
         data-testid="pairing-code"
-        className="font-mono text-5xl font-bold tracking-widest break-all"
+        className="font-mono text-[44px] leading-tight font-medium tracking-[0.12em] break-all md:text-[56px]"
       >
         {code}
       </p>
-      <p className="text-lg">{t("manageKiosks.codeInstruction", { url: pairUrl })}</p>
-      <p className="text-base text-ink-2">
+      <p className="text-body break-words">
+        {t("manageKiosks.codeInstruction", { url: pairUrl })}
+      </p>
+      <p className="text-subhead text-ink-2">
         {t("manageKiosks.codeExpires", { time: expiresAt })}
       </p>
     </div>

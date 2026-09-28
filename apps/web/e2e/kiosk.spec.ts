@@ -105,9 +105,10 @@ test("admin pairs a kiosk; an employee without login clocks in with a PIN", asyn
   await admin.goto("/manage/meer");
   await admin.getByRole("link", { name: "Kiosks", exact: true }).click();
   await expect(admin).toHaveURL(/\/manage\/meer\/kiosks$/);
+  await button(admin, "Nieuwe kiosk").click();
   await admin.getByLabel("Locatie").selectOption({ label: SITE_NAME });
   await admin.getByLabel("Naam van de tablet").fill(kioskName);
-  await button(admin, "Nieuwe kiosk").click();
+  await button(admin, "Kiosk aanmaken").click();
   const codeText = admin.getByTestId("pairing-code");
   await expect(codeText).toHaveText(/^[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}$/, {
     timeout: 15_000,
@@ -150,8 +151,13 @@ test("admin pairs a kiosk; an employee without login clocks in with a PIN", asyn
   // Tidy up: revoke this run's kiosk; the tablet then says so.
   await admin.reload();
   const item = admin.getByRole("listitem").filter({ hasText: kioskName });
-  admin.once("dialog", (dialog) => void dialog.accept());
-  await item.getByRole("button", { name: "Intrekken" }).click();
+  // The row offers the choices; revoking asks once more in an alert.
+  await item.getByRole("button").click();
+  await admin.getByRole("dialog").getByRole("button", { name: "Intrekken" }).click();
+  await admin
+    .getByRole("alertdialog")
+    .getByRole("button", { name: "Ja, trek in" })
+    .click();
   await expect(item.getByText("Ingetrokken")).toBeVisible({ timeout: 15_000 });
   await tablet.reload();
   await expect(

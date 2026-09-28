@@ -13,8 +13,10 @@ export default async function MfaVerifyPage() {
   if (!(await hasVerifiedTotp())) redirect("/manage/beveiliging/instellen");
 
   return (
-    <AuthShell title={t("mfa.verifyTitle")}>
-      <p className="text-lg">{t("mfa.verifyIntro")}</p>
+    <AuthShell
+      title={t("mfa.verifyTitle")}
+      intro={<p className="text-body text-ink-2">{t("mfa.verifyIntro")}</p>}
+    >
       <CodeForm
         id="mfa-verify-code"
         label={t("mfa.codeLabel")}

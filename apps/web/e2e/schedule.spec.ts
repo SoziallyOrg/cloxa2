@@ -77,6 +77,8 @@ test("manager sets today's schedule block, employee sees it", async ({ browser }
   // already have one from an earlier run (a fresh version always starts
   // from the current one), then (re)set its times either way.
   const dayRow = managerPage.getByTestId(`schedule-day-${day}`);
+  // The page slides in: count the day's fields only once the editor is there.
+  await expect(dayRow).toBeVisible();
   if ((await dayRow.locator('input[type="time"]').count()) === 0) {
     await dayRow.getByRole("button", { name: "Blok toevoegen" }).click();
   }

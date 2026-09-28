@@ -1,21 +1,24 @@
 import { redirect } from "next/navigation";
 
+import { ScrollText, X } from "lucide-react";
+
+import { brusselsDayKey } from "@cloxa/domain";
 import {
   brusselsLocalToInstant,
-  formatBrusselsDate,
+  formatBrusselsLongDay,
   formatBrusselsTime,
   t,
 } from "@cloxa/i18n";
 
+import { AuditFilterSheet } from "@/components/manage/AuditFilterSheet";
 import { AuditPager } from "@/components/manage/AuditPager";
 import { AuditVerifyButton } from "@/components/manage/AuditVerifyButton";
-import { ManageShell } from "@/components/manage/ManageShell";
-import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { Heading } from "@/components/ui/Heading";
-import { Stack } from "@/components/ui/Stack";
-import { TextInput } from "@/components/ui/TextInput";
+import { List, Row, Section } from "@/components/ui/List";
+import { NavBar } from "@/components/ui/NavBar";
+import { PageTransition } from "@/components/ui/PageTransition";
 import { requireManager } from "@/lib/auth/context";
+import { previewHold } from "@/lib/preview";
 import { auditActorLabel } from "@/lib/audit/actor";
 import {
   ACTION_DESCRIPTIONS,
@@ -72,13 +75,9 @@ export default async function ManageAuditPage({
   if (context.membership.role !== "owner" && context.membership.role !== "admin") {
     redirect("/manage/meer");
   }
+  await previewHold();
   const organizationId = context.membership.organizationId;
   const supabase = await createClient();
-
-  const { count: pendingCount } = await supabase
-    .from("correction_requests")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "pending");
 
   const rawParams = await searchParams;
   const filters = parseAuditFilters(rawParams);
@@ -191,131 +190,107 @@ export default async function ManageAuditPage({
   if (page.nextCursor) nextParams.set("cursor", page.nextCursor);
   const nextHref = page.nextCursor ? auditPath(nextParams) : null;
 
+  const filtered = baseParams.size > 0;
+
+  // One soft group per Brussels day, newest first.
+  type AuditRow = (typeof page.items)[number];
+  const days: { key: string; label: string; rows: AuditRow[] }[] = [];
+  for (const row of page.items) {
+    const at = Date.parse(row.created_at);
+    const key = brusselsDayKey(at);
+    const last = days.at(-1);
+    if (last?.key === key) last.rows.push(row);
+    else days.push({ key, label: formatBrusselsLongDay(new Date(at)), rows: [row] });
+  }
+
+  function actorText(row: (typeof page.items)[number]): string {
+    const deviceId =
+      row.actor_user_id === null ? deviceIdFromMetadata(row.metadata) : null;
+    const label = auditActorLabel({
+      actorUserId: row.actor_user_id,
+      displayName: row.actor_user_id
+        ? (displayNames.get(row.actor_user_id) ?? null)
+        : null,
+      deviceId,
+      deviceName: deviceId ? (deviceNames.get(deviceId) ?? null) : null,
+    });
+    return label.kind === "person"
+      ? (label.name ?? t("audit.actorUnknown"))
+      : label.kind === "kiosk"
+        ? t("audit.actorKiosk", { name: label.deviceName ?? t("audit.actorUnknown") })
+        : t("audit.actorSystem");
+  }
+
   return (
-    <ManageShell
-      active="more"
-      pendingQuestionsCount={pendingCount ?? 0}
-      showSwitchToEmployee={context.employeeId !== null}
-    >
-      <Stack gap="lg">
-        <div className="flex flex-col gap-2">
-          <Heading level={1}>{t("audit.heading")}</Heading>
-          <p className="text-lg text-ink-2">{t("audit.intro")}</p>
-        </div>
-
-        <Card>
-          <Stack gap="md">
-            <Heading level={2}>{t("audit.verifyHeading")}</Heading>
-            <AuditVerifyButton
-              isOwner={context.membership.role === "owner"}
-              action={verifyChainsAction}
-            />
-          </Stack>
-        </Card>
-
-        <Card>
-          <form method="get" className="flex flex-wrap items-end gap-4">
-            <label className="flex flex-col gap-2">
-              <span className="text-lg font-semibold">{t("audit.filterFrom")}</span>
-              <TextInput type="date" name="from" defaultValue={filters.from ?? ""} />
-            </label>
-            <label className="flex flex-col gap-2">
-              <span className="text-lg font-semibold">{t("audit.filterTo")}</span>
-              <TextInput type="date" name="to" defaultValue={filters.to ?? ""} />
-            </label>
-            <label className="flex flex-col gap-2">
-              <span className="text-lg font-semibold">{t("audit.filterCategory")}</span>
-              <select
-                name="category"
-                defaultValue={filters.category ?? ""}
-                className="focus-ring min-h-touch-target rounded-md border-2 border-line bg-paper px-4 text-lg text-ink"
-              >
-                <option value="">{t("audit.filterCategoryAll")}</option>
-                {AUDIT_CATEGORIES.map((category) => {
-                  const key = categoryLabelKey(category);
-                  return (
-                    <option key={category} value={category}>
-                      {key ? t(key) : category}
-                    </option>
-                  );
-                })}
-              </select>
-            </label>
-            <label className="flex flex-col gap-2">
-              <span className="text-lg font-semibold">{t("audit.filterActor")}</span>
-              <TextInput
-                type="text"
-                name="actor"
-                defaultValue={filters.actor ?? ""}
-                placeholder={t("audit.filterActorHint")}
-              />
-            </label>
-            <button
-              type="submit"
-              className="focus-ring inline-flex min-h-touch-target items-center rounded-md bg-ink px-6 text-lg font-semibold text-paper"
-            >
-              {t("audit.filterApply")}
-            </button>
-            <a
-              href="/manage/meer/audit"
-              className="focus-ring inline-flex min-h-touch-target items-center px-2 text-lg font-semibold text-ink underline"
-            >
-              {t("audit.filterClear")}
-            </a>
-          </form>
-        </Card>
-
-        {page.items.length === 0 ? (
-          <EmptyState title={t("audit.empty")} body={t("audit.intro")} />
-        ) : (
-          <Stack gap="sm" as="ul">
-            {page.items.map((row) => {
-              const at = new Date(row.created_at);
-              const deviceId =
-                row.actor_user_id === null ? deviceIdFromMetadata(row.metadata) : null;
-              const label = auditActorLabel({
-                actorUserId: row.actor_user_id,
-                displayName: row.actor_user_id
-                  ? (displayNames.get(row.actor_user_id) ?? null)
-                  : null,
-                deviceId,
-                deviceName: deviceId ? (deviceNames.get(deviceId) ?? null) : null,
-              });
-              const actorText =
-                label.kind === "person"
-                  ? (label.name ?? t("audit.actorUnknown"))
-                  : label.kind === "kiosk"
-                    ? t("audit.actorKiosk", {
-                        name: label.deviceName ?? t("audit.actorUnknown"),
-                      })
-                    : t("audit.actorSystem");
-              const entityKey = entityLabelKey(row.entity);
-
-              return (
-                <li key={row.id}>
-                  <Card>
-                    <Stack gap="sm">
-                      <p className="text-ink-2">
-                        {formatBrusselsDate(at)} {formatBrusselsTime(at)} · {actorText}
-                      </p>
-                      <p className="text-lg font-semibold">
-                        {t(describeAction(row.action))}
-                      </p>
-                      <p className="text-ink-2">
-                        {t("audit.entityLabel", {
-                          entity: `${entityKey ? t(entityKey) : row.entity} ${shortId(row.entity_id)}`,
-                        })}
-                      </p>
-                    </Stack>
-                  </Card>
-                </li>
-              );
+    <PageTransition>
+      <NavBar
+        title={t("audit.heading")}
+        back={{ href: "/manage/meer", label: t("manageMore.heading") }}
+        trailing={
+          <AuditFilterSheet
+            from={filters.from ?? ""}
+            to={filters.to ?? ""}
+            category={filters.category ?? ""}
+            actor={filters.actor ?? ""}
+            categories={AUDIT_CATEGORIES.map((category) => {
+              const key = categoryLabelKey(category);
+              return [category, key ? t(key) : category] as const;
             })}
-          </Stack>
+          />
+        }
+      />
+      <List className="pb-10">
+        <p className="-mt-2 px-4 text-subhead text-ink-2">{t("audit.intro")}</p>
+
+        <AuditVerifyButton
+          isOwner={context.membership.role === "owner"}
+          action={verifyChainsAction}
+        />
+
+        {filtered ? (
+          <Section footer={t("audit.filterActiveNote")}>
+            <Row
+              href="/manage/meer/audit"
+              icon={X}
+              title={t("audit.filterClear")}
+              chevron={false}
+            />
+          </Section>
+        ) : null}
+
+        {days.length === 0 ? (
+          <EmptyState
+            icon={ScrollText}
+            title={t("audit.empty")}
+            body={t("audit.intro")}
+          />
+        ) : (
+          days.map((day) => (
+            <Section key={day.key} header={day.label}>
+              {day.rows.map((row) => {
+                const entityKey = entityLabelKey(row.entity);
+                return (
+                  <Row
+                    key={row.id}
+                    title={t(describeAction(row.action))}
+                    subtitle={[
+                      t("audit.rowDetail", {
+                        time: formatBrusselsTime(new Date(row.created_at)),
+                        actor: actorText(row),
+                      }),
+                      t("audit.entityLabel", {
+                        entity: `${entityKey ? t(entityKey) : row.entity} ${shortId(row.entity_id)}`,
+                      }),
+                    ].join(" · ")}
+                  />
+                );
+              })}
+            </Section>
+          ))
         )}
 
         <AuditPager hasPrevious={cursor !== null} nextHref={nextHref} />
-      </Stack>
-    </ManageShell>
+      </List>
+    </PageTransition>
   );
 }

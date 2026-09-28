@@ -3,16 +3,16 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { t, type CatalogKey } from "@cloxa/i18n";
+import { formatBrusselsDate, t, type CatalogKey } from "@cloxa/i18n";
 
 import type { ExportFormInput } from "@/lib/exports/form";
 
-import { Notice } from "../ui/Notice";
 import { Button } from "../ui/Button";
-import { Field } from "../ui/Field";
-import { Heading } from "../ui/Heading";
-import { Stack } from "../ui/Stack";
-import { TextInput } from "../ui/TextInput";
+import { ListItem, Row, Section } from "../ui/List";
+import { Notice } from "../ui/Notice";
+import { SegmentedControl } from "../ui/SegmentedControl";
+import { inputClassName } from "../ui/TextInput";
+import { cx } from "../ui/cx";
 
 interface Period {
   readonly from: string;
@@ -25,9 +25,21 @@ export interface ExportFormProps {
   action: (input: ExportFormInput) => Promise<{ ok: boolean; errorKey?: CatalogKey }>;
 }
 
-/** Period (with two quick picks) and sites; every visible site is ticked by default. */
+type Pick = "previous" | "this" | "custom";
+
+// Noon UTC is the same calendar day in Brussels all year round.
+const day = (key: string) =>
+  key ? formatBrusselsDate(new Date(`${key}T12:00:00Z`)) : t("common.none");
+
+const DATE_INPUT = cx(inputClassName, "bg-paper tabular-nums");
+
+/**
+ * The period as quick picks (last month, this month, or your own dates) and
+ * the sites; every visible site is ticked by default.
+ */
 export function ExportForm({ sites, quickPicks, action }: ExportFormProps) {
   const router = useRouter();
+  const [pick, setPick] = useState<Pick>("previous");
   const [from, setFrom] = useState(quickPicks.previousMonth.from);
   const [to, setTo] = useState(quickPicks.previousMonth.to);
   const [siteIds, setSiteIds] = useState<string[]>(sites.map((site) => site.id));
@@ -35,9 +47,19 @@ export function ExportForm({ sites, quickPicks, action }: ExportFormProps) {
   const [errorKey, setErrorKey] = useState<CatalogKey | null>(null);
   const [done, setDone] = useState(false);
 
-  function pick(period: Period) {
-    setFrom(period.from);
-    setTo(period.to);
+  function choose(next: Pick) {
+    setPick(next);
+    setDone(false);
+    const period =
+      next === "previous"
+        ? quickPicks.previousMonth
+        : next === "this"
+          ? quickPicks.thisMonth
+          : null;
+    if (period) {
+      setFrom(period.from);
+      setTo(period.to);
+    }
   }
 
   function toggleSite(id: string) {
@@ -64,88 +86,91 @@ export function ExportForm({ sites, quickPicks, action }: ExportFormProps) {
   return (
     <form
       onSubmit={(event) => void handleSubmit(event)}
-      className="flex flex-col gap-4"
+      className="flex flex-col gap-8"
     >
-      <Heading level={2}>{t("exports.createHeading")}</Heading>
-
-      {done ? (
-        <Notice tone="success" onDismiss={() => setDone(false)}>
-          {t("exports.created")}
-        </Notice>
-      ) : null}
-      {errorKey ? (
-        <Notice tone="error" onDismiss={() => setErrorKey(null)}>
-          {t(errorKey)}
-        </Notice>
-      ) : null}
+      <section className="flex flex-col gap-3">
+        <h2 className="px-4 text-subhead text-ink-2">{t("exports.periodLabel")}</h2>
+        <SegmentedControl
+          label={t("exports.quickPicksLabel")}
+          value={pick}
+          onValueChange={choose}
+          options={[
+            { value: "previous", label: t("exports.previousMonth") },
+            { value: "this", label: t("exports.thisMonth") },
+            { value: "custom", label: t("exports.customPeriod") },
+          ]}
+        />
+        <Section>
+          {pick === "custom" ? (
+            <ListItem className="py-3">
+              <div className="grid grid-cols-2 gap-3">
+                <label className="flex flex-col gap-1">
+                  <span className="text-subhead text-ink-2">
+                    {t("exports.fromLabel")}
+                  </span>
+                  <input
+                    id="export-from"
+                    type="date"
+                    value={from}
+                    required
+                    onChange={(event) => setFrom(event.target.value)}
+                    className={DATE_INPUT}
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-subhead text-ink-2">
+                    {t("exports.toLabel")}
+                  </span>
+                  <input
+                    id="export-to"
+                    type="date"
+                    value={to}
+                    required
+                    onChange={(event) => setTo(event.target.value)}
+                    className={DATE_INPUT}
+                  />
+                </label>
+              </div>
+            </ListItem>
+          ) : (
+            <Row title={t("exports.periodValue", { from: day(from), to: day(to) })} />
+          )}
+        </Section>
+      </section>
 
       <fieldset className="flex flex-col gap-2">
-        <legend className="text-lg font-semibold">
-          {t("exports.quickPicksLabel")}
+        <legend className="px-4 pb-2 text-subhead text-ink-2">
+          {t("exports.sitesLabel")}
         </legend>
-        <div className="flex flex-wrap gap-3">
-          <Button
-            type="button"
-            variant="secondary"
-            size="md"
-            onClick={() => pick(quickPicks.previousMonth)}
-          >
-            {t("exports.previousMonth")}
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            size="md"
-            onClick={() => pick(quickPicks.thisMonth)}
-          >
-            {t("exports.thisMonth")}
-          </Button>
-        </div>
-      </fieldset>
-
-      <div className="flex flex-wrap gap-4">
-        <Field id="export-from" label={t("exports.fromLabel")}>
-          <TextInput
-            id="export-from"
-            type="date"
-            value={from}
-            onChange={(event) => setFrom(event.target.value)}
-            required
-          />
-        </Field>
-        <Field id="export-to" label={t("exports.toLabel")}>
-          <TextInput
-            id="export-to"
-            type="date"
-            value={to}
-            onChange={(event) => setTo(event.target.value)}
-            required
-          />
-        </Field>
-      </div>
-
-      <fieldset className="flex flex-col gap-2">
-        <legend className="text-lg font-semibold">{t("exports.sitesLabel")}</legend>
-        <Stack gap="sm">
+        <Section>
           {sites.map((site) => (
-            <label
-              key={site.id}
-              className="flex min-h-touch-target items-center gap-3 text-lg"
-            >
-              <input
-                type="checkbox"
-                className="size-6"
-                checked={siteIds.includes(site.id)}
-                onChange={() => toggleSite(site.id)}
-              />
-              {site.name}
-            </label>
+            <ListItem key={site.id} className="py-0">
+              <label className="flex min-h-row cursor-pointer items-center gap-3 text-body">
+                <input
+                  type="checkbox"
+                  className="size-5 shrink-0 accent-ink"
+                  checked={siteIds.includes(site.id)}
+                  onChange={() => toggleSite(site.id)}
+                />
+                <span className="min-w-0 truncate">{site.name}</span>
+              </label>
+            </ListItem>
           ))}
-        </Stack>
+        </Section>
       </fieldset>
 
-      <div>
-        <Button type="submit" variant="primary" size="md" loading={submitting}>
+      <div className="flex flex-col gap-4">
+        {done ? (
+          <Notice tone="success" onDismiss={() => setDone(false)}>
+            {t("exports.created")}
+          </Notice>
+        ) : null}
+        {errorKey ? (
+          <Notice tone="error" onDismiss={() => setErrorKey(null)}>
+            {t(errorKey)}
+          </Notice>
+        ) : null}
+        <Button type="submit" wide loading={submitting}>
           {t("exports.submit")}
         </Button>
       </div>

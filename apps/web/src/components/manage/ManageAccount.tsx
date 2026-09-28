@@ -104,3 +104,8 @@ export function ManageAccountButton({ account }: { account: ManageAccount }) {
     </button>
   );
 }
+
+/** "Afmelden" and "Overal afmelden" for `/manage` pages (nothing is ever queued here). */
+export function ManageSessionRows() {
+  return <SessionRows queuedCount={NOTHING_QUEUED} />;
+}

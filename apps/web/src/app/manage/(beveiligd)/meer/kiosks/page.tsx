@@ -1,15 +1,17 @@
 import { redirect } from "next/navigation";
+import { Tablet } from "lucide-react";
 
 import { formatBrusselsDate, formatBrusselsTime, t } from "@cloxa/i18n";
 
-import { KioskCreateForm } from "@/components/manage/KioskCreateForm";
-import { KioskDeviceActions } from "@/components/manage/KioskDeviceActions";
-import { ManageShell } from "@/components/manage/ManageShell";
-import { Heading } from "@/components/ui/Heading";
-import { StatusLine, type StatusTone } from "@/components/ui/StatusLine";
+import { KioskRow, NewKiosk } from "@/components/manage/KioskSheets";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { List, Section } from "@/components/ui/List";
+import { NavBar } from "@/components/ui/NavBar";
+import { PageTransition } from "@/components/ui/PageTransition";
 import { requireManager } from "@/lib/auth/context";
 import { nowMs } from "@/lib/clock/now";
 import { env } from "@/lib/env.server";
+import { previewHold } from "@/lib/preview";
 import { createClient } from "@/lib/supabase/server";
 
 import { createKioskAction, newPairingCodeAction, revokeKioskAction } from "./actions";
@@ -23,17 +25,12 @@ interface DeviceRow {
   paused_until: string | null;
 }
 
-function deviceStatus(
-  device: DeviceRow,
-  now: number,
-): { tone: StatusTone; label: string } {
-  if (device.status !== "active") {
-    return { tone: "off", label: t("manageKiosks.statusRevoked") };
-  }
+function deviceStatus(device: DeviceRow, now: number): string {
+  if (device.status !== "active") return t("manageKiosks.statusRevoked");
   if (device.paused_until !== null && Date.parse(device.paused_until) > now) {
-    return { tone: "attention", label: t("manageKiosks.statusPaused") };
+    return t("manageKiosks.statusPaused");
   }
-  return { tone: "working", label: t("manageKiosks.statusActive") };
+  return t("manageKiosks.statusActive");
 }
 
 function lastSeen(device: DeviceRow): string {
@@ -51,15 +48,12 @@ export default async function ManageKiosksPage() {
   if (context.membership.role !== "owner" && context.membership.role !== "admin") {
     redirect("/manage/meer");
   }
+  await previewHold();
   const organizationId = context.membership.organizationId;
   const supabase = await createClient();
   const now = nowMs();
 
-  const [pending, sitesResult, devicesResult] = await Promise.all([
-    supabase
-      .from("correction_requests")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "pending"),
+  const [sitesResult, devicesResult] = await Promise.all([
     supabase
       .from("sites")
       .select("id, name, active")
@@ -81,75 +75,56 @@ export default async function ManageKiosksPage() {
   const devices: DeviceRow[] = devicesResult.data;
   const activeSites = sites.filter((site) => site.active);
   const pairUrl = new URL("/kiosk/koppelen", env.CLOXA_SITE_URL).toString();
+  const sitesWithDevices = sites
+    .map((site) => ({
+      site,
+      devices: devices.filter((device) => device.site_id === site.id),
+    }))
+    .filter((group) => group.devices.length > 0);
 
   return (
-    <ManageShell
-      active="more"
-      pendingQuestionsCount={pending.count ?? 0}
-      showSwitchToEmployee={context.employeeId !== null}
-    >
-      <div className="flex flex-col gap-8">
-        <div className="flex flex-col gap-2">
-          <Heading level={1}>{t("manageKiosks.heading")}</Heading>
-          <p className="text-lg text-ink-2">{t("manageKiosks.intro")}</p>
-        </div>
-
-        {activeSites.length > 0 ? (
-          <section className="max-w-xl rounded-lg border border-line p-4">
-            <KioskCreateForm
+    <PageTransition>
+      <NavBar
+        title={t("manageKiosks.heading")}
+        back={{ href: "/manage/meer", label: t("manageMore.heading") }}
+        trailing={
+          activeSites.length > 0 ? (
+            <NewKiosk
               sites={activeSites.map((site) => ({ id: site.id, name: site.name }))}
               pairUrl={pairUrl}
               action={createKioskAction}
             />
-          </section>
-        ) : null}
-
-        <section className="flex flex-col gap-6">
-          <Heading level={2}>{t("manageKiosks.listHeading")}</Heading>
-          {sites.map((site) => {
-            const siteDevices = devices.filter((device) => device.site_id === site.id);
-            return (
-              <div key={site.id} className="flex flex-col gap-3">
-                <Heading level={3}>{site.name}</Heading>
-                {siteDevices.length === 0 ? (
-                  <p className="text-ink-2">{t("manageKiosks.noDevices")}</p>
-                ) : (
-                  <ul className="flex flex-col gap-3">
-                    {siteDevices.map((device) => {
-                      const status = deviceStatus(device, now);
-                      return (
-                        <li
-                          key={device.id}
-                          className="flex flex-col gap-3 rounded-lg border border-line p-4"
-                        >
-                          <div className="flex flex-wrap items-center gap-3">
-                            <p className="text-lg font-semibold">{device.name}</p>
-                            <StatusLine
-                              size="sm"
-                              tone={status.tone}
-                              label={status.label}
-                            />
-                          </div>
-                          <p className="text-ink-2">{lastSeen(device)}</p>
-                          {device.status === "active" ? (
-                            <KioskDeviceActions
-                              deviceId={device.id}
-                              deviceName={device.name}
-                              pairUrl={pairUrl}
-                              newCodeAction={newPairingCodeAction}
-                              revokeAction={revokeKioskAction}
-                            />
-                          ) : null}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-              </div>
-            );
-          })}
-        </section>
-      </div>
-    </ManageShell>
+          ) : null
+        }
+      />
+      <List className="pb-10">
+        <p className="-mt-2 px-4 text-subhead text-ink-2">{t("manageKiosks.intro")}</p>
+        {sitesWithDevices.length === 0 ? (
+          <EmptyState
+            icon={Tablet}
+            title={t("manageKiosks.emptyTitle")}
+            body={t("manageKiosks.emptyBody")}
+          />
+        ) : (
+          sitesWithDevices.map(({ site, devices: siteDevices }) => (
+            <Section key={site.id} header={site.name}>
+              {siteDevices.map((device) => (
+                <KioskRow
+                  key={device.id}
+                  deviceId={device.id}
+                  deviceName={device.name}
+                  subtitle={lastSeen(device)}
+                  statusLabel={deviceStatus(device, now)}
+                  active={device.status === "active"}
+                  pairUrl={pairUrl}
+                  newCodeAction={newPairingCodeAction}
+                  revokeAction={revokeKioskAction}
+                />
+              ))}
+            </Section>
+          ))
+        )}
+      </List>
+    </PageTransition>
   );
 }

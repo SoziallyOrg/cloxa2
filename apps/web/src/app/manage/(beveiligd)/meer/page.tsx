@@ -1,93 +1,69 @@
-import Link from "next/link";
-import type { Route } from "next";
+import {
+  Clock,
+  FileDown,
+  ScrollText,
+  Settings,
+  ShieldCheck,
+  Tablet,
+} from "lucide-react";
 
 import { t } from "@cloxa/i18n";
 
-import { SessionActions } from "@/components/auth/SessionActions";
-import { ManageShell } from "@/components/manage/ManageShell";
-import { Heading } from "@/components/ui/Heading";
-import { Stack } from "@/components/ui/Stack";
+import { ManageSessionRows } from "@/components/manage/ManageAccount";
+import { List, Row, Section } from "@/components/ui/List";
+import { NavBar } from "@/components/ui/NavBar";
+import { PageTransition } from "@/components/ui/PageTransition";
 import { requireManager } from "@/lib/auth/context";
-import { createClient } from "@/lib/supabase/server";
+import { previewHold } from "@/lib/preview";
 
 export default async function ManageMeerPage() {
   const context = await requireManager();
-  const supabase = await createClient();
-
-  const { count: pendingCount } = await supabase
-    .from("correction_requests")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "pending");
+  await previewHold();
+  const isOrgAdmin =
+    context.membership.role === "owner" || context.membership.role === "admin";
 
   return (
-    <ManageShell
-      active="more"
-      pendingQuestionsCount={pendingCount ?? 0}
-      showSwitchToEmployee={context.employeeId !== null}
-    >
-      <Stack gap="lg">
-        <Heading level={1}>{t("manageMore.heading")}</Heading>
-        <Stack gap="md" as="ul">
-          <li>
-            <Link
-              href={"/manage/meer/exports" as Route}
-              className="focus-ring text-lg font-semibold text-ink underline"
-            >
-              {t("exports.moreLink")}
-            </Link>
-          </li>
-          {context.membership.role === "owner" ||
-          context.membership.role === "admin" ? (
-            <li>
-              <Link
-                href={"/manage/meer/kiosks" as Route}
-                className="focus-ring text-lg font-semibold text-ink underline"
-              >
-                {t("manageKiosks.moreLink")}
-              </Link>
-            </li>
+    <PageTransition>
+      <NavBar title={t("manageMore.heading")} />
+      <List className="pb-10">
+        <Section>
+          <Row
+            href="/manage/meer/exports"
+            icon={FileDown}
+            title={t("exports.moreLink")}
+          />
+          {isOrgAdmin ? (
+            <>
+              <Row
+                href="/manage/meer/instellingen"
+                icon={Settings}
+                title={t("manageMore.settings")}
+              />
+              <Row
+                href="/manage/meer/kiosks"
+                icon={Tablet}
+                title={t("manageKiosks.moreLink")}
+              />
+              <Row
+                href="/manage/meer/audit"
+                icon={ScrollText}
+                title={t("audit.moreLink")}
+              />
+            </>
           ) : null}
-          {context.membership.role === "owner" ||
-          context.membership.role === "admin" ? (
-            <li>
-              <Link
-                href={"/manage/meer/audit" as Route}
-                className="focus-ring text-lg font-semibold text-ink underline"
-              >
-                {t("audit.moreLink")}
-              </Link>
-            </li>
+        </Section>
+        <Section>
+          <Row
+            href="/manage/beveiliging/instellen"
+            icon={ShieldCheck}
+            title={t("manageMore.security")}
+          />
+          {context.employeeId !== null ? (
+            <Row href="/app" icon={Clock} title={t("manageNav.switchToEmployee")} />
           ) : null}
-          {context.membership.role === "owner" ||
-          context.membership.role === "admin" ? (
-            <li>
-              <Link
-                href={"/manage/meer/instellingen" as Route}
-                className="focus-ring text-lg font-semibold text-ink underline"
-              >
-                {t("manageMore.settings")}
-              </Link>
-            </li>
-          ) : null}
-          <li>
-            <Link
-              href={"/manage/beveiliging/instellen" as Route}
-              className="focus-ring text-lg font-semibold text-ink underline"
-            >
-              {t("manageMore.security")}
-            </Link>
-          </li>
-        </Stack>
-        {context.employeeId !== null ? (
-          <Link
-            href={"/app" as Route}
-            className="focus-ring inline-flex min-h-touch-target w-fit items-center rounded-md border-2 border-ink px-6 text-lg font-semibold text-ink"
-          >
-            {t("manageNav.switchToEmployee")}
-          </Link>
-        ) : null}
-        <SessionActions everywhere />
-      </Stack>
-    </ManageShell>
+        </Section>
+        <ManageSessionRows />
+      </List>
+    </PageTransition>
   );
 }

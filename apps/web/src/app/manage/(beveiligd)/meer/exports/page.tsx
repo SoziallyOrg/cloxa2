@@ -1,10 +1,14 @@
 import { formatBrusselsDate, formatBrusselsTime, t } from "@cloxa/i18n";
 
+import { FileDown } from "lucide-react";
+
 import { ExportForm } from "@/components/exports/ExportForm";
-import { ManageShell } from "@/components/manage/ManageShell";
-import { buttonClassName } from "@/components/ui/Button";
-import { Heading } from "@/components/ui/Heading";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { List, ListItem, Section } from "@/components/ui/List";
+import { NavBar } from "@/components/ui/NavBar";
+import { PageTransition } from "@/components/ui/PageTransition";
 import { requireManager } from "@/lib/auth/context";
+import { previewHold } from "@/lib/preview";
 import { nowMs } from "@/lib/clock/now";
 import { periodQuickPicks } from "@/lib/exports/brussels";
 import { loadExportableSites } from "@/lib/exports/load";
@@ -27,12 +31,8 @@ function shortHash(bytea: string): string {
 
 export default async function ManageExportsPage() {
   const context = await requireManager();
+  await previewHold();
   const supabase = await createClient();
-
-  const { count: pendingCount } = await supabase
-    .from("correction_requests")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "pending");
 
   const sites = await loadExportableSites(supabase, context.membership);
   const siteNames = new Map(sites.map((site) => [site.id, site.name]));
@@ -72,87 +72,87 @@ export default async function ManageExportsPage() {
     return siteIds.map((id) => siteNames.get(id) ?? "—").join(", ");
   }
 
+  // Plain links, never <Link>: a prefetch would count as a download.
+  const DOWNLOAD =
+    "focus-ring inline-flex min-h-touch-target min-w-16 pressable items-center justify-center rounded-full bg-paper px-4 text-subhead font-semibold text-ink";
+
   return (
-    <ManageShell
-      active="more"
-      pendingQuestionsCount={pendingCount ?? 0}
-      showSwitchToEmployee={context.employeeId !== null}
-    >
-      <div className="flex flex-col gap-8">
-        <div className="flex flex-col gap-2">
-          <Heading level={1}>{t("exports.heading")}</Heading>
-          <p className="text-lg text-ink-2">{t("exports.intro")}</p>
-          <p className="text-lg text-ink-2">{t("exports.indicative")}</p>
-          <p className="text-lg text-ink-2">{t("exports.csvUnsigned")}</p>
-        </div>
+    <PageTransition>
+      <NavBar title={t("exports.heading")} subtitle={t("exports.intro")} />
+      <List className="pb-10">
+        <ExportForm
+          sites={sites}
+          quickPicks={periodQuickPicks(nowMs())}
+          action={createExportAction}
+        />
 
-        <section className="max-w-xl rounded-lg border border-line p-4">
-          <ExportForm
-            sites={sites}
-            quickPicks={periodQuickPicks(nowMs())}
-            action={createExportAction}
+        {exportRows.length === 0 ? (
+          <EmptyState
+            icon={FileDown}
+            title={t("exports.empty")}
+            body={t("exports.emptyBody")}
           />
-        </section>
-
-        <section className="flex flex-col gap-4">
-          <Heading level={2}>{t("exports.listHeading")}</Heading>
-          {exportRows.length === 0 ? (
-            <p className="text-ink-2">{t("exports.empty")}</p>
-          ) : (
-            <ul className="flex flex-col gap-3">
-              {exportRows.map((row) => {
-                const createdAt = new Date(row.created_at);
-                return (
-                  <li
-                    key={row.id}
-                    className="flex flex-col gap-3 rounded-lg border border-line p-4"
-                  >
-                    <div className="flex flex-col gap-1">
-                      <p className="text-lg font-semibold">
-                        {t("exports.period", {
-                          from: dateLabel(row.period_from),
-                          to: dateLabel(row.period_to),
-                        })}
-                      </p>
-                      <p className="text-ink-2">
-                        {sitesLabel(row.site_ids)} ·{" "}
-                        {t("exports.rows", { count: row.row_count })}
-                      </p>
-                      <p className="text-ink-2">
-                        {t("exports.createdBy", {
+        ) : (
+          <Section
+            header={t("exports.listHeading")}
+            footer={
+              <span className="flex flex-col gap-1">
+                <span>{t("exports.csvUnsigned")}</span>
+                <span>{t("exports.indicative")}</span>
+              </span>
+            }
+          >
+            {exportRows.map((row) => {
+              const createdAt = new Date(row.created_at);
+              const period = t("exports.period", {
+                from: dateLabel(row.period_from),
+                to: dateLabel(row.period_to),
+              });
+              return (
+                <ListItem key={row.id} className="gap-3 py-3">
+                  <div className="flex min-w-0 flex-col">
+                    <p className="text-body break-words">{period}</p>
+                    <p className="text-subhead text-ink-2">
+                      {[
+                        sitesLabel(row.site_ids),
+                        t("exports.rows", { count: row.row_count }),
+                        t("exports.createdBy", {
                           name: creatorLabel(row.created_by),
                           date: `${formatBrusselsDate(createdAt)} ${formatBrusselsTime(createdAt)}`,
-                        })}
+                        }),
+                      ].join(" · ")}
+                    </p>
+                    <p className="font-mono text-footnote text-ink-2">
+                      {t("exports.hash", { hash: shortHash(row.content_sha256) })}
+                    </p>
+                    {row.signing_key_id === DEV_UNSIGNED_KEY_ID ? (
+                      <p className="text-footnote text-ink-2">
+                        {t("exports.devUnsigned")}
                       </p>
-                      <p className="font-mono text-ink-2">
-                        {t("exports.hash", { hash: shortHash(row.content_sha256) })}
-                      </p>
-                      {row.signing_key_id === DEV_UNSIGNED_KEY_ID ? (
-                        <p className="text-ink-2">{t("exports.devUnsigned")}</p>
-                      ) : null}
-                    </div>
-                    <div className="flex flex-wrap gap-3">
-                      {/* Plain links, never <Link>: a prefetch would count as a download. */}
-                      <a
-                        href={`/manage/meer/exports/${row.id}/csv`}
-                        className={buttonClassName("secondary", "md")}
-                      >
-                        {t("exports.downloadCsv")}
-                      </a>
-                      <a
-                        href={`/manage/meer/exports/${row.id}/json`}
-                        className={buttonClassName("plain", "md")}
-                      >
-                        {t("exports.downloadJson")}
-                      </a>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </section>
-      </div>
-    </ManageShell>
+                    ) : null}
+                  </div>
+                  <div className="flex gap-2">
+                    <a
+                      href={`/manage/meer/exports/${row.id}/csv`}
+                      aria-label={`${t("exports.downloadCsv")}: ${period}`}
+                      className={DOWNLOAD}
+                    >
+                      {t("exports.csvShort")}
+                    </a>
+                    <a
+                      href={`/manage/meer/exports/${row.id}/json`}
+                      aria-label={`${t("exports.downloadJson")}: ${period}`}
+                      className={DOWNLOAD}
+                    >
+                      {t("exports.jsonShort")}
+                    </a>
+                  </div>
+                </ListItem>
+              );
+            })}
+          </Section>
+        )}
+      </List>
+    </PageTransition>
   );
 }

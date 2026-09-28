@@ -70,11 +70,11 @@ export function EmployeeHome({
   const nothingPlanned = shiftState === "off" && face.plannedLine === null;
 
   return (
-    <div className="flex flex-1 flex-col px-gutter pb-6 md:px-gutter-desktop md:pb-16">
+    <div className="flex flex-1 flex-col px-gutter pb-6 md:justify-center md:px-gutter-desktop md:py-16">
       <h1 className="sr-only">{t("app.heading")}</h1>
       {notice ? <div className="flex flex-col gap-3 pt-2 pb-4">{notice}</div> : null}
 
-      <section className="flex flex-col pt-8 md:pt-16">
+      <section className="flex flex-col pt-8 md:pt-0">
         <StatusLine tone={statusTone(shiftState)} label={statusWord(shiftState)} live />
         {face.timerMs !== null && face.timerSpoken !== null ? (
           <div className="mt-5 -ml-1.5">

@@ -1,13 +1,13 @@
-import Link from "next/link";
-import type { Route } from "next";
 import { redirect } from "next/navigation";
 
 import { t } from "@cloxa/i18n";
 
-import { ManageShell } from "@/components/manage/ManageShell";
 import { OrgSettingsForm } from "@/components/manage/OrgSettingsForm";
-import { Heading } from "@/components/ui/Heading";
+import { List } from "@/components/ui/List";
+import { NavBar } from "@/components/ui/NavBar";
+import { PageTransition } from "@/components/ui/PageTransition";
 import { requireManager } from "@/lib/auth/context";
+import { previewHold } from "@/lib/preview";
 import { currentSettings } from "@/lib/manage/settings-form";
 import { createClient } from "@/lib/supabase/server";
 
@@ -19,43 +19,31 @@ export default async function ManageSettingsPage() {
   if (context.membership.role !== "owner" && context.membership.role !== "admin") {
     redirect("/manage/meer");
   }
+  await previewHold();
   const supabase = await createClient();
 
-  const [pending, organizationResult] = await Promise.all([
-    supabase
-      .from("correction_requests")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "pending"),
-    supabase
-      .from("organizations")
-      .select("settings")
-      .eq("id", context.membership.organizationId)
-      .maybeSingle(),
-  ]);
+  const organizationResult = await supabase
+    .from("organizations")
+    .select("settings")
+    .eq("id", context.membership.organizationId)
+    .maybeSingle();
   if (organizationResult.error) {
     throw new Error(`organization_unavailable:${organizationResult.error.code}`);
   }
 
   return (
-    <ManageShell
-      active="more"
-      pendingQuestionsCount={pending.count ?? 0}
-      showSwitchToEmployee={context.employeeId !== null}
-    >
-      <div className="flex max-w-xl flex-col gap-6">
-        <Link
-          href={"/manage/meer" as Route}
-          className="focus-ring self-start font-semibold text-ink underline"
-        >
-          {t("common.back")}
-        </Link>
-        <Heading level={1}>{t("orgSettings.heading")}</Heading>
-        <p className="text-lg">{t("orgSettings.intro")}</p>
+    <PageTransition>
+      <NavBar
+        title={t("orgSettings.heading")}
+        subtitle={t("orgSettings.intro")}
+        back={{ href: "/manage/meer", label: t("manageMore.heading") }}
+      />
+      <List className="pb-10">
         <OrgSettingsForm
           initial={currentSettings(organizationResult.data?.settings)}
           action={updateSettingsAction}
         />
-      </div>
-    </ManageShell>
+      </List>
+    </PageTransition>
   );
 }

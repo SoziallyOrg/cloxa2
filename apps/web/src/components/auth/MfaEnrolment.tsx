@@ -24,7 +24,7 @@ export function MfaEnrolment() {
       <form action={start}>
         <Stack gap="md">
           {state.error ? (
-            <p role="alert" className="text-lg font-semibold text-danger">
+            <p role="alert" className="text-body font-semibold text-danger">
               {state.error}
             </p>
           ) : null}
@@ -40,16 +40,17 @@ export function MfaEnrolment() {
 
   return (
     <Stack gap="lg">
-      <p className="text-lg">{t("mfa.scanStep")}</p>
-      <div className="self-start rounded-md border border-line bg-white p-3">
+      <p className="text-body">{t("mfa.scanStep")}</p>
+      {/* White in both themes: scanners need dark modules on a light ground. */}
+      <div className="self-start rounded-control bg-white p-3">
         {/* A data: URI from Supabase; next/image would add a CSP-blocked inline style. */}
         <img src={qrCode} alt={t("mfa.qrAlt")} width={200} height={200} />
       </div>
       <Stack gap="sm">
-        <p className="text-lg">{t("mfa.secretLabel")}</p>
+        <p className="text-subhead text-ink-2">{t("mfa.secretLabel")}</p>
         <p
           data-testid="totp-secret"
-          className="font-mono text-xl tracking-wider break-all select-all"
+          className="font-mono text-title-3 tracking-wider break-all select-all"
         >
           {groupSecret(secret)}
         </p>

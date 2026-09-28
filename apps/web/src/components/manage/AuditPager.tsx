@@ -1,10 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { ChevronLeft } from "lucide-react";
 
 import { t } from "@cloxa/i18n";
 
-import { Button } from "../ui/Button";
+import { Row, Section } from "../ui/List";
 
 export interface AuditPagerProps {
   /** True once the viewer has moved past the first page. */
@@ -13,27 +14,22 @@ export interface AuditPagerProps {
   nextHref: string | null;
 }
 
-/** "Vorige" goes back in browser history (each page is its own URL); "Volgende" is a plain navigation. */
+/** "Vorige" goes back in browser history (each page is its own URL); "Volgende" navigates. */
 export function AuditPager({ hasPrevious, nextHref }: AuditPagerProps) {
   const router = useRouter();
 
   if (!hasPrevious && !nextHref) return null;
 
   return (
-    <div className="flex flex-wrap gap-3">
+    <Section>
       {hasPrevious ? (
-        <Button variant="secondary" size="md" onClick={() => router.back()}>
-          {t("audit.previousPage")}
-        </Button>
+        <Row
+          icon={ChevronLeft}
+          title={t("audit.previousPage")}
+          onClick={() => router.back()}
+        />
       ) : null}
-      {nextHref ? (
-        <a
-          href={nextHref}
-          className="focus-ring inline-flex min-h-touch-target items-center rounded-md border-2 border-ink px-6 text-lg font-semibold text-ink"
-        >
-          {t("audit.nextPage")}
-        </a>
-      ) : null}
-    </div>
+      {nextHref ? <Row href={nextHref} title={t("audit.nextPage")} /> : null}
+    </Section>
   );
 }
