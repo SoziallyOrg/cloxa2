@@ -6,10 +6,16 @@ import { useEffect, useRef, useState, useTransition, type ReactNode } from "reac
 import { t } from "@cloxa/i18n";
 
 import { ActivityIndicator } from "./ActivityIndicator";
+import { cx } from "./cx";
 import { tap } from "./haptics";
 
 export interface PullToRefreshProps {
   children: ReactNode;
+  /**
+   * Layout for the wrapper and the moving content, e.g. "flex flex-1
+   * flex-col" so a hero page can still push its actions to the bottom.
+   */
+  className?: string;
 }
 
 /** Pull this far (after resistance) to refresh. */
@@ -31,7 +37,7 @@ function resist(distance: number): number {
  * top and moves down; every other touch scrolls as usual. Mouse and
  * keyboard users never see it.
  */
-export function PullToRefresh({ children }: PullToRefreshProps) {
+export function PullToRefresh({ children, className }: PullToRefreshProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [refreshing, setRefreshing] = useState(false);
@@ -132,7 +138,7 @@ export function PullToRefresh({ children }: PullToRefreshProps) {
   }, [refreshing, isPending]);
 
   return (
-    <div ref={containerRef} className="relative">
+    <div ref={containerRef} className={cx("relative", className)}>
       <div
         ref={indicatorRef}
         aria-hidden="true"
@@ -143,7 +149,9 @@ export function PullToRefresh({ children }: PullToRefreshProps) {
       <p aria-live="polite" className="sr-only">
         {refreshing ? t("ui.refreshing") : ""}
       </p>
-      <div ref={contentRef}>{children}</div>
+      <div ref={contentRef} className={className}>
+        {children}
+      </div>
     </div>
   );
 }

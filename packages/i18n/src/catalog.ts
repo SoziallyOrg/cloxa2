@@ -25,6 +25,7 @@ export const catalog = {
   sitePicker: {
     title: "Waar werk je?",
     intro: "Je bent toegewezen aan meer dan één locatie. Kies er één.",
+    noneTitle: "Nog geen locatie",
     submit: "Kies deze locatie",
     none: "Je bent nog aan geen enkele locatie toegewezen. Vraag je werkgever om dit in orde te brengen.",
   },
@@ -66,6 +67,12 @@ export const catalog = {
     withdraw: "Intrekken",
     withdrawn: "Ingetrokken",
     withdrawFailed: "Intrekken lukte niet. Probeer het opnieuw.",
+    withdrawDone: "Je vraag is ingetrokken.",
+    withdrawHint: "Je leidinggevende ziet deze vraag dan niet meer.",
+    detailStatus: "Status",
+    detailAsked: "Gevraagd op",
+    detailReason: "Jouw reden",
+    detailNote: "Notitie van je manager",
   },
   correctionForm: {
     stepOf: "Stap {step} van 3",
@@ -98,6 +105,9 @@ export const catalog = {
     next: "Volgende",
     summaryTitle: "Controleer je melding",
     summaryKind: "Soort: {value}",
+    summaryDay: "Dag: {value}",
+    summaryMoment: "Moment: {value}",
+    summaryNewTime: "Juiste tijd: {value}",
     summaryReason: "Reden: {value}",
     summaryNoReason: "Geen reden opgegeven",
     submit: "Versturen",
@@ -110,6 +120,8 @@ export const catalog = {
     tooManyPending: "Je hebt al te veel meldingen in behandeling.",
     startOver: "Opnieuw beginnen",
     toQuestions: "Naar mijn vragen",
+    doneTitle: "Verstuurd",
+    doneBody: "Je leidinggevende bekijkt je melding. Het antwoord zie je bij Vragen.",
   },
   auth: {
     confirm: {
@@ -729,6 +741,8 @@ export const catalog = {
     breakSpoken: "{value} pauze",
     progressLabel: "Gewerkt tegenover je planning van vandaag",
     plannedUntil: "gepland tot {time}",
+    nothingPlannedTitle: "Vandaag niets gepland",
+    nothingPlannedBody: "Begin je toch te werken? Tik dan op Start werk.",
   },
   status: {
     workingLabel: "Aan het werk",

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Route } from "next";
 import type { LucideIcon } from "lucide-react";
-import { ChevronRight } from "lucide-react";
+import { Check, ChevronRight } from "lucide-react";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 
 import type { TileColor } from "@cloxa/ui-tokens";
@@ -83,6 +83,11 @@ interface RowContent {
   chevron?: boolean | undefined;
   /** Red title, for destructive rows ("Afmelden"). */
   tone?: "default" | "danger" | undefined;
+  /**
+   * A choice row: a trailing checkmark when `true`, an empty slot when
+   * `false` (so titles don't shift). Pair with `aria-pressed`.
+   */
+  checked?: boolean | undefined;
 }
 
 export type RowProps = RowContent &
@@ -122,6 +127,7 @@ export function Row(props: RowProps) {
     tile = "gray",
     chevron,
     tone = "default",
+    checked,
   } = props;
   const content = (withChevron: boolean, accessory?: ReactNode) => (
     <RowBody
@@ -132,6 +138,7 @@ export function Row(props: RowProps) {
       tile={tile}
       tone={tone}
       chevron={chevron ?? withChevron}
+      checked={checked}
       accessory={accessory}
     />
   );
@@ -181,6 +188,7 @@ const CONTENT_KEYS = [
   "tile",
   "chevron",
   "tone",
+  "checked",
   "href",
 ];
 
@@ -199,6 +207,7 @@ function RowBody({
   tile,
   tone,
   chevron,
+  checked,
   accessory,
 }: RowContent & { tile: TileColor; accessory?: ReactNode }) {
   return (
@@ -240,6 +249,15 @@ function RowBody({
           </span>
         ) : null}
         {accessory}
+        {checked === undefined ? null : checked ? (
+          <Check
+            aria-hidden="true"
+            className="size-5 shrink-0 text-ink"
+            strokeWidth={2.75}
+          />
+        ) : (
+          <span aria-hidden="true" className="size-5 shrink-0" />
+        )}
         {chevron ? (
           <ChevronRight
             aria-hidden="true"
@@ -249,5 +267,29 @@ function RowBody({
         ) : null}
       </span>
     </>
+  );
+}
+
+export interface ListItemProps {
+  children: ReactNode;
+  className?: string;
+}
+
+/**
+ * A row of free content (a text area, a short summary) with the same
+ * padding and inset separator as `Row`. For anything tappable, use `Row`.
+ */
+export function ListItem({ children, className }: ListItemProps) {
+  return (
+    <li className="group/row">
+      <div
+        className={cx(
+          "ml-4 flex min-h-touch-target flex-col justify-center py-2.5 pr-4 group-not-first/row:border-t-[0.5px] group-not-first/row:border-separator",
+          className,
+        )}
+      >
+        {children}
+      </div>
+    </li>
   );
 }

@@ -42,9 +42,15 @@ async function withdrawLeftovers(page: Page): Promise<void> {
     .getByRole("main")
     .getByRole("listitem")
     .filter({ hasText: REASON_PREFIX })
-    .filter({ has: button(page, "Intrekken") });
+    .filter({ hasText: "In behandeling" });
+  // A question opens in a sheet; withdrawing happens there.
   for (let count = await leftovers.count(); count > 0; count -= 1) {
-    await leftovers.first().getByRole("button", { name: "Intrekken" }).click();
+    await leftovers.first().getByRole("button").click();
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Intrekken", exact: true })
+      .click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
     await expect(leftovers).toHaveCount(count - 1);
   }
 }
@@ -128,7 +134,12 @@ test("employee clocks a shift with a break, sees it in Mijn uren and asks for a 
     .getByRole("listitem")
     .filter({ hasText: reason });
   await expect(request).toContainText("In behandeling");
-  await request.getByRole("button", { name: "Intrekken" }).click();
+  await request.getByRole("button").click();
+  const sheet = page.getByRole("dialog");
+  await expect(sheet).toContainText(reason);
+  await sheet.getByRole("button", { name: "Intrekken", exact: true }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.getByRole("status")).toHaveText("Je vraag is ingetrokken.");
   await expect(request).toContainText("Ingetrokken");
 
   expect(consoleErrors).toEqual([]);

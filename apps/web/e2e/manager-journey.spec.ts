@@ -73,9 +73,15 @@ async function withdrawEmployeeLeftovers(page: Page): Promise<void> {
     .getByRole("main")
     .getByRole("listitem")
     .filter({ hasText: REASON_PREFIX })
-    .filter({ has: button(page, "Intrekken") });
+    .filter({ hasText: "In behandeling" });
+  // A question opens in a sheet; withdrawing happens there.
   for (let count = await leftovers.count(); count > 0; count -= 1) {
-    await leftovers.first().getByRole("button", { name: "Intrekken" }).click();
+    await leftovers.first().getByRole("button").click();
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Intrekken", exact: true })
+      .click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
     await expect(leftovers).toHaveCount(count - 1);
   }
 }

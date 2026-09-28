@@ -8,7 +8,9 @@ export interface ShiftTagsProps {
   extra?: string | null;
 }
 
-const TAG = "rounded-full bg-paper px-2 text-subhead leading-6 text-ink-2";
+// An outline, not a fill: secondary text keeps AA on rows and sheets alike.
+const TAG =
+  "rounded-full border-[0.5px] border-separator px-2 text-subhead leading-6 text-ink-2";
 
 /** "08:02–16:31" followed by small "aangepast" / "offline" text tags. */
 export function ShiftTags({ range, edited, offline, extra = null }: ShiftTagsProps) {

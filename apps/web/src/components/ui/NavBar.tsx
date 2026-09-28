@@ -8,11 +8,18 @@ import { cx } from "./cx";
 import { NavBarFrame } from "./NavBarFrame";
 import { POP } from "./transitions";
 
+export type NavBarBack =
+  | { href: string; label: string; onClick?: never }
+  | { onClick: () => void; label: string; href?: never };
+
 export interface NavBarProps {
   /** The page title: large under the bar, inline once scrolled. */
   title: string;
-  /** Pushed pages: a chevron plus the previous page's title. */
-  back?: { href: string; label: string };
+  /**
+   * Pushed pages: a chevron plus the previous page's title. A link, or a
+   * button for steps within one page (the correction wizard).
+   */
+  back?: NavBarBack;
   /** `NavBarButton`s, e.g. "Klaar" or an icon button. */
   trailing?: ReactNode;
   /** One quiet line under the large title, e.g. today's date. */
@@ -51,15 +58,26 @@ export function NavBar({
   );
 }
 
-function BackButton({ href, label }: { href: string; label: string }) {
-  return (
-    <Link
-      href={href as Route}
-      transitionTypes={POP}
-      className="focus-ring flex h-bar-button max-w-full min-w-0 items-center rounded-control pr-2 text-body text-ink pressable"
-    >
+const BACK =
+  "focus-ring flex h-bar-button max-w-full min-w-0 items-center rounded-control pr-2 text-body text-ink pressable";
+
+function BackButton({ href, onClick, label }: NavBarBack) {
+  const content = (
+    <>
       <ChevronLeft aria-hidden="true" className="size-7 shrink-0" strokeWidth={2.25} />
       <span className="-ml-0.5 truncate">{label}</span>
+    </>
+  );
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} className={BACK}>
+        {content}
+      </button>
+    );
+  }
+  return (
+    <Link href={href as Route} transitionTypes={POP} className={BACK}>
+      {content}
     </Link>
   );
 }

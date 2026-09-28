@@ -65,7 +65,8 @@ export interface SidebarNavProps {
 
 /**
  * The sidebar source list: an icon and a label per row, the current row on
- * a pressed-grey pill, counts right-aligned. Rows stay 48px for seniors.
+ * a pressed-grey pill, counts right-aligned (visual only, like the tab
+ * bar's badge). Rows stay 48px for seniors.
  */
 export function SidebarNav({ items, label }: SidebarNavProps) {
   return (
@@ -91,7 +92,12 @@ export function SidebarNav({ items, label }: SidebarNavProps) {
               />
               <span className="min-w-0 flex-1 truncate">{itemLabel}</span>
               {count !== undefined && count > 0 ? (
-                <span className="text-subhead font-normal text-ink-2">{count}</span>
+                <span
+                  aria-hidden="true"
+                  className="text-subhead font-normal text-ink-2"
+                >
+                  {count}
+                </span>
               ) : null}
             </Link>
           </li>

@@ -8,8 +8,9 @@ import { t } from "@cloxa/i18n";
 
 import { ShiftTags } from "../clock/ShiftTags";
 import { buttonClassName } from "../ui/Button";
-import { GroupedList, ListButtonRow, ListRow } from "../ui/GroupedList";
+import { Row, Section } from "../ui/List";
 import { Sheet } from "../ui/Sheet";
+import { PUSH } from "../ui/transitions";
 
 /** One shift, already formatted on the server (plain data crosses to the client). */
 export interface HoursRow {
@@ -33,19 +34,32 @@ export interface HoursListProps {
   rows: readonly HoursRow[];
 }
 
-/** Days as a grouped list; tapping one opens its detail and "Klopt er iets niet?". */
+/** The quiet notes under a day's detail: "aangepast", "offline", the sync delay. */
+function detailNotes(row: HoursRow): string | null {
+  const notes = [
+    row.edited ? t("shifts.edited") : null,
+    row.offlineSkew
+      ? t("hours.detailOfflineSkew", { value: row.offlineSkew })
+      : row.offline
+        ? t("offline.shiftBadge")
+        : null,
+  ].filter((note): note is string => note !== null);
+  return notes.length > 0 ? notes.join(" · ") : null;
+}
+
+/** Days as an inset grouped list; tapping one opens its detail sheet. */
 export function HoursList({ heading, rows }: HoursListProps) {
   const [selected, setSelected] = useState<HoursRow | null>(null);
 
   return (
     <>
-      <GroupedList heading={heading}>
+      <Section header={heading}>
         {rows.map((row) => (
-          <ListButtonRow
+          <Row
             key={row.key}
             aria-haspopup="dialog"
             title={row.date}
-            detail={
+            subtitle={
               <ShiftTags range={row.range} edited={row.edited} offline={row.offline} />
             }
             value={row.net}
@@ -53,40 +67,27 @@ export function HoursList({ heading, rows }: HoursListProps) {
             onClick={() => setSelected(row)}
           />
         ))}
-      </GroupedList>
+      </Section>
       <Sheet
         open={selected !== null}
         onClose={() => setSelected(null)}
         title={selected?.longDate ?? ""}
       >
         {selected ? (
-          <div className="flex flex-col gap-6">
-            <GroupedList>
-              <ListRow
-                title={t("hours.detailTime")}
-                value={
-                  <ShiftTags
-                    range={selected.range}
-                    edited={selected.edited}
-                    offline={selected.offline}
-                  />
-                }
-              />
-              <ListRow title={t("hours.detailPause")} value={selected.pause} />
-              <ListRow title={t("hours.detailNet")} value={selected.net} />
-            </GroupedList>
-            {selected.offlineSkew ? (
-              <p className="text-subhead text-ink-2">
-                {t("hours.detailOfflineSkew", { value: selected.offlineSkew })}
-              </p>
-            ) : null}
+          <>
+            <Section footer={detailNotes(selected)}>
+              <Row title={t("hours.detailTime")} value={selected.range} />
+              <Row title={t("hours.detailPause")} value={selected.pause} />
+              <Row title={t("hours.detailNet")} value={selected.net} />
+            </Section>
             <Link
               href={selected.correctionHref as Route}
-              className={buttonClassName("secondary", "md", true)}
+              transitionTypes={PUSH}
+              className={buttonClassName("primary", "md", true)}
             >
               {t("hours.somethingWrong")}
             </Link>
-          </div>
+          </>
         ) : null}
       </Sheet>
     </>

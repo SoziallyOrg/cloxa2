@@ -1,8 +1,11 @@
 import type { ReactNode } from "react";
 
+import { CalendarDays } from "lucide-react";
+
 import type { Shift, ShiftState } from "@cloxa/domain";
 import { t } from "@cloxa/i18n";
 
+import { EmptyState } from "../ui/EmptyState";
 import { ProgressTrack } from "../ui/ProgressTrack";
 import { StatusLine } from "../ui/StatusLine";
 import { Timer } from "../ui/Timer";
@@ -64,12 +67,14 @@ export function EmployeeHome({
     planned,
   });
 
-  return (
-    <div className="flex flex-1 flex-col">
-      <h1 className="sr-only">{t("app.heading")}</h1>
-      {notice ? <div className="flex flex-col gap-3 pb-4">{notice}</div> : null}
+  const nothingPlanned = shiftState === "off" && face.plannedLine === null;
 
-      <section className="flex flex-col pt-10 md:pt-4">
+  return (
+    <div className="flex flex-1 flex-col px-gutter pb-6 md:px-gutter-desktop md:pb-16">
+      <h1 className="sr-only">{t("app.heading")}</h1>
+      {notice ? <div className="flex flex-col gap-3 pt-2 pb-4">{notice}</div> : null}
+
+      <section className="flex flex-col pt-8 md:pt-16">
         <StatusLine tone={statusTone(shiftState)} label={statusWord(shiftState)} live />
         {face.timerMs !== null && face.timerSpoken !== null ? (
           <div className="mt-6 -ml-1">
@@ -80,7 +85,7 @@ export function EmployeeHome({
           <p className="mt-4 text-body text-ink-2">{face.subline}</p>
         ) : null}
         {face.plannedLine ? (
-          <p className="mt-5 text-title font-light">{face.plannedLine}</p>
+          <p className="mt-5 text-title-1 font-light">{face.plannedLine}</p>
         ) : null}
         {face.progress ? (
           <div className="mt-10">
@@ -89,7 +94,17 @@ export function EmployeeHome({
         ) : null}
       </section>
 
-      <div className="mt-auto flex flex-col gap-4 pt-12 md:mt-14 md:pt-0">
+      {nothingPlanned ? (
+        <div className="flex flex-1 flex-col justify-center md:flex-none md:pt-8">
+          <EmptyState
+            icon={CalendarDays}
+            title={t("clock.nothingPlannedTitle")}
+            body={t("clock.nothingPlannedBody")}
+          />
+        </div>
+      ) : null}
+
+      <div className="mt-auto flex flex-col gap-4 pt-10 md:mt-14 md:pt-0">
         {error}
         <ClockActions
           state={shiftState}

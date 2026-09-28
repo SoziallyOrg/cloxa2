@@ -22,11 +22,14 @@ export interface ButtonProps extends Omit<
   children: ReactNode;
 }
 
+// Outlined buttons sit on `surface`, never `paper`: in dark mode paper is
+// black, which read as a black button on the lifted grey of a sheet. Surface
+// lifts with the sheet (see `ELEVATED`), so they match rows everywhere.
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
   primary: "bg-ink text-paper",
-  secondary: "border-[1.5px] border-line bg-paper text-ink",
+  secondary: "border-[1.5px] border-line bg-surface text-ink",
   plain: "text-ink",
-  destructive: "border-[1.5px] border-line bg-paper text-danger",
+  destructive: "border-[1.5px] border-line bg-surface text-danger",
 };
 
 const SIZE_CLASSES: Record<ButtonSize, string> = {

@@ -8,6 +8,7 @@ import type { ShiftState } from "@cloxa/domain";
 
 import { Button } from "../ui/Button";
 import { cx } from "../ui/cx";
+import { error as errorHaptic, tap } from "../ui/haptics";
 
 export type ActionKind = "startWork" | "stopWork" | "startBreak" | "stopBreak";
 
@@ -85,19 +86,22 @@ export function ClockActions({
   }, [success, previewSuccess]);
 
   async function run(action: ActionKind, callback: ClockActionCallback) {
+    // One press at a time: every button waits until this one has settled.
+    if (pending !== null) return;
     setPending(action);
     const result = await callback();
     setPending(null);
-    if (!result) return;
+    if (!result) {
+      errorHaptic();
+      return;
+    }
 
     setSuccess({
       action,
       time: formatBrusselsTime(new Date()),
       queued: result === "queued",
     });
-    if (typeof navigator !== "undefined" && navigator.vibrate) {
-      navigator.vibrate(50);
-    }
+    tap();
   }
 
   if (success !== null) {
@@ -118,7 +122,7 @@ export function ClockActions({
         >
           <Check aria-hidden="true" className="size-16" strokeWidth={2.25} />
         </span>
-        <p className="text-title">
+        <p className="text-title-1 font-semibold">
           {t(`actions.${SUCCESS_KEY[success.action]}`, { time: success.time })}
         </p>
         {success.queued ? (
@@ -128,12 +132,14 @@ export function ClockActions({
     );
   }
 
+  const busy = disabled || pending !== null;
+
   if (state === "off") {
     return (
       <Button
         size="lg"
         loading={pending === "startWork"}
-        disabled={disabled}
+        disabled={busy}
         onClick={() => void run("startWork", onStartWork)}
       >
         {t("actions.startWork")}
@@ -147,7 +153,7 @@ export function ClockActions({
         <Button
           size="lg"
           loading={pending === "stopWork"}
-          disabled={disabled}
+          disabled={busy}
           onClick={() => void run("stopWork", onStopWork)}
         >
           {t("actions.stopWork")}
@@ -156,7 +162,7 @@ export function ClockActions({
           variant="secondary"
           wide
           loading={pending === "startBreak"}
-          disabled={disabled}
+          disabled={busy}
           onClick={() => void run("startBreak", onStartBreak)}
         >
           {t("actions.startBreak")}
@@ -169,7 +175,7 @@ export function ClockActions({
     <Button
       size="lg"
       loading={pending === "stopBreak"}
-      disabled={disabled}
+      disabled={busy}
       onClick={() => void run("stopBreak", onStopBreak)}
     >
       {t("actions.stopBreak")}

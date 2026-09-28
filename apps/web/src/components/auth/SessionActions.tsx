@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { LogOut, MonitorSmartphone } from "lucide-react";
 
 import { t } from "@cloxa/i18n";
 
+import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
-import { GroupedList, ListButtonRow } from "@/components/ui/GroupedList";
-import { Sheet } from "@/components/ui/Sheet";
+import { Row, Section } from "@/components/ui/List";
 import { logout, logoutEverywhere } from "@/lib/auth/actions/session";
 import { clearShellCache } from "@/lib/offline/browser";
 import { signOutDecision } from "@/lib/offline/sign-out";
@@ -18,28 +19,6 @@ async function signOutNow(scope: Scope): Promise<void> {
   // shared phone must not get this person's cached /app screen.
   await clearShellCache();
   await (scope === "global" ? logoutEverywhere() : logout());
-}
-
-/** The two buttons of the "unsent actions" warning. */
-function WarningActions({
-  onConfirm,
-  onCancel,
-  pending,
-}: {
-  onConfirm: () => void;
-  onCancel: () => void;
-  pending: boolean;
-}) {
-  return (
-    <div className="flex flex-col gap-3">
-      <Button variant="destructive" wide loading={pending} onClick={onConfirm}>
-        {t("offline.signOutAnyway")}
-      </Button>
-      <Button variant="secondary" wide onClick={onCancel}>
-        {t("offline.signOutCancel")}
-      </Button>
-    </div>
-  );
 }
 
 export interface SessionActionsProps {
@@ -113,8 +92,9 @@ export interface SessionRowsProps {
 }
 
 /**
- * "Afmelden" and "Overal afmelden" as a grouped list (Instellingen). With
- * actions still queued on the device, a sheet warns first.
+ * "Afmelden" and "Overal afmelden" as an inset grouped section (Instellingen
+ * and the account sheet). With actions still queued on the device, an alert
+ * warns first.
  */
 export function SessionRows({ queuedCount }: SessionRowsProps) {
   const [warning, setWarning] = useState<{ scope: Scope; count: number } | null>(null);
@@ -133,35 +113,36 @@ export function SessionRows({ queuedCount }: SessionRowsProps) {
 
   return (
     <>
-      <GroupedList footer={t("session.logoutEverywhereHint")}>
-        <ListButtonRow
+      <Section footer={t("session.logoutEverywhereHint")}>
+        <Row
+          icon={LogOut}
+          tile="red"
           title={t("session.logout")}
           disabled={pending}
+          aria-busy={pending || undefined}
           onClick={() => press("local")}
         />
-        <ListButtonRow
+        <Row
+          icon={MonitorSmartphone}
+          tile="gray"
           title={t("session.logoutEverywhere")}
           disabled={pending}
           onClick={() => press("global")}
         />
-      </GroupedList>
-      <Sheet
+      </Section>
+      <Alert
         open={warning !== null}
         onClose={() => setWarning(null)}
         title={t("session.logout")}
-        description={
-          warning ? t("offline.signOutWarning", { count: warning.count }) : null
-        }
-      >
-        <WarningActions
-          pending={pending}
-          onCancel={() => setWarning(null)}
-          onConfirm={() => {
-            const scope = warning?.scope ?? "local";
-            startTransition(() => signOutNow(scope));
-          }}
-        />
-      </Sheet>
+        message={warning ? t("offline.signOutWarning", { count: warning.count }) : ""}
+        confirmLabel={t("offline.signOutAnyway")}
+        cancelLabel={t("offline.signOutCancel")}
+        destructive
+        onConfirm={() => {
+          const scope = warning?.scope ?? "local";
+          startTransition(() => signOutNow(scope));
+        }}
+      />
     </>
   );
 }

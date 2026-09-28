@@ -14,9 +14,10 @@
  *   journey-e2e@demo.test (site 1; reserved for manager-journey.spec.ts)
  *   owner-e2e@demo.test (owner, site 1; reserved for e2e specs needing owner
  *     rights, so eigenaar@demo.test's session is never disturbed)
- *   screens-e2e@, screens-pauze@, screens-uit@, screens-actie@demo.test (site 1;
- *     reserved for `pnpm screens`: made-up history and a realistic "today",
- *     reset on every run; see seedScreens)
+ *   screens-e2e@, screens-pauze@, screens-uit@, screens-actie@,
+ *     screens-leeg@demo.test (site 1; reserved for `pnpm screens`: made-up
+ *     history and a realistic "today", reset on every run; screens-leeg@ has
+ *     no data at all; see seedScreens)
  * Codes arrive in the local Mailpit: http://127.0.0.1:54324
  *
  * Refuses to run unless both the Supabase API and the database are on
@@ -67,19 +68,37 @@ const SCREENS_ACCOUNTS = [
     name: "Sanne Peeters",
     today: "working",
     history: true,
+    schedule: true,
   },
   {
     email: "screens-pauze@demo.test",
     name: "Bram Maes",
     today: "on_break",
     history: false,
+    schedule: true,
   },
-  { email: "screens-uit@demo.test", name: "Chiara Vos", today: "off", history: false },
+  {
+    email: "screens-uit@demo.test",
+    name: "Chiara Vos",
+    today: "off",
+    history: false,
+    schedule: true,
+  },
   {
     email: "screens-actie@demo.test",
     name: "Driss Aerts",
     today: null,
     history: false,
+    schedule: true,
+  },
+  // A fresh start: no hours, no questions, no schedule (the empty states),
+  // and a long name (truncation).
+  {
+    email: "screens-leeg@demo.test",
+    name: "Maximiliaan Van den Broeck-Vercruysse",
+    today: "off",
+    history: false,
+    schedule: false,
   },
 ] as const;
 const MEMBERS: readonly {
@@ -894,7 +913,7 @@ async function seedScreens(input: {
       const userId = input.userIds.get(account.email);
       if (!userId) throw new Error(`${account.email} is not seeded`);
       const person = await screensPerson(sql, input.orgId, account.email, userId);
-      await ensureDailySchedule(sql, context, person);
+      if (account.schedule) await ensureDailySchedule(sql, context, person);
       if (account.history) await seedScreensHistory(sql, context, person);
       await settleScreensToday(sql, context, person, account.today);
     }

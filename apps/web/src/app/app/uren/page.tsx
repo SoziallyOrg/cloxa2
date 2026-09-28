@@ -1,5 +1,4 @@
-import Link from "next/link";
-import type { Route } from "next";
+import { CalendarDays } from "lucide-react";
 
 import { scheduleFor } from "@cloxa/db";
 import {
@@ -18,8 +17,14 @@ import { weekTotalMs, workedMs } from "@/components/clock/week-total";
 import { HoursList, type HoursRow } from "@/components/employee/HoursList";
 import { ScheduleBlocksList } from "@/components/employee/ScheduleBlocksList";
 import { SelfExportLink } from "@/components/exports/SelfExportLink";
+import { AccountButton } from "@/components/employee/Account";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { List, Row, Section } from "@/components/ui/List";
+import { NavBar } from "@/components/ui/NavBar";
+import { PageTransition } from "@/components/ui/PageTransition";
+import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { requireEmployeeArea } from "@/lib/auth/context";
+import { previewHold } from "@/lib/preview";
 import { nowMs } from "@/lib/clock/now";
 import { nextWeekRange, thisWeekRange } from "@/lib/schedule/week-range";
 import { createClient } from "@/lib/supabase/server";
@@ -35,6 +40,7 @@ export default async function HoursPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const context = await requireEmployeeArea();
+  await previewHold();
   const now = nowMs();
   const params = await searchParams;
   const voorRaw = Array.isArray(params.voor) ? params.voor[0] : params.voor;
@@ -104,54 +110,57 @@ export default async function HoursPage({
   });
 
   return (
-    <div className="flex flex-col gap-10 pt-6 md:pt-0">
-      <h1 className="text-title">{t("hours.heading")}</h1>
-
-      {weekTotal !== null ? (
-        <section className="-mt-4 flex flex-col gap-1">
-          <p className="text-subhead text-ink-2">{t("hours.weekLabel")}</p>
-          <p className="text-number">{formatDurationMs(weekTotal)}</p>
-          <p className="text-subhead text-ink-2">{t("hours.indicative")}</p>
-        </section>
-      ) : null}
-
-      <div className="flex flex-col gap-3">
-        {rows.length === 0 ? (
-          <EmptyState title={t("shifts.emptyTitle")} body={t("shifts.emptyBody")} />
-        ) : (
-          <HoursList
-            heading={voorRaw ? t("hours.olderHeading") : t("hours.recentHeading")}
-            rows={rows}
-          />
-        )}
-        <Link
-          href={olderHref as Route}
-          className="focus-ring inline-flex min-h-touch-target items-center self-start rounded-control px-4 text-body font-semibold underline-offset-4 hover:underline"
-        >
-          {t("hours.olderLink")}
-        </Link>
-      </div>
-
-      <section className="flex flex-col gap-4">
-        <h2 className="text-title-2 font-semibold">
-          {t("schedule.myScheduleHeading")}
-        </h2>
-        <ScheduleBlocksList
-          heading={t("schedule.myScheduleThisWeek")}
-          rows={thisWeekRows}
-          testId="schedule-this-week"
+    <PageTransition>
+      <PullToRefresh>
+        <NavBar
+          title={t("hours.heading")}
+          trailing={<AccountButton placement="bar" />}
         />
-        <ScheduleBlocksList
-          heading={t("schedule.myScheduleNextWeek")}
-          rows={nextWeekRows}
-          testId="schedule-next-week"
-        />
-      </section>
+        <List className="pb-10">
+          {weekTotal !== null ? (
+            <section className="flex flex-col gap-0.5 rounded-list bg-surface px-4 py-3.5">
+              <p className="text-subhead text-ink-2">{t("hours.weekLabel")}</p>
+              <p className="text-number">{formatDurationMs(weekTotal)}</p>
+              <p className="text-subhead text-ink-2">{t("hours.indicative")}</p>
+            </section>
+          ) : null}
 
-      <section className="flex flex-col gap-4">
-        <h2 className="text-title-2 font-semibold">{t("hours.downloadHeading")}</h2>
-        <SelfExportLink />
-      </section>
-    </div>
+          {rows.length === 0 ? (
+            <EmptyState
+              icon={CalendarDays}
+              title={t("shifts.emptyTitle")}
+              body={t("shifts.emptyBody")}
+            />
+          ) : (
+            <HoursList
+              heading={voorRaw ? t("hours.olderHeading") : t("hours.recentHeading")}
+              rows={rows}
+            />
+          )}
+
+          <Section>
+            <Row href={olderHref} title={t("hours.olderLink")} />
+          </Section>
+
+          <section className="flex flex-col gap-3">
+            <h2 className="px-4 text-title-3 font-semibold">
+              {t("schedule.myScheduleHeading")}
+            </h2>
+            <ScheduleBlocksList
+              heading={t("schedule.myScheduleThisWeek")}
+              rows={thisWeekRows}
+              testId="schedule-this-week"
+            />
+            <ScheduleBlocksList
+              heading={t("schedule.myScheduleNextWeek")}
+              rows={nextWeekRows}
+              testId="schedule-next-week"
+            />
+          </section>
+
+          <SelfExportLink heading={t("hours.downloadHeading")} />
+        </List>
+      </PullToRefresh>
+    </PageTransition>
   );
 }

@@ -1,8 +1,11 @@
 import { t } from "@cloxa/i18n";
 
 import { PinForm } from "@/components/kiosk/PinForm";
-import { BackLink } from "@/components/ui/BackLink";
+import { List } from "@/components/ui/List";
+import { NavBar } from "@/components/ui/NavBar";
+import { PageTransition } from "@/components/ui/PageTransition";
 import { requireEmployeeArea } from "@/lib/auth/context";
+import { previewHold } from "@/lib/preview";
 import { createClient } from "@/lib/supabase/server";
 
 import { setMyPinAction } from "../actions";
@@ -10,6 +13,7 @@ import { setMyPinAction } from "../actions";
 /** `/app/instellingen/pincode`: choose the PIN used on the kiosk tablet. */
 export default async function KioskPinPage() {
   const context = await requireEmployeeArea();
+  await previewHold();
   const supabase = await createClient();
 
   // Whether a PIN is set, never the PIN (the hash column is not even granted).
@@ -21,20 +25,25 @@ export default async function KioskPinPage() {
   if (error) throw new Error(`employee_pins_unavailable:${error.code}`);
 
   return (
-    <div className="flex flex-1 flex-col gap-8 pt-2 md:pt-0">
-      <div className="flex flex-col gap-3">
-        <BackLink href="/app/instellingen" label={t("kiosk.settingsTitle")} />
-        <h1 className="text-title">{t("kiosk.pinSettingsHeading")}</h1>
-        <p className="text-body text-ink-2">{t("kiosk.pinSettingsIntro")}</p>
-        <p className="text-body text-ink-2">{t("kiosk.pinAllEmployers")}</p>
-        {pin ? <p className="text-body text-ink-2">{t("kiosk.pinIsSet")}</p> : null}
-      </div>
-      <PinForm
-        id="my-pin"
-        submitLabel={t("kiosk.pinSubmit")}
-        savedMessage={t("kiosk.pinSaved")}
-        action={setMyPinAction}
+    <PageTransition className="flex flex-1 flex-col">
+      <NavBar
+        title={t("kiosk.pinSettingsHeading")}
+        back={{ href: "/app/instellingen", label: t("kiosk.settingsTitle") }}
       />
-    </div>
+      <List className="flex-1">
+        <div className="flex flex-col gap-2 px-4 text-subhead text-ink-2">
+          <p>{t("kiosk.pinSettingsIntro")}</p>
+          <p>{t("kiosk.pinAllEmployers")}</p>
+          {pin ? <p className="font-medium text-ink">{t("kiosk.pinIsSet")}</p> : null}
+        </div>
+        <PinForm
+          id="my-pin"
+          variant="list"
+          submitLabel={t("kiosk.pinSubmit")}
+          savedMessage={t("kiosk.pinSaved")}
+          action={setMyPinAction}
+        />
+      </List>
+    </PageTransition>
   );
 }

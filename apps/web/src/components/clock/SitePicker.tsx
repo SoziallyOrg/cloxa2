@@ -1,6 +1,10 @@
+import { MapPin } from "lucide-react";
+
 import { t } from "@cloxa/i18n";
 
-import { GroupedList, ListButtonRow } from "../ui/GroupedList";
+import { AccountButton } from "../employee/Account";
+import { List, Row, Section } from "../ui/List";
+import { NavBar } from "../ui/NavBar";
 
 export interface SitePickerOption {
   readonly id: string;
@@ -17,29 +21,34 @@ export interface SitePickerProps {
  * one (remembered in a cookie). One row per site: no dropdown, no typing.
  */
 export function SitePicker({ sites, action }: SitePickerProps) {
+  // Klok's frame is plain white; this list needs the grouped background.
   return (
-    <div className="flex flex-col gap-8 pt-6 md:pt-0">
-      <div className="flex flex-col gap-3">
-        <h1 className="text-title">{t("sitePicker.title")}</h1>
-        <p className="text-body text-ink-2">{t("sitePicker.intro")}</p>
-      </div>
+    <div className="flex flex-1 flex-col bg-grouped">
+      <NavBar
+        title={t("sitePicker.title")}
+        trailing={<AccountButton placement="bar" />}
+      />
       {/* One form per site; the rows submit them via `form=` (a form can't sit in a list). */}
       {sites.map((site) => (
         <form key={site.id} id={`site-${site.id}`} action={action} hidden>
           <input type="hidden" name="siteId" value={site.id} />
         </form>
       ))}
-      <GroupedList>
-        {sites.map((site) => (
-          <ListButtonRow
-            key={site.id}
-            type="submit"
-            form={`site-${site.id}`}
-            title={site.name}
-            chevron
-          />
-        ))}
-      </GroupedList>
+      <List className="pb-10">
+        <Section footer={t("sitePicker.intro")}>
+          {sites.map((site) => (
+            <Row
+              key={site.id}
+              type="submit"
+              form={`site-${site.id}`}
+              icon={MapPin}
+              tile="blue"
+              title={site.name}
+              chevron
+            />
+          ))}
+        </Section>
+      </List>
     </div>
   );
 }

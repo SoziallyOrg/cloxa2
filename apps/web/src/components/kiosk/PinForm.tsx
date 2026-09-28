@@ -10,6 +10,7 @@ import { pinFormProblem, pinProblemKey, type PinActionResult } from "@/lib/kiosk
 import { Notice } from "../ui/Notice";
 import { Button } from "../ui/Button";
 import { Field } from "../ui/Field";
+import { Row, Section } from "../ui/List";
 import { Stack } from "../ui/Stack";
 import { TextInput } from "../ui/TextInput";
 
@@ -18,6 +19,12 @@ export interface PinFormProps {
   id: string;
   submitLabel: string;
   savedMessage: string;
+  /**
+   * `list`: iOS settings style (employee app): both fields as rows of one
+   * inset group, the button at the bottom. `stack` (default): labelled
+   * fields above each other (manager pages).
+   */
+  variant?: "stack" | "list";
   action: (input: { pin: string; confirmation: string }) => Promise<PinActionResult>;
 }
 
@@ -26,7 +33,13 @@ export interface PinFormProps {
  * the database. Used by employees for their own PIN and by managers for
  * staff without a login.
  */
-export function PinForm({ id, submitLabel, savedMessage, action }: PinFormProps) {
+export function PinForm({
+  id,
+  submitLabel,
+  savedMessage,
+  action,
+  variant = "stack",
+}: PinFormProps) {
   const router = useRouter();
   const [pin, setPin] = useState("");
   const [confirmation, setConfirmation] = useState("");
@@ -58,6 +71,69 @@ export function PinForm({ id, submitLabel, savedMessage, action }: PinFormProps)
 
   const digitsOnly = (value: string) => value.replace(/\D/g, "").slice(0, 6);
   const error = errorKey ? t(errorKey) : undefined;
+
+  if (variant === "list") {
+    const hintId = `${id}-hint`;
+    const errorId = `${id}-error`;
+    const input = (
+      inputId: string,
+      value: string,
+      onChange: (next: string) => void,
+    ) => (
+      <input
+        id={inputId}
+        type="password"
+        inputMode="numeric"
+        autoComplete="new-password"
+        maxLength={6}
+        value={value}
+        aria-describedby={error ? `${hintId} ${errorId}` : hintId}
+        aria-invalid={error ? true : undefined}
+        onChange={(event) => onChange(digitsOnly(event.target.value))}
+        className="focus-ring min-h-touch-target w-28 shrink-0 rounded-md border-0 bg-transparent px-2 text-right text-body tracking-[0.2em] text-ink"
+      />
+    );
+
+    return (
+      <form
+        onSubmit={(event) => void handleSubmit(event)}
+        noValidate
+        className="flex flex-1 flex-col gap-8 pb-6"
+      >
+        {saved ? (
+          <Notice tone="success" onDismiss={() => setSaved(false)}>
+            {savedMessage}
+          </Notice>
+        ) : null}
+        <Section
+          footer={
+            <span className="flex flex-col gap-1">
+              {error ? (
+                <span id={errorId} role="alert" className="font-semibold text-danger">
+                  {error}
+                </span>
+              ) : null}
+              <span id={hintId}>{t("kiosk.pinSettingsHint")}</span>
+            </span>
+          }
+        >
+          <Row
+            title={<label htmlFor={`${id}-pin`}>{t("kiosk.pinNewLabel")}</label>}
+            accessory={input(`${id}-pin`, pin, setPin)}
+          />
+          <Row
+            title={<label htmlFor={`${id}-repeat`}>{t("kiosk.pinRepeatLabel")}</label>}
+            accessory={input(`${id}-repeat`, confirmation, setConfirmation)}
+          />
+        </Section>
+        <div className="mt-auto">
+          <Button type="submit" size="lg" loading={submitting}>
+            {submitLabel}
+          </Button>
+        </div>
+      </form>
+    );
+  }
 
   return (
     <form onSubmit={(event) => void handleSubmit(event)} noValidate>

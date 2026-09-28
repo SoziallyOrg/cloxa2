@@ -10,9 +10,17 @@ import {
 import { myStatus, scheduleFor } from "@cloxa/db";
 import { formatBrusselsTime, t } from "@cloxa/i18n";
 
+import { MapPin } from "lucide-react";
+
+import { Logo } from "@/components/brand/Logo";
 import type { PlannedDay } from "@/components/clock/clock-face";
+import { AccountButton } from "@/components/employee/Account";
 import { EmployeeHomeContainer } from "@/components/employee/EmployeeHomeContainer";
 import { SitePicker } from "@/components/clock/SitePicker";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { PageTransition } from "@/components/ui/PageTransition";
+import { PullToRefresh } from "@/components/ui/PullToRefresh";
+import { previewHold } from "@/lib/preview";
 import { requireEmployeeArea } from "@/lib/auth/context";
 import { nowMs } from "@/lib/clock/now";
 import { readChosenSiteId } from "@/lib/clock/site-cookie";
@@ -22,9 +30,27 @@ import { chooseSiteAction } from "./actions";
 
 const RECENT_EVENTS_WINDOW_MS = 3 * 24 * 3600 * 1000;
 
+/**
+ * Klok is the hero page, so no large title: on phones the logotype on the
+ * left and the name (the account sheet) on the right. Desktop has both in
+ * the sidebar.
+ */
+function KlokFrame({ children }: { children: React.ReactNode }) {
+  return (
+    <PageTransition className="flex flex-1 flex-col">
+      <header className="box-content flex h-nav-bar items-center justify-between gap-4 px-gutter pt-[env(safe-area-inset-top)] md:hidden">
+        <Logo />
+        <AccountButton placement="header" />
+      </header>
+      <PullToRefresh className="flex flex-1 flex-col">{children}</PullToRefresh>
+    </PageTransition>
+  );
+}
+
 export default async function EmployeeAppPage() {
   // Layouts don't re-run on client navigation, so every page checks too.
   const context = await requireEmployeeArea();
+  await previewHold();
   const supabase = await createClient();
   const now = nowMs();
 
@@ -50,9 +76,16 @@ export default async function EmployeeAppPage() {
 
   if (sites.length === 0) {
     return (
-      <div className="flex flex-1 flex-col justify-center">
-        <p className="text-body text-ink-2">{t("sitePicker.none")}</p>
-      </div>
+      <KlokFrame>
+        <h1 className="sr-only">{t("app.heading")}</h1>
+        <div className="flex flex-1 flex-col justify-center">
+          <EmptyState
+            icon={MapPin}
+            title={t("sitePicker.noneTitle")}
+            body={t("sitePicker.none")}
+          />
+        </div>
+      </KlokFrame>
     );
   }
 
@@ -65,7 +98,11 @@ export default async function EmployeeAppPage() {
   }
 
   if (siteId === null) {
-    return <SitePicker sites={sites} action={chooseSiteAction} />;
+    return (
+      <PageTransition>
+        <SitePicker sites={sites} action={chooseSiteAction} />
+      </PageTransition>
+    );
   }
 
   const [statusRows, eventsResult] = await Promise.all([
@@ -134,14 +171,16 @@ export default async function EmployeeAppPage() {
         };
 
   return (
-    <EmployeeHomeContainer
-      employeeId={context.employeeId}
-      initialShiftState={initialShiftState}
-      initialSince={initialSince}
-      initialNow={now}
-      todayShifts={todayShifts}
-      planned={planned}
-      siteId={siteId}
-    />
+    <KlokFrame>
+      <EmployeeHomeContainer
+        employeeId={context.employeeId}
+        initialShiftState={initialShiftState}
+        initialSince={initialSince}
+        initialNow={now}
+        todayShifts={todayShifts}
+        planned={planned}
+        siteId={siteId}
+      />
+    </KlokFrame>
   );
 }

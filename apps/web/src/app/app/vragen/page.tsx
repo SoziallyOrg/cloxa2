@@ -1,12 +1,20 @@
 import Link from "next/link";
+import { MessageSquare } from "lucide-react";
 
 import { formatBrusselsDate, t } from "@cloxa/i18n";
 
-import { Button, buttonClassName } from "@/components/ui/Button";
+import { AccountButton } from "@/components/employee/Account";
+import { RequestsList, type RequestRow } from "@/components/employee/RequestsList";
+import { buttonClassName } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { GroupedList, ListRow } from "@/components/ui/GroupedList";
-import { StatusLine, type StatusTone } from "@/components/ui/StatusLine";
+import { List } from "@/components/ui/List";
+import { NavBar } from "@/components/ui/NavBar";
+import { PageTransition } from "@/components/ui/PageTransition";
+import { PullToRefresh } from "@/components/ui/PullToRefresh";
+import type { StatusTone } from "@/components/ui/StatusLine";
+import { PUSH } from "@/components/ui/transitions";
 import { requireEmployeeArea } from "@/lib/auth/context";
+import { previewHold } from "@/lib/preview";
 import { createClient } from "@/lib/supabase/server";
 
 import { withdrawCorrectionAction } from "./actions";
@@ -39,6 +47,7 @@ function statusKey(status: string): keyof typeof STATUS_LABEL_KEY {
 
 export default async function QuestionsPage() {
   const context = await requireEmployeeArea();
+  await previewHold();
   const supabase = await createClient();
 
   const { data: requests, error } = await supabase
@@ -48,66 +57,62 @@ export default async function QuestionsPage() {
     .order("created_at", { ascending: false });
   if (error) throw new Error(`correction_requests_unavailable:${error.code}`);
 
+  const rows: RequestRow[] = requests.map((request) => {
+    const key = statusKey(request.status);
+    const kind =
+      request.kind in KIND_LABEL_KEY
+        ? KIND_LABEL_KEY[request.kind as keyof typeof KIND_LABEL_KEY]
+        : null;
+    const date = formatBrusselsDate(new Date(request.created_at));
+    return {
+      id: request.id,
+      title: kind ? t(kind) : date,
+      date,
+      statusLabel: t(STATUS_LABEL_KEY[key]),
+      statusTone: STATUS_TONE[key],
+      pending: request.status === "pending",
+      reason: request.reason || null,
+      managerNote: request.decision_note || null,
+    };
+  });
+
+  const newRequest = (
+    <Link
+      href="/app/vragen/nieuw"
+      transitionTypes={PUSH}
+      className={buttonClassName("primary", "lg")}
+    >
+      {t("questions.newRequest")}
+    </Link>
+  );
+
   return (
-    <div className="flex flex-1 flex-col gap-8 pt-6 md:pt-0">
-      <h1 className="text-title">{t("questions.heading")}</h1>
-
-      {requests.length === 0 ? (
-        <EmptyState title={t("questions.empty")} body={t("questions.emptyBody")} />
-      ) : (
-        <GroupedList>
-          {requests.map((request) => {
-            const key = statusKey(request.status);
-            const kind =
-              request.kind in KIND_LABEL_KEY
-                ? KIND_LABEL_KEY[request.kind as keyof typeof KIND_LABEL_KEY]
-                : null;
-            return (
-              <ListRow
-                key={request.id}
-                title={
-                  kind ? t(kind) : formatBrusselsDate(new Date(request.created_at))
-                }
-                detail={
-                  <span className="flex flex-col gap-1.5 pt-0.5">
-                    <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                      <StatusLine
-                        tone={STATUS_TONE[key]}
-                        label={t(STATUS_LABEL_KEY[key])}
-                        size="sm"
-                      />
-                      <span>{formatBrusselsDate(new Date(request.created_at))}</span>
-                    </span>
-                    {request.reason ? (
-                      <span className="text-body text-ink">{request.reason}</span>
-                    ) : null}
-                    {request.decision_note ? (
-                      <span>
-                        {t("questions.managerNote", { note: request.decision_note })}
-                      </span>
-                    ) : null}
-                  </span>
-                }
-              >
-                {request.status === "pending" ? (
-                  <form action={withdrawCorrectionAction}>
-                    <input type="hidden" name="id" value={request.id} />
-                    <Button type="submit" variant="plain">
-                      {t("questions.withdraw")}
-                    </Button>
-                  </form>
-                ) : null}
-              </ListRow>
-            );
-          })}
-        </GroupedList>
-      )}
-
-      <div className="sticky bottom-[calc(var(--spacing-tab-bar)+env(safe-area-inset-bottom)+1rem)] mt-auto bg-paper pt-2 md:static md:mt-0">
-        <Link href="/app/vragen/nieuw" className={buttonClassName("primary", "lg")}>
-          {t("questions.newRequest")}
-        </Link>
-      </div>
-    </div>
+    <PageTransition className="flex flex-1 flex-col">
+      <PullToRefresh className="flex flex-1 flex-col">
+        <NavBar
+          title={t("questions.heading")}
+          trailing={<AccountButton placement="bar" />}
+        />
+        {rows.length === 0 ? (
+          <div className="flex flex-1 flex-col justify-center pb-10">
+            <EmptyState
+              icon={MessageSquare}
+              title={t("questions.empty")}
+              body={t("questions.emptyBody")}
+              action={newRequest}
+            />
+          </div>
+        ) : (
+          <>
+            <List className="pb-6">
+              <RequestsList rows={rows} withdrawAction={withdrawCorrectionAction} />
+            </List>
+            <div className="sticky bottom-[calc(var(--spacing-tab-bar)+env(safe-area-inset-bottom))] mt-auto bg-grouped/85 px-inset pt-2 pb-4 backdrop-blur-md md:static md:bg-transparent md:pb-10 md:backdrop-blur-none">
+              {newRequest}
+            </div>
+          </>
+        )}
+      </PullToRefresh>
+    </PageTransition>
   );
 }

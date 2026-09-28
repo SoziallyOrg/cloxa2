@@ -1,10 +1,11 @@
 import { redirect } from "next/navigation";
+import { Building2 } from "lucide-react";
 
 import { t } from "@cloxa/i18n";
 
 import { AuthShell } from "@/components/auth/AuthShell";
 import { SessionActions } from "@/components/auth/SessionActions";
-import { GroupedList, ListButtonRow } from "@/components/ui/GroupedList";
+import { Row, Section } from "@/components/ui/List";
 import { chooseOrganization } from "@/lib/auth/actions/session";
 import { requireSignedIn } from "@/lib/auth/context";
 
@@ -15,6 +16,7 @@ export default async function ChooseOrganizationPage() {
 
   return (
     <AuthShell
+      tone="grouped"
       title={t("chooseOrg.title")}
       intro={<p className="text-body text-ink-2">{t("chooseOrg.intro")}</p>}
     >
@@ -33,17 +35,19 @@ export default async function ChooseOrganizationPage() {
           />
         </form>
       ))}
-      <GroupedList>
+      <Section>
         {memberships.map((membership) => (
-          <ListButtonRow
+          <Row
             key={membership.id}
             type="submit"
             form={`org-${membership.id}`}
+            icon={Building2}
+            tile="blue"
             title={membership.organizationName}
             chevron
           />
         ))}
-      </GroupedList>
+      </Section>
       <SessionActions />
     </AuthShell>
   );
