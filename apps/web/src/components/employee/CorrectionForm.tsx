@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { formatBrusselsTime, t } from "@cloxa/i18n";
 import type { RequestCorrectionInput } from "@cloxa/db";
 
+import type { CorrectionDay } from "@/lib/corrections/days";
 import {
   buildCorrectionPayload,
   canAdvance,
@@ -16,7 +17,6 @@ import {
   type CorrectionEventType,
   type CorrectionFormState,
   type CorrectionKind,
-  type CorrectionTargetOption,
 } from "@/lib/corrections/form";
 
 import { Alert } from "../ui/Alert";
@@ -29,9 +29,10 @@ import { TextInput } from "../ui/TextInput";
 
 export interface CorrectionFormProps {
   siteId: string;
-  /** Effective events on the day the correction started from, for "adjust"/"remove". */
-  targets: readonly CorrectionTargetOption[];
-  defaultDate: string;
+  /** The last 14 days, newest first, each with its events. */
+  days: readonly CorrectionDay[];
+  /** Set when started from a day or shift ("Klopt er iets niet?"): no day list then. */
+  preselectedDate: string | null;
   submitAction: (
     input: RequestCorrectionInput,
   ) => Promise<{ ok: boolean; errorKey?: string }>;
@@ -81,23 +82,37 @@ function StepDots({ step }: { step: 1 | 2 | 3 }) {
 /** A big choice row: the whole row is the button; the chosen one gets a check. */
 function Choice({
   label,
+  time,
+  spoken,
   selected,
   onSelect,
 }: {
   label: string;
+  /** Right-aligned, e.g. "08:02". */
+  time?: string;
+  /** The accessible name when a time is shown: "Gestopt met werken om 16:31". */
+  spoken?: string;
   selected: boolean;
   onSelect: () => void;
 }) {
   return (
     <ListButtonRow
       aria-pressed={selected}
+      {...(spoken ? { "aria-label": spoken } : {})}
       title={<span className={selected ? "font-semibold" : undefined}>{label}</span>}
       value={
-        selected ? (
-          <IconCheck className="size-5 text-ink" strokeWidth={2.5} />
-        ) : (
-          <span className="block size-5" />
-        )
+        <span className="flex items-center gap-3">
+          {time ? (
+            <span className={cx("tabular-nums", selected ? "text-ink" : "text-ink-2")}>
+              {time}
+            </span>
+          ) : null}
+          {selected ? (
+            <IconCheck className="size-5 text-ink" strokeWidth={2.5} />
+          ) : (
+            <span className="block size-5" />
+          )}
+        </span>
       }
       onClick={onSelect}
     />
@@ -110,15 +125,20 @@ function Choice({
  */
 export function CorrectionForm({
   siteId,
-  targets,
-  defaultDate,
+  days,
+  preselectedDate,
   submitAction,
 }: CorrectionFormProps) {
   const router = useRouter();
   const [state, setState] = useState<CorrectionFormState>({
     ...INITIAL_CORRECTION_FORM_STATE,
-    date: defaultDate,
+    date: preselectedDate ?? days[0]?.key ?? "",
   });
+  // Step 2 starts with "Welke dag?" unless the day came with the link.
+  const [dayChosen, setDayChosen] = useState(preselectedDate !== null);
+  const day = days.find((candidate) => candidate.key === state.date);
+  const targets = day?.targets ?? [];
+  const choosingDay = state.step === 2 && !dayChosen;
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
@@ -157,17 +177,30 @@ export function CorrectionForm({
   const title =
     state.step === 1
       ? t("correctionForm.step1Title")
-      : state.step === 2
-        ? state.kind === "remove"
-          ? t("correctionForm.step2TitleRemove")
-          : t("correctionForm.step2Title")
-        : t("correctionForm.step3Title");
+      : choosingDay
+        ? t("correctionForm.dayTitle")
+        : state.step === 2
+          ? state.kind === "remove"
+            ? t("correctionForm.step2TitleRemove")
+            : t("correctionForm.step2Title")
+          : t("correctionForm.step3Title");
+
+  function back() {
+    if (state.step === 2 && dayChosen && preselectedDate === null) {
+      setDayChosen(false);
+      return;
+    }
+    setState(goBack);
+  }
 
   return (
     <div className="flex flex-1 flex-col gap-8">
       <div className="flex flex-col gap-4">
         <StepDots step={state.step} />
         <h1 className="text-title">{title}</h1>
+        {state.step === 2 && !choosingDay && day ? (
+          <p className="text-body text-ink-2">{day.longLabel}</p>
+        ) : null}
       </div>
 
       {state.step === 1 ? (
@@ -189,7 +222,29 @@ export function CorrectionForm({
         </GroupedList>
       ) : null}
 
-      {state.step === 2 ? (
+      {choosingDay ? (
+        <GroupedList>
+          {days.map((candidate) => (
+            <ListButtonRow
+              key={candidate.key}
+              aria-label={`${candidate.label}, ${candidate.summary}`}
+              title={candidate.label}
+              detail={candidate.summary}
+              chevron
+              onClick={() => {
+                setState((current) => ({
+                  ...current,
+                  date: candidate.key,
+                  targetEventId: null,
+                }));
+                setDayChosen(true);
+              }}
+            />
+          ))}
+        </GroupedList>
+      ) : null}
+
+      {state.step === 2 && !choosingDay ? (
         <div className="flex flex-col gap-8">
           {state.kind === "add" ? (
             <GroupedList heading={t("correctionForm.eventTypeLabel")}>
@@ -204,45 +259,42 @@ export function CorrectionForm({
                 />
               ))}
             </GroupedList>
-          ) : null}
-
-          {state.kind === "adjust" || state.kind === "remove" ? (
-            targets.length === 0 ? (
-              <p className="text-body text-ink-2">{t("correctionForm.noTargets")}</p>
-            ) : (
-              <GroupedList heading={t("correctionForm.targetLabel")}>
-                {targets.map((target) => (
+          ) : targets.length === 0 ? (
+            <p className="text-body text-ink-2">{t("correctionForm.noTargets")}</p>
+          ) : (
+            <GroupedList heading={t("correctionForm.targetLabel")}>
+              {targets.map((target) => {
+                const label = t(
+                  EVENT_TYPE_OPTIONS.find((option) => option.type === target.type)
+                    ?.labelKey ?? "correctionForm.eventTypeClockIn",
+                );
+                const time = formatBrusselsTime(new Date(target.occurredAtIso));
+                return (
                   <Choice
                     key={target.id}
-                    label={t("correctionForm.targetOption", {
-                      type: t(
-                        EVENT_TYPE_OPTIONS.find((option) => option.type === target.type)
-                          ?.labelKey ?? "correctionForm.eventTypeClockIn",
-                      ),
-                      time: formatBrusselsTime(new Date(target.occurredAtIso)),
-                    })}
+                    label={label}
+                    time={time}
+                    spoken={t("correctionForm.targetOption", { type: label, time })}
                     selected={state.targetEventId === target.id}
                     onSelect={() =>
                       setState((current) => ({ ...current, targetEventId: target.id }))
                     }
                   />
-                ))}
-              </GroupedList>
-            )
-          ) : null}
+                );
+              })}
+            </GroupedList>
+          )}
 
-          {state.kind !== "remove" ? (
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-              <Field id="date" label={t("correctionForm.dateLabel")}>
-                <TextInput
-                  type="date"
-                  value={state.date}
-                  onChange={(event) =>
-                    setState((current) => ({ ...current, date: event.target.value }))
-                  }
-                />
-              </Field>
-              <Field id="time" label={t("correctionForm.timeLabel")}>
+          {state.kind === "add" || (state.kind === "adjust" && targets.length > 0) ? (
+            <div className="sm:max-w-60">
+              <Field
+                id="time"
+                label={
+                  state.kind === "add"
+                    ? t("correctionForm.timeLabel")
+                    : t("correctionForm.newTimeLabel")
+                }
+              >
                 <TextInput
                   type="time"
                   value={state.time}
@@ -308,7 +360,7 @@ export function CorrectionForm({
           >
             {t("correctionForm.submit")}
           </Button>
-        ) : (
+        ) : choosingDay ? null : (
           <Button
             size="lg"
             disabled={!canAdvance(state, targets)}
@@ -318,7 +370,7 @@ export function CorrectionForm({
           </Button>
         )}
         {state.step > 1 ? (
-          <Button variant="plain" wide onClick={() => setState(goBack)}>
+          <Button variant="plain" wide onClick={back}>
             {t("correctionForm.back")}
           </Button>
         ) : null}

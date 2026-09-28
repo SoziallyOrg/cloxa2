@@ -90,7 +90,7 @@ export default async function QuestionsPage() {
                 }
               >
                 {request.status === "pending" ? (
-                  <form action={withdrawCorrectionAction} className="-mt-1 -ml-3">
+                  <form action={withdrawCorrectionAction}>
                     <input type="hidden" name="id" value={request.id} />
                     <Button type="submit" variant="plain">
                       {t("questions.withdraw")}

@@ -54,6 +54,19 @@ export function brusselsWeekRange(now: number): BrusselsWeekRange {
 }
 
 /**
+ * Net worked milliseconds of one shift. An open shift (and an open break) is
+ * measured up to `now`.
+ */
+export function workedMs(shift: Shift, now: number): number {
+  if (!shift.open) return shift.netMs;
+  const breakMs = shift.breaks.reduce(
+    (sum, brk) => sum + ((brk.end ?? now) - brk.start),
+    0,
+  );
+  return Math.max(0, now - shift.start - breakMs);
+}
+
+/**
  * Net worked milliseconds for shifts starting in the current week. Open
  * shifts and open breaks are measured up to `now`.
  */
@@ -63,17 +76,7 @@ export function weekTotalMs(shifts: readonly Shift[], now: number): number {
 
   for (const shift of shifts) {
     if (shift.start < start || shift.start >= end) continue;
-
-    if (!shift.open) {
-      total += shift.netMs;
-      continue;
-    }
-
-    const openBreakMs = shift.breaks.reduce(
-      (sum, brk) => sum + ((brk.end ?? now) - brk.start),
-      0,
-    );
-    total += Math.max(0, now - shift.start - openBreakMs);
+    total += workedMs(shift, now);
   }
 
   return total;

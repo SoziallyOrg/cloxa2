@@ -14,8 +14,9 @@
  *   journey-e2e@demo.test (site 1; reserved for manager-journey.spec.ts)
  *   owner-e2e@demo.test (owner, site 1; reserved for e2e specs needing owner
  *     rights, so eigenaar@demo.test's session is never disturbed)
- *   screens-e2e@demo.test (site 1; reserved for `pnpm screens`, with a few weeks
- *     of made-up history: one corrected shift, one offline shift, three questions)
+ *   screens-e2e@, screens-pauze@, screens-uit@, screens-actie@demo.test (site 1;
+ *     reserved for `pnpm screens`: made-up history and a realistic "today",
+ *     reset on every run; see seedScreens)
  * Codes arrive in the local Mailpit: http://127.0.0.1:54324
  *
  * Refuses to run unless both the Supabase API and the database are on
@@ -38,6 +39,7 @@ import { fileURLToPath } from "node:url";
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import postgres from "postgres";
+import type { Sql as PgSql, TransactionSql } from "postgres";
 
 import type { Database } from "@cloxa/db";
 
@@ -56,7 +58,30 @@ const SEED_OWNER = { email: "seed-owner@demo.test", name: "Seed Owner (intern)" 
 // offboarding): also never a human's account, so its factors can be reset
 // freely. Given a membership and employee row directly, like SEED_OWNER.
 const OWNER_E2E = { email: "owner-e2e@demo.test", name: "Owen Testeigenaar" };
-const SCREENS = { email: "screens-e2e@demo.test", name: "Sanne Peeters" };
+// `pnpm screens` (design screenshots). The screenshots show the first three,
+// which a run never clocks with; live clock actions (the confirmation) use the
+// last one. `today` is what each shows today; see settleScreensToday.
+const SCREENS_ACCOUNTS = [
+  {
+    email: "screens-e2e@demo.test",
+    name: "Sanne Peeters",
+    today: "working",
+    history: true,
+  },
+  {
+    email: "screens-pauze@demo.test",
+    name: "Bram Maes",
+    today: "on_break",
+    history: false,
+  },
+  { email: "screens-uit@demo.test", name: "Chiara Vos", today: "off", history: false },
+  {
+    email: "screens-actie@demo.test",
+    name: "Driss Aerts",
+    today: null,
+    history: false,
+  },
+] as const;
 const MEMBERS: readonly {
   email: string;
   name: string;
@@ -121,13 +146,13 @@ const MEMBERS: readonly {
     role: "employee",
     sites: ["main"],
   },
-  // Dedicated to `pnpm screens` (design screenshots): gets realistic history.
-  {
-    email: SCREENS.email,
-    name: SCREENS.name,
-    role: "employee",
-    sites: ["main"],
-  },
+  // Dedicated to `pnpm screens` (design screenshots).
+  ...SCREENS_ACCOUNTS.map((account) => ({
+    email: account.email,
+    name: account.name,
+    role: "employee" as const,
+    sites: ["main" as const],
+  })),
   {
     email: "mohamed@demo.test",
     name: "Mohamed El Amrani",
@@ -455,12 +480,12 @@ async function main(): Promise<void> {
     }
   }
 
-  await seedScreensHistory({
+  await seedScreens({
     dbUrl,
     orgId,
     siteId: siteIds.main,
-    userId: await ensureUser(SCREENS.email),
     deciderId: ownerId,
+    userIds,
   });
 
   console.log(
@@ -472,7 +497,7 @@ async function main(): Promise<void> {
   console.log("Codes arrive in Mailpit: http://127.0.0.1:54324");
 }
 
-// Screens history ------------------------------------------------------------------------
+// Screens accounts -----------------------------------------------------------------------
 
 const DAY_KEY = new Intl.DateTimeFormat("en-CA", {
   timeZone: "Europe/Brussels",
@@ -491,6 +516,9 @@ const HOUR_MINUTE = new Intl.DateTimeFormat("en-GB", {
   hourCycle: "h23",
 });
 
+const MINUTE = 60_000;
+const HOUR = 60 * MINUTE;
+
 /** A Brussels wall-clock time (minutes after midnight) on a Brussels day, DST included. */
 function brussels(dayKey: string, minutes: number): Date {
   const [y = 0, m = 1, d = 1] = dayKey.split("-").map(Number);
@@ -503,174 +531,373 @@ function brussels(dayKey: string, minutes: number): Date {
   return new Date(naive - 3_600_000);
 }
 
-type SeedEventType = "clock_in" | "clock_out" | "break_start" | "break_end";
+type SeedEventType = "clock_in" | "clock_out" | "break_start" | "break_end" | "void";
+type Sql = PgSql;
+type Tx = TransactionSql;
+
+interface ScreensPerson {
+  employeeId: string;
+  userId: string;
+}
+
+interface ScreensContext {
+  orgId: string;
+  siteId: string;
+  deciderId: string;
+}
 
 /**
- * Made-up history for the screens account: weekday shifts over the last three
- * weeks, one of them corrected and one clocked offline, plus three questions.
- * Idempotent: a day that already has events is left alone.
+ * Appends one clock event with the append trigger switched off, doing by hand
+ * exactly what the trigger does (chain lock, hash, chain head) except that it
+ * keeps `occurred_at`. Needs `session_replication_role = replica` in `tx`.
  *
- * Live clock events always get occurred_at = server time (the append trigger),
- * so past history can't be made through the app. This local-only seed appends
- * them with triggers off (session_replication_role) and does by hand exactly
- * what the append trigger does (chain lock, hash, chain head), except that it
- * keeps occurred_at. The hash chain stays valid.
+ * Why: live clock events always get occurred_at = server time, so a made-up
+ * past (history, "working since 08:02") can't be recorded through the app.
+ * Local seed only; the hash chain stays valid (`verify_clock_chain`).
  */
-async function seedScreensHistory(input: {
+async function appendSeedEvent(
+  tx: Tx,
+  context: ScreensContext,
+  person: ScreensPerson,
+  event: {
+    type: SeedEventType;
+    at: Date;
+    offline?: boolean;
+    supersedes?: string;
+    correctionId?: string;
+  },
+): Promise<string> {
+  const correction = event.type === "void" || event.supersedes !== undefined;
+  const [head] = await tx<{ prev: Buffer }[]>`
+    select private.chain_lock_head(${context.orgId}::uuid, 'clock_events') as prev`;
+  const [row] = await tx<{ id: string }[]>`
+    insert into public.clock_events (
+      organization_id, site_id, employee_id, type, occurred_at, client_captured_at,
+      source, supersedes_event_id, correction_id, actor_user_id, idempotency_key,
+      offline, prev_hash, hash)
+    values (
+      ${context.orgId}, ${context.siteId}, ${person.employeeId}, ${event.type}, ${event.at},
+      ${event.offline ? event.at : null}, ${correction ? "correction" : "app"},
+      ${event.supersedes ?? null}, ${event.correctionId ?? null},
+      ${correction ? context.deciderId : person.userId}, gen_random_uuid(),
+      ${event.offline ?? false}, ${head!.prev},
+      decode(md5(random()::text) || md5(random()::text), 'hex'))
+    returning id`;
+  const [hashed] = await tx<{ hash: Buffer }[]>`
+    update public.clock_events as event
+    set hash = private.chain_hash(event.prev_hash, private.clock_event_canonical(event))
+    where event.id = ${row!.id}
+    returning event.hash`;
+  await tx`
+    select private.chain_set_head(
+      ${context.orgId}::uuid, 'clock_events', ${row!.id}::uuid, ${hashed!.hash})`;
+  return row!.id;
+}
+
+interface EffectiveEvent {
+  id: string;
+  type: Exclude<SeedEventType, "void">;
+  at: Date;
+}
+
+/** Effective events (not superseded, not void), oldest first: like `effectiveEvents`. */
+async function effectiveEventsOf(sql: Sql | Tx, employeeId: string) {
+  const rows = await sql<
+    {
+      id: string;
+      type: SeedEventType;
+      occurred_at: Date;
+      supersedes_event_id: string | null;
+    }[]
+  >`
+    select id, type, occurred_at, supersedes_event_id from public.clock_events
+    where employee_id = ${employeeId}
+    order by occurred_at, id`;
+  const superseded = new Set(
+    rows.map((row) => row.supersedes_event_id).filter(Boolean),
+  );
+  return rows
+    .filter((row) => row.type !== "void" && !superseded.has(row.id))
+    .map(
+      (row) => ({ id: row.id, type: row.type, at: row.occurred_at }) as EffectiveEvent,
+    );
+}
+
+async function screensPerson(
+  sql: Sql,
+  orgId: string,
+  email: string,
+  userId: string,
+): Promise<ScreensPerson> {
+  const [invitation] = await sql<{ employee_id: string }[]>`
+    select employee_id from public.invitations
+    where organization_id = ${orgId} and email = ${email}
+    order by created_at desc limit 1`;
+  if (!invitation) throw new Error(`${email} has no invitation`);
+  return { employeeId: invitation.employee_id, userId };
+}
+
+/** 08:00–16:30 every day, so the clock shows its progress track on any day. */
+async function ensureDailySchedule(
+  sql: Sql,
+  context: ScreensContext,
+  person: ScreensPerson,
+): Promise<void> {
+  const [schedule] = await sql`
+    select 1 from public.schedules
+    where organization_id = ${context.orgId} and employee_id = ${person.employeeId} limit 1`;
+  if (schedule) return;
+  const block = [{ start: "08:00", end: "16:30" }];
+  const pattern = Object.fromEntries(
+    ["mon", "tue", "wed", "thu", "fri", "sat", "sun"].map((day) => [day, block]),
+  );
+  await sql`
+    insert into public.schedules
+      (organization_id, employee_id, version, valid_from, pattern, created_by, notified_at)
+    values (${context.orgId}, ${person.employeeId}, 1, ${"2026-01-01"},
+      ${sql.json(pattern)}, ${context.deciderId}, now())`;
+}
+
+/**
+ * Weekday shifts over the last three weeks (one corrected, one offline) and
+ * three questions. Idempotent: a day that already has events is left alone.
+ */
+async function seedScreensHistory(
+  sql: Sql,
+  context: ScreensContext,
+  person: ScreensPerson,
+): Promise<void> {
+  const { orgId, siteId, deciderId } = context;
+  const { employeeId, userId } = person;
+
+  const existing = await sql<{ occurred_at: Date }[]>`
+    select occurred_at from public.clock_events where employee_id = ${employeeId}`;
+  const busyDays = new Set(existing.map((row) => DAY_KEY.format(row.occurred_at)));
+
+  const now = Date.now();
+  const days: string[] = [];
+  for (let back = 1; back <= 21; back += 1) {
+    const probe = new Date(now - back * 86_400_000);
+    if (["Sat", "Sun"].includes(WEEKDAY.format(probe))) continue;
+    days.push(DAY_KEY.format(probe));
+  }
+
+  const toCorrect: { id: string; at: Date }[] = [];
+  await sql.begin(async (tx) => {
+    await tx`set local session_replication_role = replica`;
+    for (const [index, day] of days.entries()) {
+      if (busyDays.has(day)) continue;
+      const jitter = (index * 7) % 11;
+      const offline = index === 1;
+      const events: { type: SeedEventType; at: Date }[] = [
+        { type: "clock_in", at: brussels(day, 8 * 60 - 4 + jitter) },
+        { type: "break_start", at: brussels(day, 12 * 60 + jitter) },
+        { type: "break_end", at: brussels(day, 12 * 60 + 30 + jitter) },
+        { type: "clock_out", at: brussels(day, 16 * 60 + 25 + ((jitter * 3) % 13)) },
+      ];
+      for (const event of events) {
+        const id = await appendSeedEvent(tx, context, person, { ...event, offline });
+        if (index === 3 && event.type === "clock_out")
+          toCorrect.push({ id, at: event.at });
+      }
+    }
+  });
+
+  const [anyRequest] = await sql`
+    select 1 from public.correction_requests
+    where organization_id = ${orgId} and employee_id = ${employeeId} limit 1`;
+  if (anyRequest) return;
+
+  const decidedAt = new Date(now - 2 * 86_400_000);
+  const target = toCorrect[0];
+  if (target) {
+    const corrected = new Date(target.at.getTime() + 45 * MINUTE);
+    const proposed = {
+      events: [{ target_event_id: target.id, occurred_at: corrected.toISOString() }],
+    };
+    const [request] = await sql<{ id: string }[]>`
+      insert into public.correction_requests (
+        organization_id, employee_id, requested_by, kind, target_event_ids,
+        proposed, reason, status, decided_by, decided_at, created_at)
+      values (
+        ${orgId}, ${employeeId}, ${userId}, 'adjust', ${sql.array([target.id])}::uuid[],
+        ${sql.json(proposed)}, 'Ik ben later gestopt: de levering kwam laat.',
+        'approved', ${deciderId}, ${decidedAt},
+        ${new Date(decidedAt.getTime() - HOUR)})
+      returning id`;
+    await sql.begin(async (tx) => {
+      await tx`set local session_replication_role = replica`;
+      await appendSeedEvent(tx, context, person, {
+        type: "clock_out",
+        at: corrected,
+        supersedes: target.id,
+        correctionId: request!.id,
+      });
+    });
+  }
+
+  const rejected = {
+    events: [
+      {
+        type: "clock_in",
+        occurred_at: brussels(days[6] ?? days[0]!, 7 * 60 + 30).toISOString(),
+        site_id: siteId,
+      },
+    ],
+  };
+  await sql`
+    insert into public.correction_requests (
+      organization_id, employee_id, requested_by, kind, proposed, reason, status,
+      decided_by, decided_at, decision_note, created_at)
+    values (
+      ${orgId}, ${employeeId}, ${userId}, 'add', ${sql.json(rejected)},
+      'Ik begon vroeger voor de inventaris.', 'rejected', ${deciderId}, ${decidedAt},
+      'Die dag begon je om 08:00, zoals gepland.',
+      ${new Date(decidedAt.getTime() - 2 * HOUR)})`;
+
+  const pending = {
+    events: [
+      {
+        type: "break_start",
+        occurred_at: brussels(days[0]!, 12 * 60).toISOString(),
+        site_id: siteId,
+      },
+    ],
+  };
+  await sql`
+    insert into public.correction_requests (
+      organization_id, employee_id, requested_by, kind, proposed, reason)
+    values (
+      ${orgId}, ${employeeId}, ${userId}, 'add', ${sql.json(pending)},
+      'Ik vergat mijn pauze te klokken.')`;
+}
+
+/** What a screens account shows today: `null` leaves today alone (live actions). */
+type TodayState = "working" | "on_break" | "off" | null;
+
+/**
+ * Brings a screens account to a realistic "today", on every run:
+ * - a shift left open on an earlier day is closed about 8.5 hours after it began;
+ * - `working`: one clock-in about 3 h 24 min ago;
+ * - `on_break`: a clock-in about 3 h 50 min ago and a break since 11 minutes;
+ * - `off`: nothing today.
+ * Today's events that don't fit are voided (the standard "remove" correction),
+ * so reruns on the same day never pile up short shifts.
+ */
+async function settleScreensToday(
+  sql: Sql,
+  context: ScreensContext,
+  person: ScreensPerson,
+  state: TodayState,
+): Promise<void> {
+  const now = Math.floor(Date.now() / MINUTE) * MINUTE;
+  const today = DAY_KEY.format(new Date(now));
+  const midnight = brussels(today, 0).getTime();
+
+  await sql.begin(async (tx) => {
+    await tx`set local session_replication_role = replica`;
+    const events = await effectiveEventsOf(tx, person.employeeId);
+
+    // Close a shift left open before today.
+    const before = events.filter((event) => event.at.getTime() < midnight);
+    let shiftStart: number | null = null;
+    let breakStart: number | null = null;
+    for (const event of before) {
+      if (event.type === "clock_in") shiftStart = event.at.getTime();
+      if (event.type === "clock_out") shiftStart = null;
+      if (event.type === "break_start") breakStart = event.at.getTime();
+      if (event.type === "break_end" || event.type === "clock_out") breakStart = null;
+    }
+    if (shiftStart !== null) {
+      const last = before[before.length - 1]!.at.getTime();
+      const end = Math.min(
+        Math.max(shiftStart + 8.5 * HOUR, last + 5 * MINUTE),
+        now - HOUR,
+      );
+      if (breakStart !== null) {
+        const breakEnd = Math.min(breakStart + 30 * MINUTE, end - MINUTE);
+        await appendSeedEvent(tx, context, person, {
+          type: "break_end",
+          at: new Date(breakEnd),
+        });
+      }
+      await appendSeedEvent(tx, context, person, {
+        type: "clock_out",
+        at: new Date(end),
+      });
+    }
+
+    if (state === null) return;
+    const todays = events.filter((event) => event.at.getTime() >= midnight);
+    const age = (event: EffectiveEvent | undefined) =>
+      event ? now - event.at.getTime() : Number.NaN;
+    const fits =
+      state === "off"
+        ? todays.length === 0
+        : state === "working"
+          ? todays.length === 1 &&
+            todays[0]!.type === "clock_in" &&
+            age(todays[0]) >= 3 * HOUR &&
+            age(todays[0]) <= 4 * HOUR
+          : todays.length === 2 &&
+            todays[0]!.type === "clock_in" &&
+            todays[1]!.type === "break_start" &&
+            age(todays[0]) >= 3 * HOUR &&
+            age(todays[0]) <= 4.5 * HOUR &&
+            age(todays[1]) <= 40 * MINUTE;
+    if (fits) return;
+
+    for (const event of todays) {
+      await appendSeedEvent(tx, context, person, {
+        type: "void",
+        at: event.at,
+        supersedes: event.id,
+      });
+    }
+    // Never before today's midnight, so a run just after midnight stays "today".
+    const since = (ago: number) => new Date(Math.max(now - ago, midnight + MINUTE));
+    if (state === "working") {
+      await appendSeedEvent(tx, context, person, {
+        type: "clock_in",
+        at: since(3 * HOUR + 24 * MINUTE),
+      });
+    }
+    if (state === "on_break") {
+      await appendSeedEvent(tx, context, person, {
+        type: "clock_in",
+        at: since(3 * HOUR + 50 * MINUTE),
+      });
+      await appendSeedEvent(tx, context, person, {
+        type: "break_start",
+        at: since(11 * MINUTE),
+      });
+    }
+  });
+}
+
+/** The screens accounts: made-up history and a realistic "today" for each. */
+async function seedScreens(input: {
   dbUrl: string;
   orgId: string;
   siteId: string;
-  userId: string;
   deciderId: string;
+  userIds: ReadonlyMap<string, string>;
 }): Promise<void> {
-  const { dbUrl, orgId, siteId, userId, deciderId } = input;
-  const sql = postgres(dbUrl, { max: 1, onnotice: () => undefined });
+  const sql = postgres(input.dbUrl, { max: 1, onnotice: () => undefined });
+  const context: ScreensContext = {
+    orgId: input.orgId,
+    siteId: input.siteId,
+    deciderId: input.deciderId,
+  };
   try {
-    const [invitation] = await sql<{ employee_id: string }[]>`
-      select employee_id from public.invitations
-      where organization_id = ${orgId} and email = ${SCREENS.email}
-      order by created_at desc limit 1`;
-    if (!invitation) throw new Error("screens-e2e has no invitation");
-    const employeeId = invitation.employee_id;
-
-    // A schedule every day, so the clock shows its progress track on any day.
-    const [schedule] = await sql`
-      select 1 from public.schedules
-      where organization_id = ${orgId} and employee_id = ${employeeId} limit 1`;
-    if (!schedule) {
-      const block = [{ start: "08:00", end: "16:30" }];
-      const pattern = Object.fromEntries(
-        ["mon", "tue", "wed", "thu", "fri", "sat", "sun"].map((day) => [day, block]),
-      );
-      await sql`
-        insert into public.schedules
-          (organization_id, employee_id, version, valid_from, pattern, created_by, notified_at)
-        values (${orgId}, ${employeeId}, 1, ${"2026-01-01"}, ${sql.json(pattern)},
-          ${deciderId}, now())`;
+    for (const account of SCREENS_ACCOUNTS) {
+      const userId = input.userIds.get(account.email);
+      if (!userId) throw new Error(`${account.email} is not seeded`);
+      const person = await screensPerson(sql, input.orgId, account.email, userId);
+      await ensureDailySchedule(sql, context, person);
+      if (account.history) await seedScreensHistory(sql, context, person);
+      await settleScreensToday(sql, context, person, account.today);
     }
-
-    const existing = await sql<{ occurred_at: Date }[]>`
-      select occurred_at from public.clock_events
-      where organization_id = ${orgId} and employee_id = ${employeeId}`;
-    const busyDays = new Set(existing.map((row) => DAY_KEY.format(row.occurred_at)));
-
-    const now = Date.now();
-    const days: string[] = [];
-    for (let back = 1; back <= 21; back += 1) {
-      const probe = new Date(now - back * 86_400_000);
-      if (["Sat", "Sun"].includes(WEEKDAY.format(probe))) continue;
-      days.push(DAY_KEY.format(probe));
-    }
-
-    const toCorrect: { id: string; at: Date }[] = [];
-    await sql.begin(async (tx) => {
-      await tx`set local session_replication_role = replica`;
-      for (const [index, day] of days.entries()) {
-        if (busyDays.has(day)) continue;
-        const jitter = (index * 7) % 11;
-        const offline = index === 1;
-        const events: { type: SeedEventType; at: Date }[] = [
-          { type: "clock_in", at: brussels(day, 8 * 60 - 4 + jitter) },
-          { type: "break_start", at: brussels(day, 12 * 60 + jitter) },
-          { type: "break_end", at: brussels(day, 12 * 60 + 30 + jitter) },
-          { type: "clock_out", at: brussels(day, 16 * 60 + 25 + ((jitter * 3) % 13)) },
-        ];
-        for (const event of events) {
-          const [head] = await tx<{ prev: Buffer }[]>`
-            select private.chain_lock_head(${orgId}::uuid, 'clock_events') as prev`;
-          const [row] = await tx<{ id: string }[]>`
-            insert into public.clock_events (
-              organization_id, site_id, employee_id, type, occurred_at,
-              client_captured_at, source, actor_user_id, idempotency_key, offline,
-              prev_hash, hash)
-            values (
-              ${orgId}, ${siteId}, ${employeeId}, ${event.type}, ${event.at},
-              ${offline ? event.at : null}, 'app', ${userId}, gen_random_uuid(), ${offline},
-              ${head!.prev}, decode(md5(random()::text) || md5(random()::text), 'hex'))
-            returning id`;
-          const [hashed] = await tx<{ hash: Buffer }[]>`
-            update public.clock_events as event
-            set hash = private.chain_hash(event.prev_hash, private.clock_event_canonical(event))
-            where event.id = ${row!.id}
-            returning event.hash`;
-          await tx`
-            select private.chain_set_head(
-              ${orgId}::uuid, 'clock_events', ${row!.id}::uuid, ${hashed!.hash})`;
-          if (index === 3 && event.type === "clock_out") {
-            toCorrect.push({ id: row!.id, at: event.at });
-          }
-        }
-      }
-    });
-
-    const [anyRequest] = await sql`
-      select 1 from public.correction_requests
-      where organization_id = ${orgId} and employee_id = ${employeeId} limit 1`;
-    if (anyRequest) return;
-
-    const decidedAt = new Date(now - 2 * 86_400_000);
-    const target = toCorrect[0];
-    if (target) {
-      const corrected = new Date(target.at.getTime() + 45 * 60_000);
-      const proposed = {
-        events: [{ target_event_id: target.id, occurred_at: corrected.toISOString() }],
-      };
-      const [request] = await sql<{ id: string }[]>`
-        insert into public.correction_requests (
-          organization_id, employee_id, requested_by, kind, target_event_ids,
-          proposed, reason, status, decided_by, decided_at, created_at)
-        values (
-          ${orgId}, ${employeeId}, ${userId}, 'adjust', ${sql.array([target.id])}::uuid[],
-          ${sql.json(proposed)}, 'Ik ben later gestopt: de levering kwam laat.',
-          'approved', ${deciderId}, ${decidedAt},
-          ${new Date(decidedAt.getTime() - 3_600_000)})
-        returning id`;
-      // A correction keeps its occurred_at through the normal append trigger.
-      await sql`
-        insert into public.clock_events (
-          organization_id, site_id, employee_id, type, occurred_at, source,
-          supersedes_event_id, correction_id, actor_user_id, idempotency_key,
-          prev_hash, hash)
-        values (
-          ${orgId}, ${siteId}, ${employeeId}, 'clock_out', ${corrected}, 'correction',
-          ${target.id}, ${request!.id}, ${deciderId}, gen_random_uuid(),
-          decode(md5(random()::text) || md5(random()::text), 'hex'), decode(md5(random()::text) || md5(random()::text), 'hex'))`;
-    }
-
-    const rejected = {
-      events: [
-        {
-          type: "clock_in",
-          occurred_at: brussels(days[6] ?? days[0]!, 7 * 60 + 30).toISOString(),
-          site_id: siteId,
-        },
-      ],
-    };
-    await sql`
-      insert into public.correction_requests (
-        organization_id, employee_id, requested_by, kind, proposed, reason, status,
-        decided_by, decided_at, decision_note, created_at)
-      values (
-        ${orgId}, ${employeeId}, ${userId}, 'add', ${sql.json(rejected)},
-        'Ik begon vroeger voor de inventaris.', 'rejected', ${deciderId}, ${decidedAt},
-        'Die dag begon je om 08:00, zoals gepland.',
-        ${new Date(decidedAt.getTime() - 7_200_000)})`;
-
-    const pending = {
-      events: [
-        {
-          type: "break_start",
-          occurred_at: brussels(days[0]!, 12 * 60).toISOString(),
-          site_id: siteId,
-        },
-      ],
-    };
-    await sql`
-      insert into public.correction_requests (
-        organization_id, employee_id, requested_by, kind, proposed, reason)
-      values (
-        ${orgId}, ${employeeId}, ${userId}, 'add', ${sql.json(pending)},
-        'Ik vergat mijn pauze te klokken.')`;
   } finally {
     await sql.end();
   }

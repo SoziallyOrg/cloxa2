@@ -113,7 +113,10 @@ test("manager approves a correction and invites a new team member", async ({
   await button(page, "Volgende").click();
 
   await expect(page.getByText("Stap 2 van 3")).toBeVisible();
-  await button(page, "Gestart met werken").click();
+  // Started from "Nieuwe vraag": first the day (today is on top), then the moment.
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Welke dag?");
+  await page.getByRole("button", { name: /^Vandaag, / }).click();
+  await button(page, "Begonnen met werken").click();
   await page.getByLabel("Tijdstip").fill(missedClockIn);
   await button(page, "Volgende").click();
 

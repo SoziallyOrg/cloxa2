@@ -104,7 +104,7 @@ const INTERACTIVE =
   "focus-ring -ml-4 flex w-[calc(100%+1rem)] rounded-none pl-4 transition-colors hover:bg-line/40 active:bg-line/70 focus-visible:-outline-offset-3";
 
 export interface ListRowProps extends RowContentProps {
-  /** Custom content under the row text (e.g. an inline action). */
+  /** Row actions, right-aligned in a footer under the row text. */
   children?: ReactNode;
 }
 
@@ -113,7 +113,11 @@ export function ListRow({ children, ...content }: ListRowProps) {
   return (
     <li className={ROW_ITEM}>
       <RowContent {...content} />
-      {children ? <div className="pr-4 pb-3">{children}</div> : null}
+      {children ? (
+        <div className="flex justify-end border-t border-line py-1 pr-1">
+          {children}
+        </div>
+      ) : null}
     </li>
   );
 }

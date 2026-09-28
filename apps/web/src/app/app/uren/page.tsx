@@ -14,7 +14,7 @@ import { formatBrusselsDate, t } from "@cloxa/i18n";
 
 import { formatDurationMs } from "@/components/clock/format";
 import { formatShiftRow } from "@/components/clock/shift-row";
-import { weekTotalMs } from "@/components/clock/week-total";
+import { weekTotalMs, workedMs } from "@/components/clock/week-total";
 import { HoursList, type HoursRow } from "@/components/employee/HoursList";
 import { ScheduleBlocksList } from "@/components/employee/ScheduleBlocksList";
 import { SelfExportLink } from "@/components/exports/SelfExportLink";
@@ -94,11 +94,12 @@ export default async function HoursPage({
       longDate: formatBrusselsDate(new Date(shift.start)),
       range: row.range,
       pause: row.pause,
-      net: row.net,
+      // An open shift counts up to now, like the week total.
+      net: shift.open ? formatDurationMs(workedMs(shift, now)) : row.net,
       edited: row.edited,
       offline: row.offline,
       offlineSkew: row.offlineSkew,
-      correctionHref: `/app/vragen/nieuw?datum=${brusselsDayKey(shift.start)}`,
+      correctionHref: `/app/vragen/nieuw?datum=${brusselsDayKey(shift.start)}&dienst=${encodeURIComponent(new Date(shift.start).toISOString())}`,
     };
   });
 

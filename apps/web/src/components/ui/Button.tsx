@@ -24,7 +24,7 @@ export interface ButtonProps extends Omit<
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
   primary: "bg-ink text-paper active:opacity-80",
   secondary: "border-[1.5px] border-line bg-paper text-ink active:bg-fill",
-  plain: "text-ink underline-offset-4 hover:underline active:opacity-70",
+  plain: "text-ink hover:bg-line/50 active:bg-line",
   destructive: "border-[1.5px] border-line bg-paper text-danger active:bg-fill",
 };
 

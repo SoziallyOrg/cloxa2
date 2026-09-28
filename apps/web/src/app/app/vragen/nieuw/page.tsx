@@ -8,7 +8,7 @@ import {
 import { t } from "@cloxa/i18n";
 
 import { CorrectionForm } from "@/components/employee/CorrectionForm";
-import type { CorrectionTargetOption } from "@/lib/corrections/form";
+import { addDays, CORRECTION_DAYS, correctionDays } from "@/lib/corrections/days";
 import { requireEmployeeArea } from "@/lib/auth/context";
 import { nowMs } from "@/lib/clock/now";
 import { readChosenSiteId } from "@/lib/clock/site-cookie";
@@ -16,8 +16,10 @@ import { createClient } from "@/lib/supabase/server";
 
 import { submitCorrectionAction } from "../actions";
 
-const DAY_MS = 24 * 3600 * 1000;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+const first = (value: string | string[] | undefined) =>
+  Array.isArray(value) ? value[0] : value;
 
 export default async function NewCorrectionPage({
   searchParams,
@@ -26,9 +28,13 @@ export default async function NewCorrectionPage({
 }) {
   const context = await requireEmployeeArea();
   const params = await searchParams;
-  const datumRaw = Array.isArray(params.datum) ? params.datum[0] : params.datum;
-  const defaultDate =
-    datumRaw && DATE_PATTERN.test(datumRaw) ? datumRaw : brusselsDayKey(nowMs());
+  const now = nowMs();
+  // From "Klopt er iets niet?": the day, and the shift, the question is about.
+  const datumRaw = first(params.datum);
+  const preselected = datumRaw && DATE_PATTERN.test(datumRaw) ? datumRaw : null;
+  const dienstRaw = first(params.dienst);
+  const parsedDienst = dienstRaw ? Date.parse(dienstRaw) : Number.NaN;
+  const shiftStart = Number.isFinite(parsedDienst) ? parsedDienst : null;
 
   const supabase = await createClient();
 
@@ -62,10 +68,13 @@ export default async function NewCorrectionPage({
     );
   }
 
-  // A day's window plus a buffer, so a shift that started the evening before
-  // (an overnight break, say) still offers its events as targets.
-  const dayStart = new Date(`${defaultDate}T00:00:00Z`).getTime() - DAY_MS;
-  const dayEnd = new Date(`${defaultDate}T00:00:00Z`).getTime() + 2 * DAY_MS;
+  // The listed days plus a day's buffer on each side, so a shift that started
+  // the evening before (an overnight break, say) still derives correctly.
+  const oldestDay = [addDays(brusselsDayKey(now), -(CORRECTION_DAYS - 1)), preselected]
+    .filter((day): day is string => day !== null)
+    .sort()[0]!;
+  const dayStart = new Date(`${addDays(oldestDay, -1)}T00:00:00Z`).getTime();
+  const dayEnd = now + 24 * 3600 * 1000;
 
   const { data: eventRows, error: eventsError } = await supabase
     .from("clock_events")
@@ -90,20 +99,19 @@ export default async function NewCorrectionPage({
     ...(row.offline ? { offline: true } : {}),
   }));
 
-  const targets: CorrectionTargetOption[] = effectiveEvents(events)
-    .filter((event) => brusselsDayKey(event.occurredAt) === defaultDate)
-    .map((event) => ({
-      id: event.id,
-      type: event.type as CorrectionTargetOption["type"],
-      occurredAtIso: new Date(event.occurredAt).toISOString(),
-    }));
+  const days = correctionDays({
+    events: effectiveEvents(events),
+    now,
+    preselected,
+    shiftStart,
+  });
 
   return (
     <div className="flex flex-1 flex-col pt-6 md:pt-0">
       <CorrectionForm
         siteId={siteId}
-        targets={targets}
-        defaultDate={defaultDate}
+        days={days}
+        preselectedDate={preselected}
         submitAction={submitCorrectionAction}
       />
     </div>
