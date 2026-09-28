@@ -104,20 +104,23 @@ async function previewState(page: Page, state: "laden" | "fout" | null): Promise
   await page.context().addCookies([{ name: "preview_state", value: state, url }]);
 }
 
-/** Opens `from`, then follows `link` with the page's data held back. */
-async function captureLoading(
-  page: Page,
-  from: string,
-  link: (page: Page) => ReturnType<Page["getByRole"]>,
-  name: string,
-): Promise<void> {
-  await page.goto(from);
-  await expect(link(page)).toBeVisible(SETTLED);
-  await previewState(page, "laden");
-  await link(page).click();
-  await expect(page.getByText("Bezig met laden", { exact: true }).first()).toBeAttached(
-    SETTLED,
-  );
+/**
+ * A page with its data held back: the streamed `loading.tsx`. Klok is
+ * reached with a tab tap instead, because the service worker keeps the
+ * `/app` document until it is complete.
+ */
+async function captureLoading(page: Page, path: string, name: string): Promise<void> {
+  const loading = page.getByText("Bezig met laden", { exact: true }).first();
+  if (path === "/app") {
+    await page.goto("/app/uren");
+    await expect(tab(page, "Klok")).toBeVisible(SETTLED);
+    await previewState(page, "laden");
+    await tab(page, "Klok").click();
+  } else {
+    await previewState(page, "laden");
+    await page.goto(path, { waitUntil: "commit" });
+  }
+  await expect(loading).toBeAttached(SETTLED);
   await capture(page, name, false);
   await previewState(page, null);
 }
@@ -243,28 +246,13 @@ test("login, and the employee app while working", async ({ page, context }) => {
   await expect(page.getByText("Je pincode is opgeslagen.")).toBeVisible(SETTLED);
   await capture(page, "instellingen-pincode-opgeslagen");
 
-  // Loading skeletons: each page's data held back after a tap.
-  await captureLoading(page, "/app/uren", (p) => tab(p, "Klok"), "laden-klok");
-  await captureLoading(page, "/app", (p) => tab(p, "Uren"), "laden-uren");
-  await captureLoading(page, "/app", (p) => tab(p, "Vragen"), "laden-vragen");
-  await captureLoading(
-    page,
-    "/app/vragen",
-    (p) => p.getByRole("link", { name: "Nieuwe vraag" }),
-    "laden-vraag",
-  );
-  await captureLoading(
-    page,
-    "/app/instellingen",
-    (p) => p.getByRole("link", { name: /Kiosk-pincode/ }),
-    "laden-pincode",
-  );
-  await captureLoading(
-    page,
-    "/app/instellingen/pincode",
-    (p) => p.getByRole("link", { name: "Instellingen" }),
-    "laden-instellingen",
-  );
+  // Loading skeletons: each page's data held back.
+  await captureLoading(page, "/app", "laden-klok");
+  await captureLoading(page, "/app/uren", "laden-uren");
+  await captureLoading(page, "/app/vragen", "laden-vragen");
+  await captureLoading(page, "/app/vragen/nieuw", "laden-vraag");
+  await captureLoading(page, "/app/instellingen", "laden-instellingen");
+  await captureLoading(page, "/app/instellingen/pincode", "laden-pincode");
 
   // A page that fails to load.
   await previewState(page, "fout");
