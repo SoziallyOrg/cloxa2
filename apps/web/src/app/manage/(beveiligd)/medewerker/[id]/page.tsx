@@ -205,22 +205,23 @@ export default async function ManageEmployeeDetailPage({
     <PageTransition>
       <NavBar
         title={employee.display_name}
-        subtitle={header}
+        subtitle={
+          <span className="flex flex-col gap-1.5">
+            <span>{header}</span>
+            {leftDate ? (
+              <StatusLine size="sm" tone="off" label={t("manageEmployee.statusLeft")} />
+            ) : (
+              <StatusLine
+                size="sm"
+                tone="working"
+                label={t("manageEmployee.statusInService")}
+              />
+            )}
+          </span>
+        }
         back={{ href: "/manage/team", label: t("manageTeam.heading") }}
       />
       <List className="pb-10">
-        <div className="-mt-5 px-4">
-          {leftDate ? (
-            <StatusLine size="sm" tone="off" label={t("manageEmployee.statusLeft")} />
-          ) : (
-            <StatusLine
-              size="sm"
-              tone="working"
-              label={t("manageEmployee.statusInService")}
-            />
-          )}
-        </div>
-
         <Section header={t("manageEmployee.shiftsHeading")}>
           {shifts.length === 0 ? (
             <ListItem className="text-body text-ink-2">

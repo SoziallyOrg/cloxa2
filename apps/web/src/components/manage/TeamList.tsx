@@ -18,8 +18,8 @@ export interface TeamListRow {
   code: string | null;
   /** "Hoofdvestiging · Bediende". */
   subtitle: string;
-  /** "Actief", "Uitgenodigd", "Uit dienst". */
-  status: string;
+  /** "Uitgenodigd", "Geschorst", a leaving date; `null` when simply active. */
+  status: string | null;
   /** Detail page; invitations have none. */
   href: string | null;
   /** An open invitation that can still be revoked. */
@@ -109,7 +109,7 @@ export function TeamList({ rows, empty, revokeAction }: TeamListProps) {
                 href={row.href}
                 title={row.name}
                 subtitle={row.subtitle}
-                value={row.status}
+                value={row.status ?? undefined}
               />
             ) : (
               <Row

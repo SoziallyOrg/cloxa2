@@ -196,19 +196,9 @@ export function OffboardSection({
           </ul>
         </div>
         {errorKey ? <Notice tone="error">{t(errorKey)}</Notice> : null}
-        <div className="flex flex-col gap-2">
-          <Button variant="destructive" wide loading={pending} onClick={confirm}>
-            {t("manageEmployee.offboardConfirm")}
-          </Button>
-          <Button
-            variant="plain"
-            wide
-            disabled={pending}
-            onClick={() => setOpen(false)}
-          >
-            {t("manageEmployee.offboardCancel")}
-          </Button>
-        </div>
+        <Button variant="destructive" wide loading={pending} onClick={confirm}>
+          {t("manageEmployee.offboardConfirm")}
+        </Button>
       </Sheet>
     </>
   );

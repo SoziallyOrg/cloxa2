@@ -671,13 +671,15 @@ async function appendSeedEvent(
     insert into public.clock_events (
       organization_id, site_id, employee_id, type, occurred_at, client_captured_at,
       source, supersedes_event_id, correction_id, actor_user_id, idempotency_key,
-      offline, prev_hash, hash)
+      offline, server_at, prev_hash, hash)
     values (
       ${context.orgId}, ${context.siteId}, ${person.employeeId}, ${event.type}, ${event.at},
       ${event.offline ? event.at : null}, ${correction ? "correction" : "app"},
       ${event.supersedes ?? null}, ${event.correctionId ?? null},
       ${correction ? context.deciderId : person.userId}, gen_random_uuid(),
-      ${event.offline ?? false}, ${head!.prev},
+      ${event.offline ?? false},
+      ${event.offline ? new Date(Math.min(event.at.getTime() + 40 * MINUTE, Date.now())) : new Date()},
+      ${head!.prev},
       decode(md5(random()::text) || md5(random()::text), 'hex'))
     returning id`;
   const [hashed] = await tx<{ hash: Buffer }[]>`
@@ -763,7 +765,10 @@ async function seedScreensHistory(
   sql: Sql,
   context: ScreensContext,
   person: ScreensPerson,
-  withPendingRequest = true,
+  options: { pendingRequest: boolean; offlineDay: boolean } = {
+    pendingRequest: true,
+    offlineDay: true,
+  },
 ): Promise<void> {
   const { orgId, siteId, deciderId } = context;
   const { employeeId, userId } = person;
@@ -786,7 +791,7 @@ async function seedScreensHistory(
     for (const [index, day] of days.entries()) {
       if (busyDays.has(day)) continue;
       const jitter = (index * 7) % 11;
-      const offline = index === 1;
+      const offline = options.offlineDay && index === 1;
       const events: { type: SeedEventType; at: Date }[] = [
         { type: "clock_in", at: brussels(day, 8 * 60 - 4 + jitter) },
         { type: "break_start", at: brussels(day, 12 * 60 + jitter) },
@@ -853,7 +858,7 @@ async function seedScreensHistory(
       'Die dag begon je om 08:00, zoals gepland.',
       ${new Date(decidedAt.getTime() - 2 * HOUR)})`;
 
-  if (!withPendingRequest) return;
+  if (!options.pendingRequest) return;
   const pending = {
     events: [
       {
@@ -1042,8 +1047,8 @@ interface TeamMember {
   /** Planned every day, or `null` for nothing planned. */
   block: readonly [string, string] | null;
   today: readonly TeamEvent[];
-  /** Clocked in yesterday at this minute and never out (forgot to clock out). */
-  openSinceYesterday?: number;
+  /** Yesterday's events, minutes after midnight (a forgotten clock-out, a late sync). */
+  yesterday?: readonly { type: Exclude<SeedEventType, "void">; minute: number }[];
   history?: boolean;
   pin?: string;
   left?: boolean;
@@ -1096,7 +1101,7 @@ const TEAM: readonly TeamMember[] = [
     sites: ["main"],
     block: ["08:00", "16:30"],
     today: [],
-    openSinceYesterday: 7 * 60 + 58,
+    yesterday: [{ type: "clock_in", minute: 7 * 60 + 58 }],
   },
   {
     slug: "lotte",
@@ -1115,6 +1120,12 @@ const TEAM: readonly TeamMember[] = [
     sites: ["second"],
     block: ["09:00", "17:30"],
     today: [{ type: "clock_in", ago: 150, offline: true }],
+    // The clock-in was queued offline and did not fit: it waits as a request.
+    yesterday: [
+      { type: "break_start", minute: 12 * 60 + 10 },
+      { type: "break_end", minute: 12 * 60 + 40 },
+      { type: "clock_out", minute: 17 * 60 + 32 },
+    ],
   },
   {
     slug: "maximiliaan",
@@ -1352,24 +1363,20 @@ async function seedManagerScreens(input: {
         }
       }
       if (member.history) {
-        await seedScreensHistory(sql, context, person, false);
+        await seedScreensHistory(sql, context, person, {
+          pendingRequest: false,
+          offlineDay: false,
+        });
       }
 
       // Today (and yesterday for a forgotten clock-out), made to fit on every run.
-      const from =
-        member.openSinceYesterday !== undefined
-          ? brussels(yesterday, 0).getTime()
-          : midnight;
+      const from = member.yesterday ? brussels(yesterday, 0).getTime() : midnight;
       const desired = [
-        ...(member.openSinceYesterday !== undefined
-          ? [
-              {
-                type: "clock_in" as const,
-                at: brussels(yesterday, member.openSinceYesterday),
-                offline: false,
-              },
-            ]
-          : []),
+        ...(member.yesterday ?? []).map((event) => ({
+          type: event.type,
+          at: brussels(yesterday, event.minute),
+          offline: false,
+        })),
         ...member.today.map((event) => ({
           type: event.type,
           at: since(event.ago),
@@ -1422,18 +1429,23 @@ async function seedManagerScreens(input: {
       {
         member: "mohamed",
         offline: true,
-        type: "break_start",
-        at: brussels(yesterday, 12 * 60 + 10),
+        type: "clock_in",
+        at: brussels(yesterday, 8 * 60 + 57),
         reason: null,
       },
     ] as const;
     for (const request of requests) {
       const person = people.get(request.member)!;
-      const open = await sql<{ id: string; created_at: Date }[]>`
-        select id, created_at from public.correction_requests
+      const open = await sql<{ id: string; created_at: Date; proposed: unknown }[]>`
+        select id, created_at, proposed from public.correction_requests
         where employee_id = ${person.employeeId} and status = 'pending'`;
-      const fresh = open.filter((row) => DAY_KEY.format(row.created_at) === today);
-      const stale = open.filter((row) => DAY_KEY.format(row.created_at) !== today);
+      // Still the request we want: made today, for the same moment.
+      const current = (row: (typeof open)[number]) =>
+        DAY_KEY.format(row.created_at) === today &&
+        (row.proposed as { events?: { occurred_at?: string }[] }).events?.[0]
+          ?.occurred_at === request.at.toISOString();
+      const fresh = open.filter(current);
+      const stale = open.filter((row) => !current(row));
       if (stale.length > 0) {
         await sql.begin(async (tx) => {
           await tx`set local session_replication_role = replica`;

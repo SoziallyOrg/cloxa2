@@ -150,7 +150,9 @@ export default async function ManageTeamPage({
         status:
           left && employee.left_at
             ? formatBrusselsDate(new Date(`${employee.left_at}T12:00:00Z`))
-            : t(STATUS_LABEL_KEY[statusOf(employee)] ?? "manageTeam.statusActive"),
+            : statusOf(employee) === "active"
+              ? null
+              : t(STATUS_LABEL_KEY[statusOf(employee)] ?? "manageTeam.statusActive"),
         href: `/manage/medewerker/${employee.id}`,
       }));
     empty = left
