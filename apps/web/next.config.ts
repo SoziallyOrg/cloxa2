@@ -26,7 +26,10 @@ const nextConfig: NextConfig = {
   // explicitly — otherwise it infers the wrong root in a monorepo and the
   // standalone bundle can miss (or over-include) files.
   outputFileTracingRoot: fileURLToPath(new URL("../..", import.meta.url)),
-  output: "standalone",
+  // Only the Docker build (Linux) sets CLOXA_STANDALONE=1. Local builds and
+  // e2e use plain `next start`: on Windows the standalone bundle's pnpm
+  // symlinks can't be stat'ed (EPERM).
+  ...(process.env["CLOXA_STANDALONE"] === "1" ? { output: "standalone" as const } : {}),
   experimental: {
     serverActions: {
       allowedOrigins: siteHost(),

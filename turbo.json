@@ -10,6 +10,7 @@
         "AUTH_HASH_PEPPER",
         "FLOW_COOKIE_SECRET",
         "CLOXA_PROXY_MODE",
+        "CLOXA_STANDALONE",
         "TURNSTILE_SITE_KEY",
         "TURNSTILE_SECRET_KEY",
         "EXPORT_SIGNING_KEY",

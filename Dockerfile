@@ -67,6 +67,8 @@ ENV FLOW_COOKIE_SECRET=docker-build-placeholder-cookie-secret-000000
 ENV CLOXA_PROXY_MODE=append:1
 ENV EXPORT_SIGNING_KEY_ID=docker-build-placeholder
 ENV NODE_ENV=production
+# Emit the standalone server.js the runtime stage copies (see next.config.ts).
+ENV CLOXA_STANDALONE=1
 
 # A throwaway Ed25519 key: only its *shape* matters for the build-time zod
 # check (see apps/web/src/lib/exports/signing.ts). It is not published

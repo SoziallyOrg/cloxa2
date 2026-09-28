@@ -51,12 +51,11 @@ export default defineConfig({
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
-    // A production build of the standalone server (`next.config.ts` has
-    // `output: "standalone"` for Docker; `next start` does not run it, so
-    // this runs the same server.js production does): exercises the real CSP
-    // and Secure cookies, and does not clash with a `next dev` that may
-    // already run for this app.
-    command: `pnpm --filter @cloxa/web build && pnpm --filter @cloxa/web start:standalone`,
+    // A production build (`next build && next start`): exercises the real CSP
+    // and Secure cookies, and does not clash with a `next dev` that may already
+    // run for this app. Docker builds the standalone server instead (see
+    // next.config.ts), which pnpm symlinks make unusable on Windows.
+    command: `pnpm --filter @cloxa/web build && pnpm --filter @cloxa/web exec next start --port ${PORT}`,
     url: `${BASE_URL}/login`,
     reuseExistingServer: false,
     timeout: 300_000,
