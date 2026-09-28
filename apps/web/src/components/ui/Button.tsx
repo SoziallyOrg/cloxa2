@@ -29,8 +29,8 @@ const VARIANT_CLASSES: Record<ButtonVariant, string> = {
 };
 
 const SIZE_CLASSES: Record<ButtonSize, string> = {
-  lg: "min-h-primary-action w-full px-8 text-headline",
-  md: "min-h-control px-6 text-body font-semibold",
+  lg: "min-h-primary-action w-full text-headline",
+  md: "min-h-control text-body font-semibold",
 };
 
 /** Button looks for a link that navigates (never nest a `<button>` in an `<a>`). */
@@ -43,7 +43,7 @@ export function buttonClassName(
     "focus-ring inline-flex items-center justify-center gap-3 rounded-control text-center transition-opacity select-none",
     VARIANT_CLASSES[variant],
     SIZE_CLASSES[size],
-    variant === "plain" && size === "md" && "px-3",
+    variant === "plain" ? "px-3" : "px-6",
     wide && "w-full",
   );
 }

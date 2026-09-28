@@ -8,7 +8,7 @@ export interface LogoProps {
 }
 
 const SIZE_CLASSES = {
-  sm: "h-6 w-auto",
+  sm: "h-7 w-auto",
   lg: "h-9 w-auto",
 } as const;
 

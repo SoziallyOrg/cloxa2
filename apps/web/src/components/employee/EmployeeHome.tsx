@@ -80,9 +80,7 @@ export function EmployeeHome({
           <p className="mt-4 text-body text-ink-2">{face.subline}</p>
         ) : null}
         {face.plannedLine ? (
-          <p className="mt-4 text-headline font-normal text-ink-2">
-            {face.plannedLine}
-          </p>
+          <p className="mt-5 text-title font-light">{face.plannedLine}</p>
         ) : null}
         {face.progress ? (
           <div className="mt-10">

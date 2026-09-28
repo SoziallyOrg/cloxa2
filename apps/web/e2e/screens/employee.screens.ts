@@ -23,20 +23,34 @@ const SETTLED = { timeout: 20_000 };
 const button = (page: Page, name: string) =>
   page.getByRole("button", { name, exact: true });
 
-/** Every viewport × colour scheme, full page. */
-async function capture(page: Page, name: string): Promise<void> {
+/**
+ * Every viewport × colour scheme. The viewport grows to the page height
+ * instead of a `fullPage` shot, which would leave the fixed tab bar halfway
+ * down a long page. Open sheets are shot at the plain viewport size.
+ */
+async function capture(page: Page, name: string, whole = true): Promise<void> {
   for (const [viewport, size] of Object.entries(VIEWPORTS)) {
-    await page.setViewportSize(size);
     for (const colorScheme of SCHEMES) {
+      await page.setViewportSize(size);
       await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
+      if (whole) {
+        const height = await page.evaluate(() => document.documentElement.scrollHeight);
+        await page.setViewportSize({ ...size, height: Math.max(size.height, height) });
+      }
       await page.screenshot({
         path: `${OUT}/${name}-${viewport}-${colorScheme}.png`,
-        fullPage: true,
         animations: "disabled",
       });
     }
   }
   await page.setViewportSize(VIEWPORTS.phone);
+}
+
+/** Closes an open sheet, and drops the focus ring it hands back. */
+async function closeSheet(page: Page): Promise<void> {
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
 }
 
 /** The 2-second confirmation, frozen long enough to photograph it. */
@@ -112,8 +126,8 @@ test("employee screens", async ({ page, context }) => {
   // The account sheet, opened from the name.
   await button(page, "Sanne P.").click();
   await expect(page.getByRole("dialog")).toBeVisible();
-  await capture(page, "account");
-  await page.keyboard.press("Escape");
+  await capture(page, "account", false);
+  await closeSheet(page);
 
   // Offline: the banner.
   await context.setOffline(true);
@@ -128,8 +142,8 @@ test("employee screens", async ({ page, context }) => {
   await capture(page, "uren");
   await page.getByRole("main").getByRole("listitem").nth(2).getByRole("button").click();
   await expect(page.getByRole("dialog")).toBeVisible();
-  await capture(page, "uren-dag");
-  await page.keyboard.press("Escape");
+  await capture(page, "uren-dag", false);
+  await closeSheet(page);
 
   // Vragen and each wizard step (never sent).
   await page.goto("/app/vragen");

@@ -106,7 +106,7 @@ export function clockFace({
   const second =
     breakStart !== null
       ? t("clock.breakSince", { time: time(breakStart) })
-      : breakMs > 0
+      : breakMs >= 60_000
         ? t("clock.breakTotal", { value: formatDurationMs(breakMs) })
         : t("clock.noBreak");
 

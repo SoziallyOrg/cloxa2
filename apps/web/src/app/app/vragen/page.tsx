@@ -69,10 +69,17 @@ export default async function QuestionsPage() {
                   kind ? t(kind) : formatBrusselsDate(new Date(request.created_at))
                 }
                 detail={
-                  <span className="flex flex-col gap-1">
-                    <span>{formatBrusselsDate(new Date(request.created_at))}</span>
+                  <span className="flex flex-col gap-1.5 pt-0.5">
+                    <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <StatusLine
+                        tone={STATUS_TONE[key]}
+                        label={t(STATUS_LABEL_KEY[key])}
+                        size="sm"
+                      />
+                      <span>{formatBrusselsDate(new Date(request.created_at))}</span>
+                    </span>
                     {request.reason ? (
-                      <span className="text-ink">{request.reason}</span>
+                      <span className="text-body text-ink">{request.reason}</span>
                     ) : null}
                     {request.decision_note ? (
                       <span>
@@ -81,16 +88,9 @@ export default async function QuestionsPage() {
                     ) : null}
                   </span>
                 }
-                value={
-                  <StatusLine
-                    tone={STATUS_TONE[key]}
-                    label={t(STATUS_LABEL_KEY[key])}
-                    size="sm"
-                  />
-                }
               >
                 {request.status === "pending" ? (
-                  <form action={withdrawCorrectionAction} className="-ml-3">
+                  <form action={withdrawCorrectionAction} className="-mt-1 -ml-3">
                     <input type="hidden" name="id" value={request.id} />
                     <Button type="submit" variant="plain">
                       {t("questions.withdraw")}

@@ -33,7 +33,7 @@ export default async function EmployeeSettingsPage() {
           href="/app/instellingen/mijn-gegevens"
           download
           title={t("myData.download")}
-          value={t("myData.format")}
+          detail={t("myData.format")}
         />
       </GroupedList>
       <SettingsSessionRows employeeId={context.employeeId} />

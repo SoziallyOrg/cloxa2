@@ -54,8 +54,12 @@ export default defineConfig({
     // Design-review screenshots (`pnpm screens`), never part of `pnpm e2e`.
     {
       name: "screens",
-      testMatch: /screens[\/].*\.screens\.ts$/,
-      use: { ...devices["Desktop Chrome"] },
+      testMatch: /\.screens\.ts$/,
+      use: {
+        ...devices["Desktop Chrome"],
+        locale: "nl-BE",
+        timezoneId: "Europe/Brussels",
+      },
     },
   ],
   webServer: {

@@ -18,7 +18,6 @@ import { weekTotalMs } from "@/components/clock/week-total";
 import { HoursList, type HoursRow } from "@/components/employee/HoursList";
 import { ScheduleBlocksList } from "@/components/employee/ScheduleBlocksList";
 import { SelfExportLink } from "@/components/exports/SelfExportLink";
-import { buttonClassName } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { requireEmployeeArea } from "@/lib/auth/context";
 import { nowMs } from "@/lib/clock/now";
@@ -126,7 +125,7 @@ export default async function HoursPage({
         )}
         <Link
           href={olderHref as Route}
-          className={`${buttonClassName("plain", "md")} self-start`}
+          className="focus-ring inline-flex min-h-touch-target items-center self-start rounded-control px-4 text-body font-semibold underline-offset-4 hover:underline"
         >
           {t("hours.olderLink")}
         </Link>
