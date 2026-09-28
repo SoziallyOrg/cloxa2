@@ -1,3 +1,5 @@
+import { generateKeyPairSync } from "node:crypto";
+
 import { NextRequest, NextResponse } from "next/server";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
@@ -18,6 +20,16 @@ beforeAll(async () => {
   vi.stubEnv("FLOW_COOKIE_SECRET", "f".repeat(32));
   // Required in production.
   vi.stubEnv("CLOXA_PROXY_MODE", "vercel");
+  vi.stubEnv(
+    "EXPORT_SIGNING_KEY",
+    Buffer.from(
+      generateKeyPairSync("ed25519").privateKey.export({
+        format: "pem",
+        type: "pkcs8",
+      }),
+    ).toString("base64"),
+  );
+  vi.stubEnv("EXPORT_SIGNING_KEY_ID", "test");
   ({ proxy } = await import("./proxy"));
 });
 

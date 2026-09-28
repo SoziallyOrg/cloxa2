@@ -29,6 +29,28 @@ export function mapDecideCorrectionError(error: unknown): DecideCorrectionErrorK
   return "manageVragen.errorGeneric";
 }
 
+export type SetScheduleErrorKey =
+  | "schedule.errorInvalidValidFrom"
+  | "schedule.errorInvalidPattern"
+  | "schedule.errorNotAuthorized"
+  | "schedule.errorGeneric";
+
+export function mapSetScheduleError(error: unknown): SetScheduleErrorKey {
+  if (error instanceof RpcError) {
+    switch (error.message) {
+      case "invalid_valid_from":
+        return "schedule.errorInvalidValidFrom";
+      case "invalid_schedule_pattern":
+        return "schedule.errorInvalidPattern";
+      case "not_authorized":
+        return "schedule.errorNotAuthorized";
+      default:
+        return "schedule.errorGeneric";
+    }
+  }
+  return "schedule.errorGeneric";
+}
+
 export type InviteErrorKey =
   | "manageTeam.errorEmailInUse"
   | "manageTeam.errorSiteNotManaged"

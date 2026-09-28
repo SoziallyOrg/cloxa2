@@ -49,6 +49,15 @@ jobs:
       - name: Test
         run: pnpm test
 
+      - name: Generate a throwaway export signing key
+        shell: bash
+        run: |
+          # Production builds require an Ed25519 key. This one lives only for
+          # this job and never signs a real export.
+          key=$(node -e 'const { generateKeyPairSync } = require("node:crypto"); const { privateKey } = generateKeyPairSync("ed25519"); process.stdout.write(Buffer.from(privateKey.export({ format: "pem", type: "pkcs8" })).toString("base64"))')
+          echo "::add-mask::$key"
+          echo "EXPORT_SIGNING_KEY=$key" >> "$GITHUB_ENV"
+
       - name: Build
         env:
           # Dummy public values so the app's zod env validation passes in CI.
@@ -61,6 +70,8 @@ jobs:
           FLOW_COOKIE_SECRET: dummy-ci-only-cookie-secret-0000000000000
           # Required in production builds; CI mirrors the Vercel deployment.
           CLOXA_PROXY_MODE: vercel
+          # EXPORT_SIGNING_KEY comes from the step above.
+          EXPORT_SIGNING_KEY_ID: ci-dummy
         run: pnpm build
 
       - name: Audit production dependencies

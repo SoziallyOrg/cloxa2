@@ -7,6 +7,7 @@
  *   eigenaar@demo.test (owner) · manager@demo.test (manager, both sites)
  *   manager-e2e@demo.test (manager, site 1; reserved for the e2e tests)
  *   jan@demo.test, els@demo.test (site 1) · mohamed@demo.test, lotte@demo.test (site 2)
+ *   schedule-e2e@demo.test (site 1; reserved for the schedule e2e test)
  * Codes arrive in the local Mailpit: http://127.0.0.1:54324
  *
  * Refuses to run unless both the Supabase API and the database are on
@@ -55,6 +56,13 @@ const MEMBERS: readonly {
   },
   { email: "jan@demo.test", name: "Jan Janssens", role: "employee", sites: ["main"] },
   { email: "els@demo.test", name: "Els Maes", role: "employee", sites: ["main"] },
+  // Dedicated to the schedule e2e spec.
+  {
+    email: "schedule-e2e@demo.test",
+    name: "Sam Testrooster",
+    role: "employee",
+    sites: ["main"],
+  },
   {
     email: "mohamed@demo.test",
     name: "Mohamed El Amrani",

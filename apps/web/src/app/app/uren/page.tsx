@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Route } from "next";
 
+import { scheduleFor } from "@cloxa/db";
 import {
   brusselsDayKey,
   deriveShifts,
@@ -12,12 +13,15 @@ import {
 import { t } from "@cloxa/i18n";
 
 import { AppShell } from "@/components/employee/AppShell";
+import { ScheduleBlocksList } from "@/components/employee/ScheduleBlocksList";
 import { formatDurationMs } from "@/components/clock/format";
 import { ShiftList } from "@/components/clock/ShiftList";
+import { SelfExportLink } from "@/components/exports/SelfExportLink";
 import { weekTotalMs } from "@/components/clock/week-total";
 import { Heading } from "@/components/ui/Heading";
 import { requireEmployeeArea } from "@/lib/auth/context";
 import { nowMs } from "@/lib/clock/now";
+import { nextWeekRange, thisWeekRange } from "@/lib/schedule/week-range";
 import { createClient } from "@/lib/supabase/server";
 
 const WINDOW_DAYS = 14;
@@ -70,14 +74,39 @@ export default async function HoursPage({
 
   const olderHref = `/app/uren?voor=${encodeURIComponent(new Date(windowStart).toISOString())}`;
 
+  const todayKey = brusselsDayKey(now);
+  const thisWeek = thisWeekRange(todayKey);
+  const nextWeek = nextWeekRange(todayKey);
+  const scheduleRows = await scheduleFor(supabase, {
+    employeeId: context.employeeId,
+    from: thisWeek.from,
+    to: nextWeek.to,
+  });
+  const thisWeekRows = scheduleRows.filter((row) => row.day <= thisWeek.to);
+  const nextWeekRows = scheduleRows.filter((row) => row.day >= nextWeek.from);
+
   return (
     <AppShell active="hours">
       <Heading level={1}>{t("hours.heading")}</Heading>
+      <SelfExportLink />
       {weekTotal !== null ? (
         <p className="text-lg font-semibold">
           {t("hours.weekTotal", { value: formatDurationMs(weekTotal) })}
         </p>
       ) : null}
+
+      <section className="flex flex-col gap-3">
+        <Heading level={2}>{t("schedule.myScheduleHeading")}</Heading>
+        <div className="flex flex-col gap-2" data-testid="schedule-this-week">
+          <Heading level={3}>{t("schedule.myScheduleThisWeek")}</Heading>
+          <ScheduleBlocksList rows={thisWeekRows} />
+        </div>
+        <div className="flex flex-col gap-2" data-testid="schedule-next-week">
+          <Heading level={3}>{t("schedule.myScheduleNextWeek")}</Heading>
+          <ScheduleBlocksList rows={nextWeekRows} />
+        </div>
+      </section>
+
       <ShiftList
         shifts={shifts}
         correctionHref={(shift) =>

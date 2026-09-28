@@ -20,9 +20,11 @@ import {
 
 import { ManageShell } from "@/components/manage/ManageShell";
 import { ShiftList } from "@/components/clock/ShiftList";
+import { buttonClassName } from "@/components/ui/Button";
 import { Heading } from "@/components/ui/Heading";
 import { requireManager } from "@/lib/auth/context";
 import { nowMs } from "@/lib/clock/now";
+import { formatWeeklyHours } from "@/lib/schedule/hours";
 import { createClient } from "@/lib/supabase/server";
 
 const WINDOW_DAYS = 14;
@@ -150,8 +152,26 @@ export default async function ManageEmployeeDetailPage({
 
         <section className="flex flex-col gap-3">
           <Heading level={2}>{t("manageEmployee.scheduleHeading")}</Heading>
-          {/* TODO: editing schedules is a later task; this is read-only. */}
-          <p className="text-ink/70">{t("manageEmployee.scheduleTodo")}</p>
+          {scheduleRows.length > 0 ? (
+            <p className="font-semibold">
+              {t("manageEmployee.scheduleSummaryHours", {
+                hours: formatWeeklyHours(
+                  scheduleRows.reduce(
+                    (total, row) =>
+                      total +
+                      (Date.parse(row.end_at) - Date.parse(row.start_at)) / 60_000,
+                    0,
+                  ),
+                ),
+              })}
+            </p>
+          ) : null}
+          <Link
+            href={`/manage/medewerker/${employee.id}/rooster` as Route}
+            className={buttonClassName("secondary", "md")}
+          >
+            {t("manageEmployee.scheduleEditLink")}
+          </Link>
           {scheduleRows.length === 0 ? (
             <p className="text-ink/70">{t("manageEmployee.noSchedule")}</p>
           ) : (

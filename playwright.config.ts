@@ -1,5 +1,5 @@
 import { execSync } from "node:child_process";
-import { randomBytes } from "node:crypto";
+import { generateKeyPairSync, randomBytes } from "node:crypto";
 
 import { defineConfig, devices } from "@playwright/test";
 
@@ -27,6 +27,10 @@ function localSupabase(): Record<string, string> {
 
 // Fresh per run: nothing here outlives the test server.
 const secret = () => randomBytes(32).toString("base64url");
+const exportSigningKey = () =>
+  Buffer.from(
+    generateKeyPairSync("ed25519").privateKey.export({ format: "pem", type: "pkcs8" }),
+  ).toString("base64");
 
 // The app trusts `x-real-ip` (CLOXA_PROXY_MODE=vercel), as behind the real
 // platform. One random address per run (198.18.0.0/15, reserved for testing)
@@ -59,6 +63,8 @@ export default defineConfig({
       CLOXA_PROXY_MODE: "vercel",
       AUTH_HASH_PEPPER: secret(),
       FLOW_COOKIE_SECRET: secret(),
+      EXPORT_SIGNING_KEY: exportSigningKey(),
+      EXPORT_SIGNING_KEY_ID: "e2e",
     },
   },
 });

@@ -21,6 +21,7 @@ export interface EmployeeHomeContainerProps {
   /** The server's "now" when it rendered, so the first client render matches it. */
   initialNow: number;
   todayShifts: readonly Shift[];
+  plannedToday?: string | null;
   activeNav: EmployeeHomeNav;
   /** The employee's site to clock at, once chosen (`SitePicker` handles `null`). */
   siteId: string;
@@ -53,6 +54,7 @@ export function EmployeeHomeContainer({
   initialSince,
   initialNow,
   todayShifts,
+  plannedToday = null,
   activeNav,
   siteId,
 }: EmployeeHomeContainerProps) {
@@ -105,6 +107,7 @@ export function EmployeeHomeContainer({
       // A refresh brings a newer server "now"; never show time before it.
       now={Math.max(now, initialNow)}
       todayShifts={todayShifts}
+      plannedToday={plannedToday}
       activeNav={activeNav}
       actionsDisabled={!online}
       onStartWork={() => run("clock_in")}

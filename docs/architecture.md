@@ -196,6 +196,13 @@ everything from the earliest affected event to the latest one, under the same lo
   downloads write one too. Tenant-less calls (the attempt limiter) have no audit row.
 - A daily root hash is anchored externally (Phase 4).
 
+## Exports
+
+- **`exports`** holds append-only, server-signed snapshots (ADR 004). Content is only
+  readable through `rpc_record_export_download`, which writes `export.downloaded` first.
+- Employee self-exports are built on the fly from their own rows and audited as
+  `export.self_downloaded`; they are not stored or signed.
+
 ## Auth and sessions
 
 - Signup is disabled; accounts exist only by invitation.

@@ -28,7 +28,14 @@ export default async function ManageMeerPage() {
       <Stack gap="lg">
         <Heading level={1}>{t("manageMore.heading")}</Heading>
         <Stack gap="md" as="ul">
-          <li className="text-lg text-ink/70">{t("manageMore.exports")}</li>
+          <li>
+            <Link
+              href={"/manage/meer/exports" as Route}
+              className="focus-ring text-lg font-semibold text-primary underline"
+            >
+              {t("exports.moreLink")}
+            </Link>
+          </li>
           <li className="text-lg text-ink/70">{t("manageMore.settings")}</li>
           <li>
             <Link

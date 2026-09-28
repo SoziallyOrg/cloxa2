@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import { RpcError } from "@cloxa/db";
 
-import { mapDecideCorrectionError, mapInviteError } from "./errors";
+import {
+  mapDecideCorrectionError,
+  mapInviteError,
+  mapSetScheduleError,
+} from "./errors";
 
 function rpcError(message: string): RpcError {
   return new RpcError("rpc_decide_correction", { message, code: "P0001" });
@@ -55,5 +59,30 @@ describe("mapInviteError", () => {
 
   it("falls back to a generic error", () => {
     expect(mapInviteError(rpcError("anything"))).toBe("manageTeam.errorGeneric");
+  });
+});
+
+describe("mapSetScheduleError", () => {
+  it("maps an out-of-range valid_from", () => {
+    expect(mapSetScheduleError(rpcError("invalid_valid_from"))).toBe(
+      "schedule.errorInvalidValidFrom",
+    );
+  });
+
+  it("maps an invalid pattern", () => {
+    expect(mapSetScheduleError(rpcError("invalid_schedule_pattern"))).toBe(
+      "schedule.errorInvalidPattern",
+    );
+  });
+
+  it("maps not_authorized", () => {
+    expect(mapSetScheduleError(rpcError("not_authorized"))).toBe(
+      "schedule.errorNotAuthorized",
+    );
+  });
+
+  it("falls back to a generic error", () => {
+    expect(mapSetScheduleError(rpcError("anything"))).toBe("schedule.errorGeneric");
+    expect(mapSetScheduleError(new TypeError("network"))).toBe("schedule.errorGeneric");
   });
 });

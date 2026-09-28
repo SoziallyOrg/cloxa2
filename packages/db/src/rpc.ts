@@ -620,3 +620,125 @@ export async function signOutEverywhere(
     await client.rpc("rpc_sign_out_everywhere", { p_employee_id: parsed.employeeId }),
   );
 }
+
+// Exports ----------------------------------------------------------------------------------
+
+/** Inclusive Europe/Brussels days per export, and the stored snapshot size cap. */
+export const MAX_EXPORT_PERIOD_DAYS = 62;
+export const MAX_EXPORT_CONTENT_BYTES = 10 * 1024 * 1024;
+
+const exportPeriod = <T extends { periodFrom: string; periodTo: string }>(value: T) => {
+  const days =
+    (Date.parse(`${value.periodTo}T00:00:00Z`) -
+      Date.parse(`${value.periodFrom}T00:00:00Z`)) /
+    DAY_MS;
+  return days >= 0 && days < MAX_EXPORT_PERIOD_DAYS;
+};
+const exportPeriodMessage = {
+  message: `period must be 1 to ${MAX_EXPORT_PERIOD_DAYS} days`,
+  path: ["periodTo"],
+};
+
+export const createExportInput = z
+  .strictObject({
+    organizationId: uuid,
+    periodFrom: localDate,
+    periodTo: localDate,
+    /** Null: the whole organization (owner/admin). Sorted and distinct, like the content. */
+    siteIds: z
+      .array(uuid)
+      .min(1)
+      .max(500)
+      .refine(
+        (ids) => ids.every((id, index) => index === 0 || (ids[index - 1] ?? "") < id),
+        { message: "sites must be sorted and distinct" },
+      )
+      .nullable(),
+    rowCount: z.int().min(0),
+    /** The canonical JSON snapshot, byte for byte what was signed. */
+    content: z
+      .string()
+      .min(2)
+      .refine(
+        (value) => new TextEncoder().encode(value).length <= MAX_EXPORT_CONTENT_BYTES,
+        { message: "content is too large" },
+      ),
+    signatureHex: z.string().regex(/^[0-9a-f]{128}$/),
+    signingKeyId: z.string().regex(/^[A-Za-z0-9._-]{1,64}$/),
+  })
+  .refine(exportPeriod, exportPeriodMessage);
+export type CreateExportInput = z.input<typeof createExportInput>;
+
+/**
+ * Privileged, fresh MFA, within the caller's site scope. Stores a snapshot
+ * the web server built and signed. Returns the export id.
+ */
+export async function createExport(
+  client: CloxaClient,
+  input: CreateExportInput,
+): Promise<string> {
+  const parsed = createExportInput.parse(input);
+  const args = {
+    p_org: parsed.organizationId,
+    p_period_from: parsed.periodFrom,
+    p_period_to: parsed.periodTo,
+    p_site_ids: parsed.siteIds,
+    p_row_count: parsed.rowCount,
+    p_content: parsed.content,
+    p_signature: bytea(parsed.signatureHex),
+    p_signing_key_id: parsed.signingKeyId,
+  };
+  return unwrap(
+    "rpc_create_export",
+    // The generated types don't model a SQL null site list.
+    await client.rpc(
+      "rpc_create_export",
+      args as Functions["rpc_create_export"]["Args"],
+    ),
+  );
+}
+
+export const recordExportDownloadInput = z.strictObject({
+  exportId: uuid,
+  format: z.enum(["csv", "json"]),
+});
+export type RecordExportDownloadInput = z.input<typeof recordExportDownloadInput>;
+
+/**
+ * Privileged, fresh MFA, in scope. Writes the `export.downloaded` audit row,
+ * then returns the stored export. The only way to read export content: call
+ * it before every download.
+ */
+export async function recordExportDownload(
+  client: CloxaClient,
+  input: RecordExportDownloadInput,
+): Promise<Row<"rpc_record_export_download">> {
+  const parsed = recordExportDownloadInput.parse(input);
+  const rows = unwrap(
+    "rpc_record_export_download",
+    await client.rpc("rpc_record_export_download", {
+      p_export_id: parsed.exportId,
+      p_format: parsed.format,
+    }),
+  );
+  return first("rpc_record_export_download", rows);
+}
+
+export const recordSelfExportInput = z
+  .strictObject({ employeeId: uuid, periodFrom: localDate, periodTo: localDate })
+  .refine(exportPeriod, exportPeriodMessage);
+export type RecordSelfExportInput = z.input<typeof recordSelfExportInput>;
+
+/** The employee's own row only. Audits a download of their own hours. */
+export async function recordSelfExport(
+  client: CloxaClient,
+  input: RecordSelfExportInput,
+): Promise<void> {
+  const parsed = recordSelfExportInput.parse(input);
+  const { error } = await client.rpc("rpc_record_self_export", {
+    p_employee_id: parsed.employeeId,
+    p_period_from: parsed.periodFrom,
+    p_period_to: parsed.periodTo,
+  });
+  if (error) throw new RpcError("rpc_record_self_export", error);
+}

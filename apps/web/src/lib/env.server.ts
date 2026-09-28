@@ -5,6 +5,11 @@ import { z } from "zod";
 import { proxyModeSetting, type ProxyMode } from "./auth/hash";
 import { turnstileEnabled } from "./auth/turnstile-config";
 import { publicEnv } from "./env";
+import {
+  DEV_UNSIGNED_KEY_ID,
+  KEY_ID_PATTERN,
+  parseSigningKey,
+} from "./exports/signing";
 
 /**
  * Server-only env vars, including secrets. Importing this module from a
@@ -40,6 +45,25 @@ const serverSchema = z
     /** Cloudflare Turnstile on the login forms; on only when both keys are set. */
     TURNSTILE_SITE_KEY: z.string().min(1).optional(),
     TURNSTILE_SECRET_KEY: z.string().min(1).optional(),
+    /**
+     * Ed25519 private key that signs exports: a PKCS8 PEM, base64-encoded.
+     * Required in production; elsewhere an ephemeral `dev-unsigned` key is used.
+     */
+    EXPORT_SIGNING_KEY: z
+      .string()
+      .min(1)
+      .optional()
+      .refine((value) => value === undefined || parseSigningKey(value) !== null, {
+        message: "EXPORT_SIGNING_KEY must be a base64-encoded PKCS8 PEM Ed25519 key",
+      }),
+    /** Published next to the public key, so verifiers pick the right one. */
+    EXPORT_SIGNING_KEY_ID: z
+      .string()
+      .regex(KEY_ID_PATTERN)
+      .refine((value) => value !== DEV_UNSIGNED_KEY_ID, {
+        message: `EXPORT_SIGNING_KEY_ID cannot be ${DEV_UNSIGNED_KEY_ID}`,
+      })
+      .optional(),
   })
   // Half a Turnstile config is a mistake, not a way to switch it off.
   .refine(
@@ -47,6 +71,20 @@ const serverSchema = z
       (value.TURNSTILE_SITE_KEY === undefined) ===
       (value.TURNSTILE_SECRET_KEY === undefined),
     { message: "Set both TURNSTILE_SITE_KEY and TURNSTILE_SECRET_KEY, or neither" },
+  )
+  .refine(
+    (value) =>
+      (value.EXPORT_SIGNING_KEY === undefined) ===
+      (value.EXPORT_SIGNING_KEY_ID === undefined),
+    { message: "Set both EXPORT_SIGNING_KEY and EXPORT_SIGNING_KEY_ID, or neither" },
+  )
+  .refine(
+    (value) =>
+      process.env.NODE_ENV !== "production" || value.EXPORT_SIGNING_KEY !== undefined,
+    {
+      message:
+        "EXPORT_SIGNING_KEY and EXPORT_SIGNING_KEY_ID are required in production",
+    },
   )
   // One key per purpose: a leaked pepper must not forge cookies, and the
   // Supabase key never doubles as a signing key.
@@ -71,6 +109,8 @@ const serverOnlyEnv = serverSchema.parse({
   CLOXA_PROXY_MODE: process.env["CLOXA_PROXY_MODE"],
   TURNSTILE_SITE_KEY: process.env["TURNSTILE_SITE_KEY"] || undefined,
   TURNSTILE_SECRET_KEY: process.env["TURNSTILE_SECRET_KEY"] || undefined,
+  EXPORT_SIGNING_KEY: process.env["EXPORT_SIGNING_KEY"] || undefined,
+  EXPORT_SIGNING_KEY_ID: process.env["EXPORT_SIGNING_KEY_ID"] || undefined,
 });
 
 export const env = {

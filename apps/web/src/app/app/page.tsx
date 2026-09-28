@@ -7,8 +7,8 @@ import {
   type ClockEventType,
   type ShiftState,
 } from "@cloxa/domain";
-import { myStatus } from "@cloxa/db";
-import { t } from "@cloxa/i18n";
+import { myStatus, scheduleFor } from "@cloxa/db";
+import { formatBrusselsTime, t } from "@cloxa/i18n";
 
 import { EmployeeHomeContainer } from "@/components/employee/EmployeeHomeContainer";
 import { SitePicker } from "@/components/clock/SitePicker";
@@ -117,6 +117,21 @@ export default async function EmployeeAppPage() {
       (shift.end !== null && brusselsDayKey(shift.end) === todayKey),
   );
 
+  const scheduleToday = await scheduleFor(supabase, {
+    employeeId: context.employeeId,
+    from: todayKey,
+    to: todayKey,
+  });
+  const plannedToday =
+    scheduleToday.length === 0
+      ? null
+      : scheduleToday
+          .map(
+            (row) =>
+              `${formatBrusselsTime(new Date(row.start_at))}–${formatBrusselsTime(new Date(row.end_at))}`,
+          )
+          .join(", ");
+
   return (
     <EmployeeHomeContainer
       firstName={firstName}
@@ -124,6 +139,7 @@ export default async function EmployeeAppPage() {
       initialSince={initialSince}
       initialNow={now}
       todayShifts={todayShifts}
+      plannedToday={plannedToday}
       activeNav="clock"
       siteId={siteId}
     />

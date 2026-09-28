@@ -18,6 +18,8 @@ export interface EmployeeHomeProps {
   since: number | null;
   now: number;
   todayShifts: readonly Shift[];
+  /** "08:00–16:30" (or joined blocks) when a shift is planned today, else `null`. */
+  plannedToday?: string | null;
   activeNav: EmployeeHomeNav;
   onStartWork: ClockActionCallback;
   onStopWork: ClockActionCallback;
@@ -42,6 +44,7 @@ export function EmployeeHome({
   since,
   now,
   todayShifts,
+  plannedToday = null,
   activeNav,
   onStartWork,
   onStopWork,
@@ -102,6 +105,11 @@ export function EmployeeHome({
       <main className="flex flex-1 flex-col gap-10 px-4 pb-28">
         {notice}
         <ClockStatus state={shiftState} since={since} now={now} />
+        {plannedToday ? (
+          <p className="text-base text-ink/70">
+            {t("schedule.todayPlanned", { range: plannedToday })}
+          </p>
+        ) : null}
 
         <ClockActions
           state={shiftState}

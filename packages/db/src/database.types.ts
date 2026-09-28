@@ -282,6 +282,62 @@ export type Database = {
           },
         ];
       };
+      exports: {
+        Row: {
+          content: string;
+          content_sha256: string;
+          created_at: string;
+          created_by: string;
+          format_version: string;
+          id: string;
+          organization_id: string;
+          period_from: string;
+          period_to: string;
+          row_count: number;
+          signature: string;
+          signing_key_id: string;
+          site_ids: string[] | null;
+        };
+        Insert: {
+          content: string;
+          content_sha256: string;
+          created_at?: string;
+          created_by: string;
+          format_version: string;
+          id?: string;
+          organization_id: string;
+          period_from: string;
+          period_to: string;
+          row_count: number;
+          signature: string;
+          signing_key_id: string;
+          site_ids?: string[] | null;
+        };
+        Update: {
+          content?: string;
+          content_sha256?: string;
+          created_at?: string;
+          created_by?: string;
+          format_version?: string;
+          id?: string;
+          organization_id?: string;
+          period_from?: string;
+          period_to?: string;
+          row_count?: number;
+          signature?: string;
+          signing_key_id?: string;
+          site_ids?: string[] | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "exports_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       invitations: {
         Row: {
           created_at: string;
@@ -641,6 +697,19 @@ export type Database = {
           isSetofReturn: false;
         };
       };
+      rpc_create_export: {
+        Args: {
+          p_content: string;
+          p_org: string;
+          p_period_from: string;
+          p_period_to: string;
+          p_row_count: number;
+          p_signature: string;
+          p_signing_key_id: string;
+          p_site_ids: string[];
+        };
+        Returns: string;
+      };
       rpc_decide_correction: {
         Args: { p_decision: string; p_id: string; p_note?: string };
         Returns: {
@@ -694,6 +763,32 @@ export type Database = {
           organization_id: string;
           state: string;
         }[];
+      };
+      rpc_record_export_download: {
+        Args: { p_export_id: string; p_format: string };
+        Returns: {
+          content: string;
+          content_sha256_hex: string;
+          created_at: string;
+          created_by: string;
+          format_version: string;
+          id: string;
+          organization_id: string;
+          period_from: string;
+          period_to: string;
+          row_count: number;
+          signature_hex: string;
+          signing_key_id: string;
+          site_ids: string[];
+        }[];
+      };
+      rpc_record_self_export: {
+        Args: {
+          p_employee_id: string;
+          p_period_from: string;
+          p_period_to: string;
+        };
+        Returns: undefined;
       };
       rpc_request_correction: {
         Args: {
