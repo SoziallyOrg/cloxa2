@@ -4,7 +4,14 @@ import { deriveShifts, type ClockEvent } from "@cloxa/domain";
 
 import { workedMs } from "@/components/clock/week-total";
 
-import { nowPct, timelineRow, timelineWindow, toSpan } from "./timeline";
+import {
+  boardWindow,
+  nowPct,
+  timelineRow,
+  timelineWindow,
+  toSpan,
+  windowTicks,
+} from "./timeline";
 
 const at = (iso: string) => Date.parse(iso);
 
@@ -100,5 +107,163 @@ describe("timelineRow", () => {
     ]);
     const [shift] = deriveShifts([event("a", "clock_in", "2026-09-28T11:00:00+02:00")]);
     expect(timelineRow({ shifts: [shift!], planned, now, window }).planned).toEqual([]);
+  });
+});
+
+describe("boardWindow", () => {
+  const iso = (ms: number) => new Date(ms).toISOString();
+  const night = {
+    start: at("2026-09-28T21:30:00+02:00"),
+    end: at("2026-09-29T06:00:00+02:00"),
+  };
+
+  it("stays 06-22 by day", () => {
+    const now = at("2026-09-28T12:00:00+02:00");
+    expect(
+      boardWindow({ dayKey: "2026-09-28", now, shiftStarts: [], planned: [] }),
+    ).toEqual(timelineWindow("2026-09-28"));
+  });
+
+  it("reaches back to a night shift's start by day, keeping the usual end", () => {
+    const window = boardWindow({
+      dayKey: "2026-09-29",
+      now: at("2026-09-29T10:00:00+02:00"),
+      shiftStarts: [night.start],
+      planned: [],
+    });
+    expect(iso(window.start)).toBe("2026-09-28T19:00:00.000Z");
+    expect(window.end).toBe(timelineWindow("2026-09-29").end);
+  });
+
+  it("at 01:13 runs from yesterday 21:00 to one hour after the planned end", () => {
+    const window = boardWindow({
+      dayKey: "2026-09-29",
+      now: at("2026-09-29T01:13:00+02:00"),
+      shiftStarts: [night.start],
+      planned: [
+        night,
+        // Not begun yet: does not stretch the window.
+        {
+          start: at("2026-09-29T13:00:00+02:00"),
+          end: at("2026-09-29T21:00:00+02:00"),
+        },
+      ],
+    });
+    expect(iso(window.start)).toBe("2026-09-28T19:00:00.000Z");
+    expect(iso(window.end)).toBe("2026-09-29T05:00:00.000Z");
+  });
+
+  it("never starts before 18:00 the previous day", () => {
+    const window = boardWindow({
+      dayKey: "2026-09-29",
+      now: at("2026-09-29T09:00:00+02:00"),
+      shiftStarts: [at("2026-09-27T20:00:00+02:00")],
+      planned: [],
+    });
+    expect(iso(window.start)).toBe("2026-09-28T16:00:00.000Z");
+  });
+
+  it("looks back to 18:00 at night even with nothing open", () => {
+    const window = boardWindow({
+      dayKey: "2026-09-29",
+      now: at("2026-09-29T01:13:00+02:00"),
+      shiftStarts: [],
+      planned: [],
+    });
+    expect(iso(window.start)).toBe("2026-09-28T16:00:00.000Z");
+    expect(window.end).toBe(timelineWindow("2026-09-29").start);
+  });
+
+  it("extends past 22:00 for late work", () => {
+    const window = boardWindow({
+      dayKey: "2026-09-28",
+      now: at("2026-09-28T23:20:00+02:00"),
+      shiftStarts: [at("2026-09-28T15:00:00+02:00")],
+      planned: [],
+    });
+    expect(iso(window.end)).toBe("2026-09-28T23:00:00.000Z");
+  });
+
+  it("keeps whole hours on the spring-forward night", () => {
+    // 29 March 2026: 02:00 becomes 03:00, so the night is one hour short.
+    const window = boardWindow({
+      dayKey: "2026-03-29",
+      now: at("2026-03-29T04:30:00+02:00"),
+      shiftStarts: [at("2026-03-28T21:30:00+01:00")],
+      planned: [
+        {
+          start: at("2026-03-28T21:30:00+01:00"),
+          end: at("2026-03-29T06:00:00+02:00"),
+        },
+      ],
+    });
+    expect(iso(window.start)).toBe("2026-03-28T20:00:00.000Z");
+    expect(iso(window.end)).toBe("2026-03-29T05:00:00.000Z");
+    expect(windowTicks(window).map(([hour]) => hour)).toEqual([21, 0, 3, 6]);
+  });
+
+  it("keeps whole hours on the fall-back night (an hour longer)", () => {
+    // 25 October 2026: 03:00 becomes 02:00.
+    const window = boardWindow({
+      dayKey: "2026-10-25",
+      now: at("2026-10-25T03:30:00+01:00"),
+      shiftStarts: [at("2026-10-24T21:30:00+02:00")],
+      planned: [
+        {
+          start: at("2026-10-24T21:30:00+02:00"),
+          end: at("2026-10-25T06:00:00+01:00"),
+        },
+      ],
+    });
+    expect(iso(window.start)).toBe("2026-10-24T19:00:00.000Z");
+    expect(iso(window.end)).toBe("2026-10-25T06:00:00.000Z");
+    expect(window.start % 3_600_000).toBe(0);
+    expect(window.end % 3_600_000).toBe(0);
+  });
+});
+
+describe("windowTicks", () => {
+  it("is 6, 9, ... 21 for the normal window", () => {
+    expect(windowTicks(timelineWindow("2026-09-28")).map(([hour]) => hour)).toEqual([
+      6, 9, 12, 15, 18, 21,
+    ]);
+  });
+
+  it("reads the Brussels clock across midnight", () => {
+    const window = boardWindow({
+      dayKey: "2026-09-29",
+      now: at("2026-09-29T01:13:00+02:00"),
+      shiftStarts: [at("2026-09-28T21:30:00+02:00")],
+      planned: [],
+    });
+    expect(windowTicks(window).map(([hour]) => hour)).toEqual([21, 0, 3]);
+  });
+});
+
+describe("timelineRow across midnight", () => {
+  it("draws a shift from yesterday inside the night window from its own start", () => {
+    const now = at("2026-09-29T01:13:00+02:00");
+    const window = boardWindow({
+      dayKey: "2026-09-29",
+      now,
+      shiftStarts: [at("2026-09-28T21:30:00+02:00")],
+      planned: [],
+    });
+    const [shift] = deriveShifts([event("a", "clock_in", "2026-09-28T21:30:00+02:00")]);
+    const row = timelineRow({ shifts: [shift!], planned: [], now, window });
+    expect(row.work[0]!.continuesLeft).toBeUndefined();
+    expect(row.work[0]!.startPct).toBeGreaterThan(0);
+    expect(row.openEdgePct).not.toBeNull();
+  });
+
+  it("starts at the axis start when the shift began before the window", () => {
+    const [shift] = deriveShifts([event("a", "clock_in", "2026-09-28T21:30:00+02:00")]);
+    const row = timelineRow({
+      shifts: [shift!],
+      planned: [],
+      now: at("2026-09-29T08:00:00+02:00"),
+      window: timelineWindow("2026-09-29"),
+    });
+    expect(row.work[0]).toMatchObject({ startPct: 0, continuesLeft: true });
   });
 });

@@ -24,8 +24,10 @@ export interface TeamTimelinePerson {
 
 export interface TeamTimelineProps {
   people: readonly TeamTimelinePerson[];
-  /** The "now" hairline, `null` outside 06–22h. */
+  /** The "now" hairline, `null` when now is outside the window. */
   nowPct: number | null;
+  /** Hour labels `[hour, positionPct]` of the (possibly night-extended) window. */
+  ticks: readonly (readonly [number, number])[];
 }
 
 // Name, the 06–22h track and today's net. Shared by the axis, the rows and
@@ -39,7 +41,7 @@ const DESKTOP_COLUMNS =
  * phones, a soft group of compact rows (name, status and net, a mini bar
  * underneath).
  */
-export function TeamTimeline({ people, nowPct }: TeamTimelineProps) {
+export function TeamTimeline({ people, nowPct, ticks }: TeamTimelineProps) {
   if (people.length === 0) {
     return (
       <EmptyState
@@ -54,7 +56,7 @@ export function TeamTimeline({ people, nowPct }: TeamTimelineProps) {
     <section aria-label={t("manage.timelineLabel")} className="flex flex-col">
       <div aria-hidden="true" className={`hidden pb-2 md:grid ${DESKTOP_COLUMNS}`}>
         <span />
-        <TimelineAxis />
+        <TimelineAxis ticks={ticks} />
       </div>
       <div className="relative">
         {nowPct !== null ? (

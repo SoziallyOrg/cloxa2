@@ -21,6 +21,7 @@ function shift(overrides: Partial<OpenShiftStatus>): OpenShiftStatus {
     employeeName: "Jan Jansen",
     startedAt: Date.parse("2026-09-28T08:00:00+02:00"),
     openBreakStartedAt: null,
+    plannedEnd: null,
     ...overrides,
   };
 }
@@ -45,13 +46,70 @@ describe("forgottenClockOuts", () => {
     expect(result).toHaveLength(0);
   });
 
-  it("flags a shift open from a previous Brussels day even under 12h", () => {
-    const now = Date.parse("2026-09-29T00:10:00+02:00");
+  it("does not flag a night shift that began yesterday and is within its plan", () => {
+    // 21:30 yesterday, planned until 06:00, now 01:13.
+    const now = Date.parse("2026-09-29T01:13:00+02:00");
     const result = forgottenClockOuts(
-      [shift({ startedAt: Date.parse("2026-09-28T23:50:00+02:00") })],
+      [
+        shift({
+          startedAt: Date.parse("2026-09-28T21:30:00+02:00"),
+          plannedEnd: Date.parse("2026-09-29T06:00:00+02:00"),
+        }),
+      ],
       now,
     );
-    expect(result).toHaveLength(1);
+    expect(result).toHaveLength(0);
+  });
+
+  it("does not flag a night shift without a schedule under 12h", () => {
+    const now = Date.parse("2026-09-29T00:10:00+02:00");
+    expect(
+      forgottenClockOuts(
+        [shift({ startedAt: Date.parse("2026-09-28T23:50:00+02:00") })],
+        now,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it("flags a real forgotten clock-out (over 12h) and names the duration", () => {
+    const now = Date.parse("2026-09-29T10:30:00+02:00");
+    const [item] = forgottenClockOuts(
+      [shift({ startedAt: Date.parse("2026-09-28T21:30:00+02:00") })],
+      now,
+    );
+    expect(item?.durationMs).toBe(13 * 3600 * 1000);
+    expect(item?.plannedEnd).toBeUndefined();
+  });
+
+  it("flags an open shift more than 2h past its planned end, and names the plan", () => {
+    const plannedEnd = Date.parse("2026-09-29T06:00:00+02:00");
+    const startedAt = Date.parse("2026-09-28T21:30:00+02:00");
+    expect(
+      forgottenClockOuts(
+        [shift({ startedAt, plannedEnd })],
+        plannedEnd + 2 * 3600 * 1000,
+      ),
+    ).toHaveLength(0);
+    const [item] = forgottenClockOuts(
+      [shift({ startedAt, plannedEnd })],
+      plannedEnd + 2 * 3600 * 1000 + 60_000,
+    );
+    expect(item?.plannedEnd).toBe(plannedEnd);
+  });
+
+  it("does not flag a day shift running an hour past its plan", () => {
+    const now = Date.parse("2026-09-28T17:30:00+02:00");
+    expect(
+      forgottenClockOuts(
+        [
+          shift({
+            startedAt: Date.parse("2026-09-28T08:00:00+02:00"),
+            plannedEnd: Date.parse("2026-09-28T16:30:00+02:00"),
+          }),
+        ],
+        now,
+      ),
+    ).toHaveLength(0);
   });
 
   it("is DST-safe across the October fallback boundary", () => {

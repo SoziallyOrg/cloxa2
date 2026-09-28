@@ -83,6 +83,19 @@ export function TimelineTrack({
         />
       ))}
       {work.map((span, index) => bar(span, `w${index}`, "fill-ink"))}
+      {/* Work that began before the window: a flat left edge, no rounded start. */}
+      {work
+        .filter((span) => span.continuesLeft)
+        .map((span, index) => (
+          <rect
+            key={`c${index}`}
+            x={pct(span.startPct)}
+            y={0}
+            width={radius * 2}
+            height={height}
+            className="fill-ink"
+          />
+        ))}
       {breaks.map((span, index) => bar(span, `b${index}`, "fill-ink-3"))}
       {openEdgePct !== null ? (
         <rect
@@ -99,20 +112,27 @@ export function TimelineTrack({
   );
 }
 
-/** Light hour labels above the timeline: 6, 9, 12, 15, 18, 21. */
-export function TimelineAxis() {
+/**
+ * Light hour labels above the timeline: 6, 9, 12, 15, 18, 21 by default, or
+ * the ticks of an extended (night) window.
+ */
+export function TimelineAxis({
+  ticks = AXIS_TICKS,
+}: {
+  ticks?: readonly (readonly [number, number])[];
+}) {
   return (
     <svg
       aria-hidden="true"
       focusable="false"
       className="block h-5 w-full overflow-visible"
     >
-      {AXIS_TICKS.map(([hour, position], index) => (
+      {ticks.map(([hour, position]) => (
         <text
-          key={hour}
+          key={`${hour}-${position}`}
           x={pct(position)}
           y="13"
-          textAnchor={index === 0 ? "start" : "middle"}
+          textAnchor={position === 0 ? "start" : "middle"}
           className="fill-ink-3 text-[13px] tabular-nums"
         >
           {hour}

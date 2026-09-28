@@ -6,6 +6,7 @@
 import { brusselsDayKey } from "@cloxa/domain";
 
 const FORGOT_CLOCK_OUT_MS = 12 * 3600 * 1000;
+const PLANNED_END_GRACE_MS = 2 * 3600 * 1000;
 const LONG_BREAK_MS = 60 * 60 * 1000;
 const NOT_STARTED_GRACE_MS = 15 * 60 * 1000;
 const OFFLINE_DELAY_MS = 5 * 60 * 1000;
@@ -26,6 +27,10 @@ export interface AttentionItem {
   readonly reason: AttentionReason;
   /** `pendingQuestions`: how many are pending; `offlineWeekly`: how many events. */
   readonly count?: number;
+  /** `forgotClockOut`, no schedule involved: how long the shift has been open. */
+  readonly durationMs?: number;
+  /** `forgotClockOut`, past the schedule: the planned end (epoch ms). */
+  readonly plannedEnd?: number;
 }
 
 export interface OpenShiftStatus {
@@ -35,6 +40,8 @@ export interface OpenShiftStatus {
   readonly startedAt: number;
   /** Epoch ms the current open break started, or `null` when not on break. */
   readonly openBreakStartedAt: number | null;
+  /** Epoch ms this shift was planned to end (its schedule block), or `null`. */
+  readonly plannedEnd: number | null;
 }
 
 export interface ScheduledStart {
@@ -44,23 +51,33 @@ export interface ScheduledStart {
   readonly startAt: number;
 }
 
-/** Open shift longer than 12h, or open from a previous Brussels day. */
+/**
+ * Open shift that is probably forgotten: longer than 12h, or (with a
+ * schedule) more than 2h past the planned end. Starting on the previous
+ * calendar day proves nothing: night shifts are normal.
+ */
 export function forgottenClockOuts(
   shifts: readonly OpenShiftStatus[],
   now: number,
 ): AttentionItem[] {
-  return shifts
-    .filter(
-      (shift) =>
-        now - shift.startedAt > FORGOT_CLOCK_OUT_MS ||
-        brusselsDayKey(shift.startedAt) !== brusselsDayKey(now),
-    )
-    .map((shift) => ({
+  const items: AttentionItem[] = [];
+  for (const shift of shifts) {
+    const pastPlannedEnd =
+      shift.plannedEnd !== null && now > shift.plannedEnd + PLANNED_END_GRACE_MS;
+    const tooLong = now - shift.startedAt > FORGOT_CLOCK_OUT_MS;
+    if (!pastPlannedEnd && !tooLong) continue;
+    items.push({
       id: `forgot-${shift.employeeId}`,
       employeeId: shift.employeeId,
       employeeName: shift.employeeName,
-      reason: "forgotClockOut" as const,
-    }));
+      reason: "forgotClockOut",
+      // The note names the more specific reason: the plan, else the length.
+      ...(pastPlannedEnd && shift.plannedEnd !== null
+        ? { plannedEnd: shift.plannedEnd }
+        : { durationMs: now - shift.startedAt }),
+    });
+  }
+  return items;
 }
 
 /** Open break over 60 minutes. */
@@ -227,8 +244,8 @@ export interface PersonAttention {
 
 /**
  * Per employee: their issues ordered by importance, one summary. A forgotten
- * clock-out swallows "nog niet gestart": the open shift from an earlier day is
- * the actual issue, not today's missing start. Summary items without a person
+ * clock-out swallows "nog niet gestart": the open shift is the actual issue,
+ * not today's missing start. Summary items without a person
  * (pending questions) are left out.
  */
 export function attentionByEmployee(

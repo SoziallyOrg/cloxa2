@@ -24,6 +24,8 @@ import { previewHold } from "@/lib/preview";
 import { requireEmployeeArea } from "@/lib/auth/context";
 import { nowMs } from "@/lib/clock/now";
 import { readChosenSiteId } from "@/lib/clock/site-cookie";
+import { nightLookbackStart } from "@/lib/manage/timeline";
+import { blocksForOpenShift } from "@/lib/schedule/open-shift";
 import { createClient } from "@/lib/supabase/server";
 
 import { chooseSiteAction } from "./actions";
@@ -147,11 +149,26 @@ export default async function EmployeeAppPage() {
       (shift.end !== null && brusselsDayKey(shift.end) === todayKey),
   );
 
-  const scheduleToday = await scheduleFor(supabase, {
+  // From yesterday on: a night shift started 21:30 belongs to yesterday's
+  // block (21:30–06:00), and that is the plan its progress track measures.
+  const scheduleRows = await scheduleFor(supabase, {
     employeeId: context.employeeId,
-    from: todayKey,
+    from: brusselsDayKey(nightLookbackStart(todayKey)),
     to: todayKey,
   });
+  const scheduleToday =
+    initialSince === null
+      ? scheduleRows.filter(
+          (row) => brusselsDayKey(Date.parse(row.start_at)) === todayKey,
+        )
+      : blocksForOpenShift(
+          initialSince,
+          scheduleRows.map((row) => ({
+            ...row,
+            start: Date.parse(row.start_at),
+            end: Date.parse(row.end_at),
+          })),
+        );
   const planned: PlannedDay | null =
     scheduleToday.length === 0
       ? null

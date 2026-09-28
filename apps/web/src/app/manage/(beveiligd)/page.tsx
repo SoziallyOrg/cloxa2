@@ -32,7 +32,17 @@ import {
   type OpenShiftStatus,
   type ScheduledStart,
 } from "@/lib/manage/attention";
-import { nowPct, timelineRow, timelineWindow } from "@/lib/manage/timeline";
+import { boardCounts, type BoardPerson } from "@/lib/manage/board-counts";
+import {
+  boardWindow,
+  nightLookbackStart,
+  nowPct,
+  timelineRow,
+  timelineWindow,
+  windowTicks,
+  type PlannedBlock,
+} from "@/lib/manage/timeline";
+import { blocksForOpenShift, plannedEndForOpenShift } from "@/lib/schedule/open-shift";
 import { previewHold } from "@/lib/preview";
 import { createClient } from "@/lib/supabase/server";
 
@@ -43,7 +53,6 @@ const EVENTS_LOOKBACK_MS = 3 * 24 * 3600 * 1000;
 const time = (at: number) => formatBrusselsTime(new Date(at));
 
 interface NoteContext {
-  openShift: OpenShiftStatus | undefined;
   scheduledStart: ScheduledStart | undefined;
   offlineEvents: readonly OfflineEvent[];
   today: string;
@@ -53,16 +62,10 @@ interface NoteContext {
 /** One short line for one "aandacht nodig" item, in plain words. */
 function noteFor(item: AttentionItem, context: NoteContext): string {
   switch (item.reason) {
-    case "forgotClockOut": {
-      const startedAt = context.openShift?.startedAt ?? null;
-      const when =
-        startedAt === null
-          ? ""
-          : brusselsDayKey(startedAt) === context.today
-            ? time(startedAt)
-            : t("manage.yesterdayAt", { time: time(startedAt) });
-      return t("manage.noteForgotClockOut", { when });
-    }
+    case "forgotClockOut":
+      return item.plannedEnd !== undefined
+        ? t("manage.noteForgotPlanned", { time: time(item.plannedEnd) })
+        : t("manage.noteForgotLong", { value: formatDurationMs(item.durationMs ?? 0) });
     case "longBreak":
       return t("manage.noteLongBreak");
     case "notStarted":
@@ -214,60 +217,102 @@ export default async function ManagePage({
 
   const scheduleResults = await Promise.all(
     visibleEmployees.map((employee) =>
-      scheduleFor(supabase, { employeeId: employee.id, from: todayKey, to: todayKey }),
+      // From yesterday on: an overnight block (21:30–06:00) started then.
+      scheduleFor(supabase, {
+        employeeId: employee.id,
+        from: brusselsDayKey(nightLookbackStart(todayKey)),
+        to: todayKey,
+      }),
     ),
   );
   const scheduleByEmployee = new Map(
     visibleEmployees.map((employee, index) => [employee.id, scheduleResults[index]!]),
   );
 
-  const day = timelineWindow(todayKey);
+  const baseWindow = timelineWindow(todayKey);
+  // The board is the current state plus today's plan: whatever is open now,
+  // and anything worked since the night lookback (18:00 yesterday) when it is
+  // still night. Never just "started on today's calendar date".
+  const boardSince =
+    now < baseWindow.start ? nightLookbackStart(todayKey) : baseWindow.start;
   const openShifts: OpenShiftStatus[] = [];
   const scheduledStarts: ScheduledStart[] = [];
   const clockedInEmployeeIds = new Set<string>();
-  const todayShiftsByEmployee = new Map<string, Shift[]>();
-  let workingCount = 0;
-  let onBreakCount = 0;
+  const boardShiftsByEmployee = new Map<string, Shift[]>();
+  const blocksByEmployee = new Map<string, PlannedBlock[]>();
+  const boardPeople: BoardPerson[] = [];
 
   for (const employee of visibleEmployees) {
     const shifts = deriveShifts(
       effectiveEvents(eventsByEmployee.get(employee.id) ?? []),
     );
-    const todays = shifts.filter((shift) => brusselsDayKey(shift.start) === todayKey);
-    todayShiftsByEmployee.set(employee.id, todays);
-    if (todays.length > 0) clockedInEmployeeIds.add(employee.id);
+    const blocks: PlannedBlock[] = (scheduleByEmployee.get(employee.id) ?? []).map(
+      (block) => ({ start: Date.parse(block.start_at), end: Date.parse(block.end_at) }),
+    );
+    const todayBlocks = blocks.filter(
+      (block) => brusselsDayKey(block.start) === todayKey,
+    );
+    const boardShifts = shifts.filter(
+      (shift) =>
+        brusselsDayKey(shift.start) === todayKey || (shift.end ?? now) > boardSince,
+    );
+    boardShiftsByEmployee.set(employee.id, boardShifts);
 
-    const firstBlock = scheduleByEmployee.get(employee.id)?.[0];
+    const last = shifts.at(-1) ?? null;
+    const open = last && last.open ? last : null;
+    // Planned blocks to draw: the ones around the open shift, else what is
+    // still ahead or running today (an overnight block from yesterday too).
+    blocksByEmployee.set(
+      employee.id,
+      open
+        ? blocksForOpenShift(open.start, blocks)
+        : blocks.filter((block) => block.end > boardSince),
+    );
+
+    const clockedToday = shifts.some(
+      (shift) => brusselsDayKey(shift.start) === todayKey,
+    );
+    // Someone on last night's shift is working, not "not started".
+    if (clockedToday || open) clockedInEmployeeIds.add(employee.id);
+
+    const firstBlock = todayBlocks[0];
     if (firstBlock) {
       scheduledStarts.push({
         employeeId: employee.id,
         employeeName: employee.display_name,
-        startAt: Date.parse(firstBlock.start_at),
+        startAt: firstBlock.start,
       });
     }
+    boardPeople.push({
+      open: open ? { onBreak: open.openBreak } : null,
+      clockedToday,
+      firstStartToday: firstBlock?.start ?? null,
+    });
 
-    const last = shifts.at(-1) ?? null;
-    if (last && last.open) {
+    if (open) {
       openShifts.push({
         employeeId: employee.id,
         employeeName: employee.display_name,
-        startedAt: last.start,
-        openBreakStartedAt: last.openBreak ? (last.breaks.at(-1)?.start ?? null) : null,
+        startedAt: open.start,
+        openBreakStartedAt: open.openBreak ? (open.breaks.at(-1)?.start ?? null) : null,
+        plannedEnd: plannedEndForOpenShift(open.start, blocks),
       });
-      // A shift left open since an earlier day is not work today: it shows
-      // as "aandacht nodig" instead.
-      if (brusselsDayKey(last.start) === todayKey) {
-        if (last.openBreak) onBreakCount += 1;
-        else workingCount += 1;
-      }
     }
   }
+  const {
+    working: workingCount,
+    onBreak: onBreakCount,
+    notStarted: notStartedCount,
+  } = boardCounts(boardPeople, now);
 
-  const notStartedCount = visibleEmployees.filter(
-    (employee) =>
-      scheduleByEmployee.get(employee.id)?.length &&
-      !clockedInEmployeeIds.has(employee.id),
-  ).length;
+  const day = boardWindow({
+    dayKey: todayKey,
+    now,
+    shiftStarts: [...boardShiftsByEmployee.values()].flatMap((list) =>
+      list.map((shift) => shift.start),
+    ),
+    planned: [...blocksByEmployee.values()].flat(),
+  });
 
   const attentionItems = buildAttention({
     openShifts,
@@ -281,8 +326,11 @@ export default async function ManagePage({
   const attentionByPerson = attentionByEmployee(attentionItems);
 
   const people: TeamTimelinePerson[] = visibleEmployees.map((employee) => {
-    const todays = todayShiftsByEmployee.get(employee.id) ?? [];
-    const blocks = scheduleByEmployee.get(employee.id) ?? [];
+    const todays = boardShiftsByEmployee.get(employee.id) ?? [];
+    const blocks = blocksByEmployee.get(employee.id) ?? [];
+    const todayFirstStart = scheduledStarts.find(
+      (entry) => entry.employeeId === employee.id,
+    )?.startAt;
     const open = todays.find((shift) => shift.open);
     const lastToday = todays.at(-1);
 
@@ -294,13 +342,16 @@ export default async function ManagePage({
       });
     } else if (open) {
       statusWord = t("manage.statusWorkingLabel");
-      status = t("manage.sinceLabel", { time: time(open.start) });
+      status = t("manage.sinceLabel", {
+        time:
+          brusselsDayKey(open.start) === todayKey
+            ? time(open.start)
+            : t("manage.yesterdayAt", { time: time(open.start) }),
+      });
     } else if (lastToday?.end) {
       status = t("manage.statusStoppedAt", { time: time(lastToday.end) });
-    } else if (blocks[0]) {
-      status = t("manage.statusStartAt", {
-        time: time(Date.parse(blocks[0].start_at)),
-      });
+    } else if (todayFirstStart !== undefined) {
+      status = t("manage.statusStartAt", { time: time(todayFirstStart) });
     } else {
       status = t("manage.statusFree");
     }
@@ -310,7 +361,6 @@ export default async function ManagePage({
     const attention: TeamTimelinePerson["attention"] = personAttention
       ? (() => {
           const context: NoteContext = {
-            openShift: openShifts.find((shift) => shift.employeeId === employee.id),
             scheduledStart: scheduledStarts.find(
               (entry) => entry.employeeId === employee.id,
             ),
@@ -340,10 +390,7 @@ export default async function ManagePage({
       net: net > 0 ? formatDurationMs(net) : null,
       track: timelineRow({
         shifts: todays,
-        planned: blocks.map((block) => ({
-          start: Date.parse(block.start_at),
-          end: Date.parse(block.end_at),
-        })),
+        planned: blocks,
         now,
         window: day,
       }),
@@ -396,7 +443,11 @@ export default async function ManagePage({
               },
             ]}
           />
-          <TeamTimeline people={people} nowPct={nowPct(now, day)} />
+          <TeamTimeline
+            people={people}
+            nowPct={nowPct(now, day)}
+            ticks={windowTicks(day)}
+          />
         </div>
       </PullToRefresh>
     </PageTransition>
