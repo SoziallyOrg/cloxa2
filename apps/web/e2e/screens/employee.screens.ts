@@ -37,6 +37,8 @@ const button = (page: Page, name: string) =>
  * down a long page. Open sheets are shot at the plain viewport size.
  */
 async function capture(page: Page, name: string, whole = true): Promise<void> {
+  // No hover state left from the last click.
+  await page.mouse.move(0, 0);
   for (const [viewport, size] of Object.entries(VIEWPORTS)) {
     for (const colorScheme of SCHEMES) {
       await page.setViewportSize(size);
