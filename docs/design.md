@@ -55,11 +55,11 @@ green `#248a3d` is 4.40:1 on white, so text uses `#207936`.
 ## Components
 
 - **Button.**
-  - `primary`: solid ink, 72px on phones where it's the main action, 52px elsewhere.
-  - `secondary`: 1.5px `line` outline on `surface`, ink text. Never on `paper`: in dark
+  - `primary`: solid ink, 64px for Klok's main action, 56px elsewhere.
+  - `secondary`: a soft `surface` fill, ink text, no border. Never on `paper`: in dark
     mode that is black, which reads as a black button on a sheet.
   - `plain`: ink text only, for tertiary actions.
-  - `destructive`: red text, outline style, never solid red.
+  - `destructive`: red text on the soft fill, never solid red.
   - Inside a sheet, the sheet's main action is `primary` too, so it looks the same as on
     the page in both themes.
 - **Grouped list** (like iOS Settings). Rows sit on `fill`, grouped in rounded blocks
