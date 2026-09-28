@@ -80,6 +80,7 @@ export function PersonCell({ name, status, statusWord, attention }: PersonCellPr
               key={item.id}
               href={attention.href}
               title={item.label}
+              wrap
               value={item.action}
             />
           ))}

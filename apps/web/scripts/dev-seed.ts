@@ -736,25 +736,54 @@ async function screensPerson(
   return { employeeId: invitation.employee_id, userId };
 }
 
-/** 08:00–16:30 every day, so the clock shows its progress track on any day. */
-async function ensureDailySchedule(
-  sql: Sql,
-  context: ScreensContext,
-  person: ScreensPerson,
-): Promise<void> {
-  const [schedule] = await sql`
-    select 1 from public.schedules
-    where organization_id = ${context.orgId} and employee_id = ${person.employeeId} limit 1`;
-  if (schedule) return;
-  const block = [{ start: "08:00", end: "16:30" }];
-  const pattern = Object.fromEntries(
-    ["mon", "tue", "wed", "thu", "fri", "sat", "sun"].map((day) => [day, block]),
+/**
+ * A planned block that starts `ago` minutes before now (negative: later), snapped
+ * down to a quarter hour and `length` minutes long. Past midnight it becomes an
+ * overnight block, which the schedule rules allow.
+ */
+function plannedBlock(now: number, ago: number, length: number) {
+  const [hh = "0", mm = "0"] = HOUR_MINUTE.format(new Date(now - ago * MINUTE)).split(
+    ":",
   );
+  const minutes = Number(hh) * 60 + Number(mm);
+  const start = minutes - (minutes % 15);
+  const end = (start + length) % 1440;
+  const clock = (value: number) =>
+    `${String(Math.floor(value / 60)).padStart(2, "0")}:${String(value % 60).padStart(2, "0")}`;
+  return { start: clock(start), end: clock(end) };
+}
+
+/**
+ * The same planned block every day, relative to now on every run (a fixed 08:00
+ * is in the future or the past depending on the hour the screens run), so the
+ * clock and the timelines look like a normal working day at any time.
+ */
+async function setDailySchedule(
+  sql: Sql,
+  orgId: string,
+  employeeId: string,
+  createdBy: string,
+  block: { start: string; end: string },
+): Promise<void> {
+  const pattern = Object.fromEntries(
+    ["mon", "tue", "wed", "thu", "fri", "sat", "sun"].map((day) => [day, [block]]),
+  );
+  const [latest] = await sql<{ id: string }[]>`
+    select id from public.schedules
+    where organization_id = ${orgId} and employee_id = ${employeeId}
+    order by version desc limit 1`;
+  if (latest) {
+    await sql.begin(async (tx) => {
+      await tx`set local session_replication_role = replica`;
+      await tx`update public.schedules set pattern = ${tx.json(pattern)} where id = ${latest.id}`;
+    });
+    return;
+  }
   await sql`
     insert into public.schedules
       (organization_id, employee_id, version, valid_from, pattern, created_by, notified_at)
-    values (${context.orgId}, ${person.employeeId}, 1, ${"2026-01-01"},
-      ${sql.json(pattern)}, ${context.deciderId}, now())`;
+    values (${orgId}, ${employeeId}, 1, ${"2026-01-01"},
+      ${sql.json(pattern)}, ${createdBy}, now())`;
 }
 
 /**
@@ -881,12 +910,15 @@ type TodayState = "working" | "on_break" | "off" | null;
 
 /**
  * Brings a screens account to a realistic "today", on every run:
- * - a shift left open on an earlier day is closed about 8.5 hours after it began;
- * - `working`: one clock-in about 3 h 24 min ago;
- * - `on_break`: a clock-in about 3 h 50 min ago and a break since 11 minutes;
- * - `off`: nothing today.
- * Today's events that don't fit are voided (the standard "remove" correction),
- * so reruns on the same day never pile up short shifts.
+ * Everything is relative to now, never to a clock time: just after midnight the
+ * events land on yesterday evening (an overnight shift) and still look normal.
+ * - a shift left open from before the last six hours is closed about 8.5 hours
+ *   after it began;
+ * - `working`: one clock-in 3 h 30 min ago;
+ * - `on_break`: a clock-in 4 h ago and a break since 18 minutes;
+ * - `off`: nothing in the last six hours.
+ * Recent events that don't fit are voided (the standard "remove" correction),
+ * so reruns never pile up short shifts.
  */
 async function settleScreensToday(
   sql: Sql,
@@ -895,15 +927,14 @@ async function settleScreensToday(
   state: TodayState,
 ): Promise<void> {
   const now = Math.floor(Date.now() / MINUTE) * MINUTE;
-  const today = DAY_KEY.format(new Date(now));
-  const midnight = brussels(today, 0).getTime();
+  const cutoff = now - 6 * HOUR;
 
   await sql.begin(async (tx) => {
     await tx`set local session_replication_role = replica`;
     const events = await effectiveEventsOf(tx, person.employeeId);
 
-    // Close a shift left open before today.
-    const before = events.filter((event) => event.at.getTime() < midnight);
+    // Close a shift left open before the window.
+    const before = events.filter((event) => event.at.getTime() < cutoff);
     let shiftStart: number | null = null;
     let breakStart: number | null = null;
     for (const event of before) {
@@ -914,9 +945,9 @@ async function settleScreensToday(
     }
     if (shiftStart !== null) {
       const last = before[before.length - 1]!.at.getTime();
-      const end = Math.min(
-        Math.max(shiftStart + 8.5 * HOUR, last + 5 * MINUTE),
-        now - HOUR,
+      const end = Math.max(
+        Math.min(shiftStart + 8.5 * HOUR, cutoff - MINUTE),
+        last + 1000,
       );
       if (breakStart !== null) {
         const breakEnd = Math.min(breakStart + 30 * MINUTE, end - MINUTE);
@@ -932,7 +963,7 @@ async function settleScreensToday(
     }
 
     if (state === null) return;
-    const todays = events.filter((event) => event.at.getTime() >= midnight);
+    const todays = events.filter((event) => event.at.getTime() >= cutoff);
     const age = (event: EffectiveEvent | undefined) =>
       event ? now - event.at.getTime() : Number.NaN;
     const fits =
@@ -946,7 +977,7 @@ async function settleScreensToday(
           : todays.length === 2 &&
             todays[0]!.type === "clock_in" &&
             todays[1]!.type === "break_start" &&
-            age(todays[0]) >= 3 * HOUR &&
+            age(todays[0]) >= 3.5 * HOUR &&
             age(todays[0]) <= 4.5 * HOUR &&
             age(todays[1]) <= 40 * MINUTE;
     if (fits) return;
@@ -958,22 +989,21 @@ async function settleScreensToday(
         supersedes: event.id,
       });
     }
-    // Never before today's midnight, so a run just after midnight stays "today".
-    const since = (ago: number) => new Date(Math.max(now - ago, midnight + MINUTE));
+    const since = (ago: number) => new Date(now - ago);
     if (state === "working") {
       await appendSeedEvent(tx, context, person, {
         type: "clock_in",
-        at: since(3 * HOUR + 24 * MINUTE),
+        at: since(3 * HOUR + 30 * MINUTE),
       });
     }
     if (state === "on_break") {
       await appendSeedEvent(tx, context, person, {
         type: "clock_in",
-        at: since(3 * HOUR + 50 * MINUTE),
+        at: since(4 * HOUR),
       });
       await appendSeedEvent(tx, context, person, {
         type: "break_start",
-        at: since(11 * MINUTE),
+        at: since(18 * MINUTE),
       });
     }
   });
@@ -998,7 +1028,18 @@ async function seedScreens(input: {
       const userId = input.userIds.get(account.email);
       if (!userId) throw new Error(`${account.email} is not seeded`);
       const person = await screensPerson(sql, input.orgId, account.email, userId);
-      if (account.schedule) await ensureDailySchedule(sql, context, person);
+      if (account.schedule) {
+        // Starting with the shift when there is one, otherwise in an hour.
+        const started =
+          account.today === "working" ? 210 : account.today === "on_break" ? 240 : -60;
+        await setDailySchedule(
+          sql,
+          input.orgId,
+          person.employeeId,
+          input.deciderId,
+          plannedBlock(Date.now(), started, 510),
+        );
+      }
       if (account.history) await seedScreensHistory(sql, context, person);
       await settleScreensToday(sql, context, person, account.today);
     }
@@ -1031,7 +1072,7 @@ const MANAGER_SCREENS_EMPTY = {
 };
 
 type TeamSite = "main" | "second";
-/** Today's events, minutes before now (kept after today's midnight). */
+/** Today's events, minutes before now (yesterday evening when that crosses midnight). */
 type TeamEvent = {
   type: Exclude<SeedEventType, "void">;
   ago: number;
@@ -1044,8 +1085,8 @@ interface TeamMember {
   code: string;
   statute: "bediende" | "arbeider" | "student" | "flexi" | "interim";
   sites: readonly TeamSite[];
-  /** Planned every day, or `null` for nothing planned. */
-  block: readonly [string, string] | null;
+  /** Planned every day, relative to now (`ago` minutes, negative: later), or `null`. */
+  plan: { ago: number; length: number } | null;
   today: readonly TeamEvent[];
   /** Yesterday's events, minutes after midnight (a forgotten clock-out, a late sync). */
   yesterday?: readonly { type: Exclude<SeedEventType, "void">; minute: number }[];
@@ -1061,7 +1102,7 @@ const TEAM: readonly TeamMember[] = [
     code: "B-014",
     statute: "bediende",
     sites: ["main"],
-    block: ["08:00", "16:30"],
+    plan: { ago: 210, length: 510 },
     today: [{ type: "clock_in", ago: 204 }],
     history: true,
     pin: "4827",
@@ -1072,7 +1113,7 @@ const TEAM: readonly TeamMember[] = [
     code: "A-022",
     statute: "arbeider",
     sites: ["main"],
-    block: ["07:30", "16:00"],
+    plan: { ago: 235, length: 510 },
     today: [
       { type: "clock_in", ago: 230 },
       { type: "break_start", ago: 11 },
@@ -1085,7 +1126,7 @@ const TEAM: readonly TeamMember[] = [
     code: "S-003",
     statute: "student",
     sites: ["main"],
-    block: ["06:00", "12:00"],
+    plan: { ago: 395, length: 360 },
     today: [
       { type: "clock_in", ago: 390 },
       { type: "break_start", ago: 270 },
@@ -1099,7 +1140,7 @@ const TEAM: readonly TeamMember[] = [
     code: "B-031",
     statute: "bediende",
     sites: ["main"],
-    block: ["08:00", "16:30"],
+    plan: { ago: -30, length: 510 },
     today: [],
     yesterday: [{ type: "clock_in", minute: 7 * 60 + 58 }],
   },
@@ -1109,7 +1150,7 @@ const TEAM: readonly TeamMember[] = [
     code: "F-007",
     statute: "flexi",
     sites: ["second"],
-    block: ["17:00", "21:30"],
+    plan: { ago: -60, length: 270 },
     today: [],
   },
   {
@@ -1118,7 +1159,7 @@ const TEAM: readonly TeamMember[] = [
     code: "A-018",
     statute: "arbeider",
     sites: ["second"],
-    block: ["09:00", "17:30"],
+    plan: { ago: 155, length: 510 },
     today: [{ type: "clock_in", ago: 150, offline: true }],
     // The clock-in was queued offline and did not fit: it waits as a request.
     yesterday: [
@@ -1133,7 +1174,7 @@ const TEAM: readonly TeamMember[] = [
     code: "I-102",
     statute: "interim",
     sites: ["main", "second"],
-    block: ["10:00", "18:30"],
+    plan: { ago: 100, length: 510 },
     today: [
       { type: "clock_in", ago: 95 },
       { type: "break_start", ago: 50 },
@@ -1146,7 +1187,7 @@ const TEAM: readonly TeamMember[] = [
     code: "B-040",
     statute: "bediende",
     sites: ["main"],
-    block: null,
+    plan: null,
     today: [],
   },
   {
@@ -1155,7 +1196,7 @@ const TEAM: readonly TeamMember[] = [
     code: "B-009",
     statute: "bediende",
     sites: ["main"],
-    block: null,
+    plan: null,
     today: [],
     left: true,
   },
@@ -1333,8 +1374,8 @@ async function seedManagerScreens(input: {
     const today = DAY_KEY.format(new Date(now));
     const midnight = brussels(today, 0).getTime();
     const yesterday = DAY_KEY.format(new Date(midnight - 12 * HOUR));
-    const since = (ago: number) =>
-      new Date(Math.max(now - ago * MINUTE, midnight + MINUTE));
+    // Relative to now: just after midnight these land on yesterday evening.
+    const since = (ago: number) => new Date(now - ago * MINUTE);
 
     for (const member of TEAM) {
       const person = people.get(member.slug)!;
@@ -1344,23 +1385,14 @@ async function seedManagerScreens(input: {
         deciderId: ownerId,
       };
 
-      if (member.block) {
-        const [schedule] = await sql`
-          select 1 from public.schedules where employee_id = ${person.employeeId} limit 1`;
-        if (!schedule) {
-          const block = [{ start: member.block[0], end: member.block[1] }];
-          const pattern = Object.fromEntries(
-            ["mon", "tue", "wed", "thu", "fri", "sat", "sun"].map((day) => [
-              day,
-              block,
-            ]),
-          );
-          await sql`
-            insert into public.schedules
-              (organization_id, employee_id, version, valid_from, pattern, created_by, notified_at)
-            values (${orgId}, ${person.employeeId}, 1, ${"2026-01-01"},
-              ${sql.json(pattern)}, ${ownerId}, now())`;
-        }
+      if (member.plan) {
+        await setDailySchedule(
+          sql,
+          orgId,
+          person.employeeId,
+          ownerId,
+          plannedBlock(now, member.plan.ago, member.plan.length),
+        );
       }
       if (member.history) {
         await seedScreensHistory(sql, context, person, {
@@ -1370,7 +1402,9 @@ async function seedManagerScreens(input: {
       }
 
       // Today (and yesterday for a forgotten clock-out), made to fit on every run.
-      const from = member.yesterday ? brussels(yesterday, 0).getTime() : midnight;
+      // Without yesterday's events the window is the last seven hours, so earlier
+      // history (amina's normal shift yesterday) is left alone.
+      const from = member.yesterday ? brussels(yesterday, 0).getTime() : now - 7 * HOUR;
       const desired = [
         ...(member.yesterday ?? []).map((event) => ({
           type: event.type,
@@ -1382,7 +1416,7 @@ async function seedManagerScreens(input: {
           at: since(event.ago),
           offline: event.offline ?? false,
         })),
-      ];
+      ].sort((a, b) => a.at.getTime() - b.at.getTime());
       await sql.begin(async (tx) => {
         await tx`set local session_replication_role = replica`;
         const events = await effectiveEventsOf(tx, person.employeeId);

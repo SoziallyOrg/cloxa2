@@ -78,6 +78,11 @@ interface RowContent {
    * `false` (so titles don't shift). Pair with `aria-pressed`.
    */
   checked?: boolean | undefined;
+  /**
+   * Let a long title wrap instead of truncating, with the value and chevron
+   * at the top right. For rows whose text matters (an issue to fix).
+   */
+  wrap?: boolean | undefined;
 }
 
 export type RowProps = RowContent &
@@ -109,7 +114,16 @@ const INTERACTIVE =
  * subtle highlight, as iOS rows do, rather than dim.
  */
 export function Row(props: RowProps) {
-  const { title, subtitle, value, icon, chevron, tone = "default", checked } = props;
+  const {
+    title,
+    subtitle,
+    value,
+    icon,
+    chevron,
+    tone = "default",
+    checked,
+    wrap,
+  } = props;
   const content = (withChevron: boolean, accessory?: ReactNode) => (
     <RowBody
       title={title}
@@ -119,6 +133,7 @@ export function Row(props: RowProps) {
       tone={tone}
       chevron={chevron ?? withChevron}
       checked={checked}
+      wrap={wrap}
       accessory={accessory}
     />
   );
@@ -168,6 +183,7 @@ const CONTENT_KEYS = [
   "chevron",
   "tone",
   "checked",
+  "wrap",
   "href",
 ];
 
@@ -186,6 +202,7 @@ function RowBody({
   tone,
   chevron,
   checked,
+  wrap,
   accessory,
 }: RowContent & { accessory?: ReactNode }) {
   return (
@@ -202,15 +219,16 @@ function RowBody({
       ) : null}
       <span
         className={cx(
-          "flex min-w-0 flex-1 items-center gap-3 py-2.5 pr-4 group-not-first/row:border-t-[0.5px] group-not-first/row:border-separator",
+          "flex min-w-0 flex-1 gap-3 py-2.5 pr-4 group-not-first/row:border-t-[0.5px] group-not-first/row:border-separator",
           Icon ? "ml-3" : "ml-4",
+          wrap ? "items-start" : "items-center",
           subtitle ? "min-h-row-two-line" : "min-h-row",
         )}
       >
         <span className="flex min-w-0 flex-1 flex-col">
           <span
             className={cx(
-              "truncate text-body",
+              wrap ? "text-body break-words" : "truncate text-body",
               tone === "danger" ? "text-danger" : "text-ink",
               checked && "font-semibold",
             )}
@@ -222,7 +240,12 @@ function RowBody({
           ) : null}
         </span>
         {value !== undefined && value !== null ? (
-          <span className="max-w-[55%] shrink-0 truncate text-right text-body text-ink-2 tabular-nums">
+          <span
+            className={cx(
+              "shrink-0 text-right text-body text-ink-2 tabular-nums",
+              wrap ? "whitespace-nowrap" : "max-w-[55%] truncate",
+            )}
+          >
             {value}
           </span>
         ) : null}
@@ -239,7 +262,7 @@ function RowBody({
         {chevron ? (
           <ChevronRight
             aria-hidden="true"
-            className="-mr-1 size-5 shrink-0 text-ink-3"
+            className={cx("-mr-1 size-5 shrink-0 text-ink-3", wrap && "mt-0.5")}
             strokeWidth={2.5}
           />
         ) : null}
