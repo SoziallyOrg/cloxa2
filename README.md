@@ -26,10 +26,6 @@ pnpm dev                                   # http://localhost:3000/login
 
 Login codes arrive in the local Mailpit inbox: http://127.0.0.1:54324
 
-```sh
-
-```
-
 ## Common commands
 
 ```sh
