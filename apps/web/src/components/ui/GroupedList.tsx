@@ -17,8 +17,9 @@ export interface GroupedListProps {
 }
 
 /**
- * iOS inset-grouped list: rows on `fill` in one rounded block, hairlines
- * between them. The default pattern for lists, settings and history.
+ * Legacy grouped list for screens on the plain white page: rows on `fill`.
+ * New and redesigned screens use `List` / `Section` / `Row` on `bg-grouped`;
+ * this goes once the last screen has moved.
  */
 export function GroupedList({
   heading,
