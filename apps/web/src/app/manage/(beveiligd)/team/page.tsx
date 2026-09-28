@@ -1,32 +1,18 @@
-import Link from "next/link";
-import type { Route } from "next";
+import { formatBrusselsDate, t, type CatalogKey } from "@cloxa/i18n";
 
-import { t, type CatalogKey } from "@cloxa/i18n";
-
-import { InviteForm } from "@/components/manage/InviteForm";
-import { ManageShell } from "@/components/manage/ManageShell";
-import { SignOutEverywhereForm } from "@/components/manage/SignOutEverywhereForm";
-import { Heading } from "@/components/ui/Heading";
-import { StatusLine, type StatusTone } from "@/components/ui/StatusLine";
-import { Button } from "@/components/ui/Button";
-import { cx } from "@/components/ui/cx";
+import { InviteSheet } from "@/components/manage/InviteSheet";
+import { TeamList, type TeamListRow } from "@/components/manage/TeamList";
+import { NavBar } from "@/components/ui/NavBar";
+import { Notice } from "@/components/ui/Notice";
+import { PageTransition } from "@/components/ui/PageTransition";
+import { PullToRefresh } from "@/components/ui/PullToRefresh";
+import { SegmentNav } from "@/components/ui/SegmentNav";
 import { requireManager } from "@/lib/auth/context";
+import { STATUTE_LABEL_KEY } from "@/lib/manage/labels";
+import { previewHold } from "@/lib/preview";
 import { createClient } from "@/lib/supabase/server";
 
-import {
-  inviteMemberAction,
-  revokeInvitationAction,
-  signOutEverywhereAction,
-} from "./actions";
-
-const STATUTE_LABEL_KEY: Record<string, CatalogKey> = {
-  bediende: "manageTeam.statuteBediende",
-  arbeider: "manageTeam.statuteArbeider",
-  student: "manageTeam.statuteStudent",
-  flexi: "manageTeam.statuteFlexi",
-  interim: "manageTeam.statuteInterim",
-  other: "manageTeam.statuteOther",
-};
+import { inviteMemberAction, revokeInvitationAction } from "./actions";
 
 const STATUS_LABEL_KEY: Record<string, CatalogKey> = {
   active: "manageTeam.statusActive",
@@ -35,15 +21,9 @@ const STATUS_LABEL_KEY: Record<string, CatalogKey> = {
   left: "manageTeam.statusLeft",
 };
 
-const STATUS_TONE: Record<string, StatusTone> = {
-  active: "working",
-  invited: "break",
-  suspended: "danger",
-  left: "off",
-};
-
-/** `?toon=uit-dienst` lists people who left; everyone else is the default tab. */
-const LEFT_TAB = "uit-dienst";
+/** `?toon=`: the segment. In service (the default), open invitations, or left. */
+const SEGMENTS = ["actief", "uitgenodigd", "uit-dienst"] as const;
+type Segment = (typeof SEGMENTS)[number];
 
 export default async function ManageTeamPage({
   searchParams,
@@ -51,22 +31,18 @@ export default async function ManageTeamPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const context = await requireManager();
-  const showLeft = (await searchParams)["toon"] === LEFT_TAB;
+  await previewHold();
+  const params = await searchParams;
+  const segment: Segment =
+    SEGMENTS.find((candidate) => candidate === params["toon"]) ?? "actief";
+  const justInvited = params["verstuurd"] === "1";
   const supabase = await createClient();
-
-  const { count: pendingCount } = await supabase
-    .from("correction_requests")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "pending");
 
   const { data: employeeRows, error: employeesError } = await supabase
     .from("employees")
     .select("id, display_name, employee_code, statute, user_id, active, left_at")
     .order("display_name");
   if (employeesError) throw new Error(`employees_unavailable:${employeesError.code}`);
-  const listed = employeeRows.filter((employee) =>
-    showLeft ? employee.left_at !== null : employee.left_at === null,
-  );
 
   const { data: siteRows, error: sitesError } = await supabase
     .from("sites")
@@ -139,134 +115,100 @@ export default async function ManageTeamPage({
     return invitationByEmployee.has(employee.id) ? "invited" : "active";
   }
 
+  function subtitleOf(employee: { id: string; statute: string }): string {
+    const sites = (sitesByEmployee.get(employee.id) ?? []).join(", ");
+    const statute = t(STATUTE_LABEL_KEY[employee.statute] ?? "manageTeam.statuteOther");
+    return [sites, statute].filter(Boolean).join(" · ");
+  }
+
+  const employeeNames = new Map(employeeRows.map((row) => [row.id, row.display_name]));
+
+  let rows: TeamListRow[];
+  let empty: { title: string; body: string };
+  if (segment === "uitgenodigd") {
+    rows = invitationRows.map((invitation) => ({
+      id: invitation.id,
+      name: employeeNames.get(invitation.employee_id) ?? invitation.email,
+      code: null,
+      subtitle: t("manageTeam.invitedEmail", { email: invitation.email }),
+      status: t("manageTeam.statusInvited"),
+      href: null,
+      invitationId: invitation.id,
+    }));
+    empty = { title: t("manageTeam.noInvited"), body: t("manageTeam.noInvitedBody") };
+  } else {
+    const left = segment === "uit-dienst";
+    rows = employeeRows
+      .filter((employee) =>
+        left ? employee.left_at !== null : employee.left_at === null,
+      )
+      .map((employee) => ({
+        id: employee.id,
+        name: employee.display_name,
+        code: employee.employee_code,
+        subtitle: subtitleOf(employee),
+        status:
+          left && employee.left_at
+            ? formatBrusselsDate(new Date(`${employee.left_at}T12:00:00Z`))
+            : t(STATUS_LABEL_KEY[statusOf(employee)] ?? "manageTeam.statusActive"),
+        href: `/manage/medewerker/${employee.id}`,
+      }));
+    empty = left
+      ? { title: t("manageTeam.noLeftEmployees"), body: t("manageTeam.noLeftBody") }
+      : {
+          title: t("manageTeam.noActiveEmployees"),
+          body: t("manageTeam.noActiveBody"),
+        };
+  }
+
   const canInvitePrivilegedRoles =
     context.membership.role === "owner" || context.membership.role === "admin";
 
+  const segments = [
+    { value: "actief", label: t("manageTeam.filterActive"), href: "/manage/team" },
+    {
+      value: "uitgenodigd",
+      label: t("manageTeam.filterInvited"),
+      href: "/manage/team?toon=uitgenodigd",
+    },
+    {
+      value: "uit-dienst",
+      label: t("manageTeam.filterLeft"),
+      href: "/manage/team?toon=uit-dienst",
+    },
+  ] as const;
+
   return (
-    <ManageShell
-      active="team"
-      pendingQuestionsCount={pendingCount ?? 0}
-      showSwitchToEmployee={context.employeeId !== null}
-    >
-      <div className="flex flex-col gap-8">
-        <Heading level={1}>{t("manageTeam.heading")}</Heading>
-
-        <section className="flex flex-col gap-4">
-          <Heading level={2}>{t("manageTeam.employeesHeading")}</Heading>
-          <nav aria-label={t("manageTeam.filterLabel")} className="flex gap-2">
-            {[
-              {
-                left: false,
-                href: "/manage/team",
-                label: t("manageTeam.filterActive"),
-              },
-              {
-                left: true,
-                href: `/manage/team?toon=${LEFT_TAB}`,
-                label: t("manageTeam.filterLeft"),
-              },
-            ].map((tab) => (
-              <Link
-                key={tab.href}
-                href={tab.href as Route}
-                aria-current={tab.left === showLeft ? "page" : undefined}
-                className={cx(
-                  "focus-ring inline-flex min-h-touch-target items-center rounded-md border-2 px-5 text-lg font-semibold",
-                  tab.left === showLeft
-                    ? "border-ink bg-ink text-paper"
-                    : "border-line text-ink",
-                )}
-              >
-                {tab.label}
-              </Link>
-            ))}
-          </nav>
-          {listed.length === 0 ? (
-            <p className="text-ink-2">
-              {t(
-                showLeft
-                  ? "manageTeam.noLeftEmployees"
-                  : "manageTeam.noActiveEmployees",
-              )}
-            </p>
-          ) : null}
-          <ul className="flex flex-col gap-3">
-            {listed.map((employee) => {
-              const status = statusOf(employee);
-              return (
-                <li
-                  key={employee.id}
-                  className="flex flex-col gap-2 rounded-lg border border-line p-4 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <div className="flex flex-col gap-1">
-                    <Link
-                      href={`/manage/medewerker/${employee.id}` as Route}
-                      className="focus-ring text-lg font-semibold text-ink underline"
-                    >
-                      {employee.display_name}
-                    </Link>
-                    <span className="text-ink-2">
-                      {employee.employee_code ?? "—"} ·{" "}
-                      {t(
-                        STATUTE_LABEL_KEY[employee.statute] ??
-                          "manageTeam.statuteOther",
-                      )}
-                      {" · "}
-                      {(sitesByEmployee.get(employee.id) ?? []).join(", ") || "—"}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <StatusLine
-                      size="sm"
-                      tone={STATUS_TONE[status] ?? "off"}
-                      label={t(STATUS_LABEL_KEY[status] ?? "manageTeam.statusActive")}
-                    />
-                    {employee.user_id && employee.left_at === null ? (
-                      <SignOutEverywhereForm
-                        employeeId={employee.id}
-                        employeeName={employee.display_name}
-                        action={signOutEverywhereAction}
-                      />
-                    ) : null}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-
-        <section className="flex flex-col gap-4">
-          <Heading level={2}>{t("manageTeam.pendingInvitesHeading")}</Heading>
-          {invitationRows.length === 0 ? (
-            <p className="text-ink-2">{t("manageTeam.noPendingInvites")}</p>
-          ) : (
-            <ul className="flex flex-col gap-3">
-              {invitationRows.map((invitation) => (
-                <li
-                  key={invitation.id}
-                  className="flex flex-col gap-2 rounded-lg border border-line p-4 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <span>{invitation.email}</span>
-                  <form action={revokeInvitationAction}>
-                    <input type="hidden" name="id" value={invitation.id} />
-                    <Button type="submit" variant="plain" size="md">
-                      {t("manageTeam.revoke")}
-                    </Button>
-                  </form>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-
-        <section className="max-w-xl rounded-lg border border-line p-4">
-          <InviteForm
-            sites={siteRows}
-            canInvitePrivilegedRoles={canInvitePrivilegedRoles}
-            action={inviteMemberAction}
+    <PageTransition>
+      <PullToRefresh>
+        <NavBar
+          title={t("manageTeam.heading")}
+          trailing={
+            <InviteSheet
+              sites={siteRows}
+              canInvitePrivilegedRoles={canInvitePrivilegedRoles}
+              action={inviteMemberAction}
+            />
+          }
+        />
+        <div className="flex flex-col gap-6 px-gutter pb-10">
+          <SegmentNav
+            key={segment}
+            label={t("manageTeam.filterLabel")}
+            options={segments}
+            value={segment}
           />
-        </section>
-      </div>
-    </ManageShell>
+          {justInvited && segment === "uitgenodigd" ? (
+            <Notice tone="success">{t("manageTeam.invited")}</Notice>
+          ) : null}
+          <TeamList
+            key={segment}
+            rows={rows}
+            empty={empty}
+            revokeAction={revokeInvitationAction}
+          />
+        </div>
+      </PullToRefresh>
+    </PageTransition>
   );
 }

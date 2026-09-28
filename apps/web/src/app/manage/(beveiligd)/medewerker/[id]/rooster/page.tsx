@@ -1,15 +1,15 @@
-import Link from "next/link";
-import type { Route } from "next";
 import { notFound } from "next/navigation";
 
 import { brusselsDayKey } from "@cloxa/domain";
-import { t } from "@cloxa/i18n";
+import { formatBrusselsDate, t } from "@cloxa/i18n";
 import type { SchedulePattern } from "@cloxa/db";
 
-import { ManageShell } from "@/components/manage/ManageShell";
 import { ScheduleEditor } from "@/components/manage/ScheduleEditor";
-import { Heading } from "@/components/ui/Heading";
+import { List, Row, Section } from "@/components/ui/List";
+import { NavBar } from "@/components/ui/NavBar";
+import { PageTransition } from "@/components/ui/PageTransition";
 import { requireManager } from "@/lib/auth/context";
+import { previewHold } from "@/lib/preview";
 import { nowMs } from "@/lib/clock/now";
 import { patternToFormState } from "@/lib/schedule/form-state";
 import { formatWeeklyHours, weeklyMinutes } from "@/lib/schedule/hours";
@@ -23,7 +23,8 @@ export default async function ManageEmployeeSchedulePage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const context = await requireManager();
+  await requireManager();
+  await previewHold();
   const { id } = await params;
   const supabase = await createClient();
 
@@ -34,11 +35,6 @@ export default async function ManageEmployeeSchedulePage({
     .maybeSingle();
   if (employeeError) throw new Error(`employee_unavailable:${employeeError.code}`);
   if (!employee) notFound();
-
-  const { count: pendingCount } = await supabase
-    .from("correction_requests")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "pending");
 
   const { data: versionRows, error: versionsError } = await supabase
     .from("schedules")
@@ -75,21 +71,16 @@ export default async function ManageEmployeeSchedulePage({
   const boundAction = setScheduleAction.bind(null, employee.id);
 
   return (
-    <ManageShell
-      active="team"
-      pendingQuestionsCount={pendingCount ?? 0}
-      showSwitchToEmployee={context.employeeId !== null}
-    >
-      <div className="flex flex-col gap-8">
-        <Link
-          href={`/manage/medewerker/${employee.id}` as Route}
-          className="focus-ring self-start font-semibold text-ink underline"
-        >
-          {t("schedule.backLink")}
-        </Link>
-        <Heading level={1}>{employee.display_name}</Heading>
-        <Heading level={2}>{t("schedule.heading")}</Heading>
-
+    <PageTransition>
+      <NavBar
+        title={t("schedule.heading")}
+        subtitle={employee.display_name}
+        back={{
+          href: `/manage/medewerker/${employee.id}`,
+          label: employee.display_name,
+        }}
+      />
+      <List className="pb-10">
         <ScheduleEditor
           initialForm={initialForm}
           todayKey={todayKey}
@@ -97,34 +88,31 @@ export default async function ManageEmployeeSchedulePage({
           action={boundAction}
         />
 
-        <section className="flex flex-col gap-3">
-          <Heading level={2}>{t("schedule.historyHeading")}</Heading>
-          {versionRows.length === 0 ? (
-            <p className="text-ink-2">{t("schedule.noHistory")}</p>
-          ) : (
-            <ul className="flex flex-col gap-2">
-              {versionRows.map((row) => {
-                const hours = formatWeeklyHours(
-                  weeklyMinutes(patternToFormState(row.pattern as SchedulePattern)),
-                );
-                const creatorName = creatorNames.get(row.created_by);
-                return (
-                  <li key={row.id} className="rounded-lg border border-line p-4">
-                    <p className="font-semibold">
-                      {t("schedule.historyRow", { date: row.valid_from, hours })}
-                    </p>
-                    {creatorName ? (
-                      <p className="text-ink-2">
-                        {t("schedule.historyCreatedBy", { name: creatorName })}
-                      </p>
-                    ) : null}
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </section>
-      </div>
-    </ManageShell>
+        {versionRows.length > 0 ? (
+          <Section header={t("schedule.historyHeading")}>
+            {versionRows.map((row) => {
+              const hours = formatWeeklyHours(
+                weeklyMinutes(patternToFormState(row.pattern as SchedulePattern)),
+              );
+              const creatorName = creatorNames.get(row.created_by);
+              return (
+                <Row
+                  key={row.id}
+                  title={t("schedule.historyRow", {
+                    date: formatBrusselsDate(new Date(`${row.valid_from}T12:00:00Z`)),
+                    hours,
+                  })}
+                  subtitle={
+                    creatorName
+                      ? t("schedule.historyCreatedBy", { name: creatorName })
+                      : undefined
+                  }
+                />
+              );
+            })}
+          </Section>
+        ) : null}
+      </List>
+    </PageTransition>
   );
 }

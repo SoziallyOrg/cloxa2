@@ -160,9 +160,12 @@ test("manager approves a correction and invites a new team member", async ({
   await expect(managerPage).toHaveURL(/\/manage\/medewerker\/.+/);
   await expect(managerPage.getByText("aangepast").first()).toBeVisible();
 
-  // 4. Invite a new employee, see them as "uitgenodigd", then revoke it.
+  // 4. Invite a new employee (the form is a sheet from "Uitnodigen"), see
+  // them under "Uitgenodigd", then revoke it.
   const newEmail = `e2e-invite-${Date.now()}@demo.test`;
   await managerPage.goto("/manage/team");
+  await button(managerPage, "Uitnodigen").click();
+  await expect(managerPage.getByRole("dialog")).toBeVisible();
   await managerPage.getByLabel("Naam").fill("E2E Nieuwe Collega");
   await managerPage.getByLabel("E-mailadres").fill(newEmail);
   const [siteCheckbox] = await managerPage.getByRole("checkbox").all();
@@ -171,6 +174,7 @@ test("manager approves a correction and invites a new team member", async ({
   await expect(managerPage.getByText("De uitnodiging is verstuurd.")).toBeVisible({
     timeout: 15_000,
   });
+  await expect(managerPage).toHaveURL(/\/manage\/team\?toon=uitgenodigd/);
 
   const invitationRow = managerPage.getByRole("listitem").filter({ hasText: newEmail });
   await expect(invitationRow).toBeVisible();

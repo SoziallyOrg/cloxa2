@@ -1,161 +1,274 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { KeyRound, MonitorSmartphone, UserCheck, UserX } from "lucide-react";
 
 import { t, type CatalogKey } from "@cloxa/i18n";
 
+import type { PinActionResult } from "@/lib/kiosk/pin";
 import type { CopyLine } from "@/lib/manage/offboarding";
 
-import { Notice } from "../ui/Notice";
+import { PinForm } from "../kiosk/PinForm";
+import { Alert } from "../ui/Alert";
 import { Button } from "../ui/Button";
-import { Heading } from "../ui/Heading";
+import { Row, Section } from "../ui/List";
+import { Notice } from "../ui/Notice";
+import { Sheet } from "../ui/Sheet";
 
 type ActionResult = { readonly ok: boolean; readonly errorKey?: CatalogKey };
 
-export interface OffboardFormProps {
+export interface PinSectionProps {
   employeeName: string;
+  /** "Ingesteld" or "Nog niet ingesteld". */
+  stateLabel: string;
+  /** "Pincode ingesteld op 3 september 2026." or "Nog geen pincode.". */
+  footer: string;
+  action: (input: { pin: string; confirmation: string }) => Promise<PinActionResult>;
+}
+
+/** The kiosk PIN for staff without a login: a row, the form in a sheet. */
+export function PinSection({
+  employeeName,
+  stateLabel,
+  footer,
+  action,
+}: PinSectionProps) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Section footer={footer}>
+        <Row
+          icon={KeyRound}
+          title={t("manageEmployee.pinRow")}
+          value={stateLabel}
+          chevron
+          aria-haspopup="dialog"
+          onClick={() => setOpen(true)}
+        />
+      </Section>
+      <Sheet
+        open={open}
+        onClose={() => setOpen(false)}
+        title={t("manageEmployee.pinRow")}
+        description={employeeName}
+        closeLabel={t("ui.done")}
+      >
+        <PinForm
+          id="employee-pin"
+          variant="list"
+          submitLabel={t("kiosk.managerPinSubmit")}
+          savedMessage={t("kiosk.managerPinSaved")}
+          action={action}
+        />
+      </Sheet>
+    </>
+  );
+}
+
+export interface SignOutSectionProps {
+  employeeId: string;
+  employeeName: string;
+  action: (formData: FormData) => Promise<void>;
+}
+
+/** "Overal afmelden", for a lost phone: confirmed in an alert first. */
+export function SignOutSection({
+  employeeId,
+  employeeName,
+  action,
+}: SignOutSectionProps) {
+  const [asking, setAsking] = useState(false);
+  const [done, setDone] = useState(false);
+  const [pending, startTransition] = useTransition();
+
+  function signOut() {
+    startTransition(async () => {
+      const formData = new FormData();
+      formData.set("employeeId", employeeId);
+      await action(formData);
+      setDone(true);
+    });
+  }
+
+  return (
+    <>
+      {done ? (
+        <Notice tone="success" onDismiss={() => setDone(false)}>
+          {t("manageEmployee.signOutDone", { name: employeeName })}
+        </Notice>
+      ) : null}
+      <Section
+        header={t("manageEmployee.accessHeading")}
+        footer={t("manageTeam.signOutHint")}
+      >
+        <Row
+          icon={MonitorSmartphone}
+          title={t("manageTeam.signOutEverywhere")}
+          aria-haspopup="dialog"
+          aria-busy={pending || undefined}
+          disabled={pending}
+          onClick={() => setAsking(true)}
+        />
+      </Section>
+      <Alert
+        open={asking}
+        onClose={() => setAsking(false)}
+        title={t("manageTeam.signOutTitle", { name: employeeName })}
+        message={t("manageTeam.signOutBody", { name: employeeName })}
+        confirmLabel={t("manageTeam.signOutConfirmButton")}
+        destructive
+        onConfirm={signOut}
+      />
+    </>
+  );
+}
+
+export interface OffboardSectionProps {
+  employeeName: string;
+  /** "{name} is in dienst." */
+  footer: string;
   /** From `offboardConfirmLines`: what happens, in plain Dutch. */
   lines: readonly CopyLine[];
+  /** `false` for the owner and oneself: the row is left out. */
+  canOffboard: boolean;
   action: () => Promise<ActionResult>;
 }
 
 /**
- * "Uit dienst" in two steps: the first button only shows what will happen;
- * nothing changes until "Ja, zet uit dienst".
+ * "Uit dienst", at the bottom of the page. The row only opens a sheet that
+ * explains what will happen; nothing changes until "Ja, zet uit dienst".
  */
-export function OffboardForm({ employeeName, lines, action }: OffboardFormProps) {
+export function OffboardSection({
+  employeeName,
+  footer,
+  lines,
+  canOffboard,
+  action,
+}: OffboardSectionProps) {
   const router = useRouter();
-  const [confirming, setConfirming] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [pending, startTransition] = useTransition();
   const [errorKey, setErrorKey] = useState<CatalogKey | null>(null);
-  const panelRef = useRef<HTMLElement>(null);
-  const startRef = useRef<HTMLDivElement>(null);
-  const opened = useRef(false);
 
-  // Move focus with the step, so keyboard and screen-reader users follow it.
-  useEffect(() => {
-    if (confirming) {
-      opened.current = true;
-      panelRef.current?.focus();
-    } else if (opened.current) {
-      startRef.current?.querySelector("button")?.focus();
-    }
-  }, [confirming]);
-
-  async function confirm() {
-    setSubmitting(true);
+  function confirm() {
     setErrorKey(null);
-    const result = await action();
-    setSubmitting(false);
-    if (!result.ok) {
-      setErrorKey(result.errorKey ?? "manageEmployee.errorGeneric");
-      return;
-    }
-    setConfirming(false);
-    router.refresh();
+    startTransition(async () => {
+      const result = await action();
+      if (!result.ok) {
+        setErrorKey(result.errorKey ?? "manageEmployee.errorGeneric");
+        return;
+      }
+      setOpen(false);
+      router.refresh();
+    });
+  }
+
+  if (!canOffboard) {
+    return <p className="px-4 text-subhead text-ink-2">{footer}</p>;
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      {errorKey ? (
-        <Notice tone="error" onDismiss={() => setErrorKey(null)}>
-          {t(errorKey)}
-        </Notice>
-      ) : null}
-      {confirming ? (
-        <section
-          ref={panelRef}
-          tabIndex={-1}
-          aria-label={t("manageEmployee.offboardConfirmTitle", { name: employeeName })}
-          className="focus-ring flex flex-col gap-4 rounded-lg border-2 border-danger p-4"
-        >
-          <Heading level={3}>
-            {t("manageEmployee.offboardConfirmTitle", { name: employeeName })}
-          </Heading>
-          <p className="text-lg">{t("manageEmployee.offboardConfirmIntro")}</p>
-          <ul className="flex list-disc flex-col gap-2 pl-6 text-lg">
+    <>
+      <Section footer={footer}>
+        <Row
+          icon={UserX}
+          tone="danger"
+          title={t("manageEmployee.offboardButton")}
+          aria-haspopup="dialog"
+          onClick={() => setOpen(true)}
+        />
+      </Section>
+      <Sheet
+        open={open}
+        onClose={() => setOpen(false)}
+        title={t("manageEmployee.offboardConfirmTitle", { name: employeeName })}
+        closeLabel={t("ui.cancel")}
+      >
+        <div className="flex flex-col gap-3">
+          <p className="text-body text-ink-2">
+            {t("manageEmployee.offboardConfirmIntro")}
+          </p>
+          <ul className="flex list-disc flex-col gap-2 pl-5 text-body">
             {lines.map((line) => (
               <li key={line.key}>{t(line.key, line.values)}</li>
             ))}
           </ul>
-          <div className="flex flex-wrap gap-3">
-            <Button
-              type="button"
-              variant="destructive"
-              size="md"
-              loading={submitting}
-              onClick={() => void confirm()}
-            >
-              {t("manageEmployee.offboardConfirm")}
-            </Button>
-            <Button
-              type="button"
-              variant="plain"
-              size="md"
-              disabled={submitting}
-              onClick={() => setConfirming(false)}
-            >
-              {t("manageEmployee.offboardCancel")}
-            </Button>
-          </div>
-        </section>
-      ) : (
-        <div ref={startRef}>
+        </div>
+        {errorKey ? <Notice tone="error">{t(errorKey)}</Notice> : null}
+        <div className="flex flex-col gap-2">
+          <Button variant="destructive" wide loading={pending} onClick={confirm}>
+            {t("manageEmployee.offboardConfirm")}
+          </Button>
           <Button
-            type="button"
-            variant="destructive"
-            size="md"
-            onClick={() => setConfirming(true)}
+            variant="plain"
+            wide
+            disabled={pending}
+            onClick={() => setOpen(false)}
           >
-            {t("manageEmployee.offboardButton")}
+            {t("manageEmployee.offboardCancel")}
           </Button>
         </div>
-      )}
-    </div>
+      </Sheet>
+    </>
   );
 }
 
-export interface ReinstateFormProps {
+export interface ReinstateSectionProps {
+  employeeName: string;
+  /** "Uit dienst sinds …", then the PIN note. */
+  footer: React.ReactNode;
   action: () => Promise<ActionResult>;
 }
 
-/** "Terug in dienst": one button, the database refuses once anonymised. */
-export function ReinstateForm({ action }: ReinstateFormProps) {
+/** "Terug in dienst": an alert says what it does; the database refuses once anonymised. */
+export function ReinstateSection({
+  employeeName,
+  footer,
+  action,
+}: ReinstateSectionProps) {
   const router = useRouter();
-  const [submitting, setSubmitting] = useState(false);
+  const [asking, setAsking] = useState(false);
+  const [pending, startTransition] = useTransition();
   const [errorKey, setErrorKey] = useState<CatalogKey | null>(null);
 
-  async function reinstate() {
-    setSubmitting(true);
+  function reinstate() {
     setErrorKey(null);
-    const result = await action();
-    setSubmitting(false);
-    if (!result.ok) {
-      setErrorKey(result.errorKey ?? "manageEmployee.errorGeneric");
-      return;
-    }
-    router.refresh();
+    startTransition(async () => {
+      const result = await action();
+      if (!result.ok) {
+        setErrorKey(result.errorKey ?? "manageEmployee.errorGeneric");
+        return;
+      }
+      router.refresh();
+    });
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <>
       {errorKey ? (
         <Notice tone="error" onDismiss={() => setErrorKey(null)}>
           {t(errorKey)}
         </Notice>
       ) : null}
-      <div>
-        <Button
-          type="button"
-          variant="secondary"
-          size="md"
-          loading={submitting}
-          onClick={() => void reinstate()}
-        >
-          {t("manageEmployee.reinstateButton")}
-        </Button>
-      </div>
-    </div>
+      <Section footer={footer}>
+        <Row
+          icon={UserCheck}
+          title={t("manageEmployee.reinstateButton")}
+          aria-haspopup="dialog"
+          aria-busy={pending || undefined}
+          disabled={pending}
+          onClick={() => setAsking(true)}
+        />
+      </Section>
+      <Alert
+        open={asking}
+        onClose={() => setAsking(false)}
+        title={t("manageEmployee.reinstateTitle", { name: employeeName })}
+        message={t("manageEmployee.reinstateBody", { name: employeeName })}
+        confirmLabel={t("manageEmployee.reinstateConfirm")}
+        onConfirm={reinstate}
+      />
+    </>
   );
 }

@@ -1,6 +1,5 @@
-import Link from "next/link";
-import type { Route } from "next";
 import { notFound } from "next/navigation";
+import { CalendarDays, Download } from "lucide-react";
 
 import { scheduleFor } from "@cloxa/db";
 import {
@@ -13,35 +12,48 @@ import {
 } from "@cloxa/domain";
 import {
   formatBrusselsDate,
+  formatBrusselsShortDate,
   formatBrusselsTime,
   t,
   type CatalogKey,
 } from "@cloxa/i18n";
 
-import { OffboardForm, ReinstateForm } from "@/components/manage/EmploymentActions";
-import { ManageShell } from "@/components/manage/ManageShell";
-import { ShiftList } from "@/components/clock/ShiftList";
-import { PinForm } from "@/components/kiosk/PinForm";
-import { buttonClassName } from "@/components/ui/Button";
-import { Heading } from "@/components/ui/Heading";
+import { formatDurationMs } from "@/components/clock/format";
+import { formatShiftRow } from "@/components/clock/shift-row";
+import { ShiftTags } from "@/components/clock/ShiftTags";
+import { workedMs } from "@/components/clock/week-total";
+import {
+  OffboardSection,
+  PinSection,
+  ReinstateSection,
+  SignOutSection,
+} from "@/components/manage/EmploymentActions";
+import { List, ListItem, Row, Section } from "@/components/ui/List";
+import { NavBar } from "@/components/ui/NavBar";
+import { PageTransition } from "@/components/ui/PageTransition";
+import { StatusLine } from "@/components/ui/StatusLine";
 import { requireManager } from "@/lib/auth/context";
 import { nowMs } from "@/lib/clock/now";
+import { STATUTE_LABEL_KEY } from "@/lib/manage/labels";
 import {
   effectiveRetentionYears,
   offboardConfirmLines,
 } from "@/lib/manage/offboarding";
+import { previewHold } from "@/lib/preview";
 import { formatWeeklyHours } from "@/lib/schedule/hours";
 import { createClient } from "@/lib/supabase/server";
 
+import { signOutEverywhereAction } from "../../team/actions";
 import {
   offboardEmployeeAction,
   reinstateEmployeeAction,
   setEmployeePinAction,
 } from "./actions";
 
+const DAY_MS = 24 * 3600 * 1000;
 const WINDOW_DAYS = 14;
-const WINDOW_MS = WINDOW_DAYS * 24 * 3600 * 1000;
-const FETCH_BUFFER_MS = 24 * 3600 * 1000;
+const WINDOW_MS = WINDOW_DAYS * DAY_MS;
+const FETCH_BUFFER_MS = DAY_MS;
 const SCHEDULE_DAYS_AHEAD = 6;
 
 const STATUS_LABEL_KEY: Record<string, CatalogKey> = {
@@ -51,12 +63,16 @@ const STATUS_LABEL_KEY: Record<string, CatalogKey> = {
   withdrawn: "questions.statusWithdrawn",
 };
 
+const range = (from: string, to: string) =>
+  `${formatBrusselsTime(new Date(from))}–${formatBrusselsTime(new Date(to))}`;
+
 export default async function ManageEmployeeDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const context = await requireManager();
+  await previewHold();
   const { id } = await params;
   const supabase = await createClient();
 
@@ -67,11 +83,6 @@ export default async function ManageEmployeeDetailPage({
     .maybeSingle();
   if (employeeError) throw new Error(`employee_unavailable:${employeeError.code}`);
   if (!employee) notFound();
-
-  const { count: pendingCount } = await supabase
-    .from("correction_requests")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "pending");
 
   const isOrgAdmin =
     context.membership.role === "owner" || context.membership.role === "admin";
@@ -145,169 +156,209 @@ export default async function ManageEmployeeDetailPage({
   if (pinError) throw new Error(`employee_pins_unavailable:${pinError.code}`);
 
   const todayKey = brusselsDayKey(now);
-  const toKey = brusselsDayKey(now + SCHEDULE_DAYS_AHEAD * 24 * 3600 * 1000);
-  const scheduleRows = await scheduleFor(supabase, {
-    employeeId: employee.id,
-    from: todayKey,
-    to: toKey,
+  const toKey = brusselsDayKey(now + SCHEDULE_DAYS_AHEAD * DAY_MS);
+  const [scheduleRows, assignmentsResult, sitesResult] = await Promise.all([
+    scheduleFor(supabase, { employeeId: employee.id, from: todayKey, to: toKey }),
+    supabase.from("site_assignments").select("site_id").eq("employee_id", employee.id),
+    supabase.from("sites").select("id, name").order("name"),
+  ]);
+  // The header is a nicety: unreadable sites leave the names out.
+  const assigned = new Set((assignmentsResult.data ?? []).map((row) => row.site_id));
+  const siteNames = (sitesResult.data ?? [])
+    .filter((site) => assigned.has(site.id))
+    .map((site) => site.name);
+
+  const header = [
+    employee.employee_code ?? t("manageEmployee.noCode"),
+    t(STATUTE_LABEL_KEY[employee.statute] ?? "manageTeam.statuteOther"),
+    siteNames.join(", "),
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  // The next 7 days, each with its blocks or "Vrij".
+  const upcoming = Array.from({ length: SCHEDULE_DAYS_AHEAD + 1 }, (_, offset) => {
+    const at = now + offset * DAY_MS;
+    const key = brusselsDayKey(at);
+    const blocks = scheduleRows.filter(
+      (row) => brusselsDayKey(Date.parse(row.start_at)) === key,
+    );
+    return {
+      key,
+      label: formatBrusselsShortDate(new Date(at)),
+      value:
+        blocks.length === 0
+          ? t("manageEmployee.dayOff")
+          : blocks.map((row) => range(row.start_at, row.end_at)).join(", "),
+    };
   });
+  const plannedMinutes = scheduleRows.reduce(
+    (total, row) =>
+      total + (Date.parse(row.end_at) - Date.parse(row.start_at)) / 60_000,
+    0,
+  );
+  const leftDate = employee.left_at
+    ? formatBrusselsDate(new Date(`${employee.left_at}T12:00:00Z`))
+    : null;
 
   return (
-    <ManageShell
-      active="team"
-      pendingQuestionsCount={pendingCount ?? 0}
-      showSwitchToEmployee={context.employeeId !== null}
-    >
-      <div className="flex flex-col gap-8">
-        <Link
-          href={"/manage/team" as Route}
-          className="focus-ring self-start font-semibold text-ink underline"
-        >
-          {t("manageEmployee.backLink")}
-        </Link>
-        <Heading level={1}>{employee.display_name}</Heading>
-        <p className="text-ink-2">
-          {employee.employee_code ?? t("manageEmployee.noCode")}
-        </p>
-
-        <section className="flex flex-col gap-3">
-          <Heading level={2}>{t("manageEmployee.employmentHeading")}</Heading>
-          {employee.anonymised_at ? (
-            <p className="text-lg">{t("manageEmployee.anonymised")}</p>
-          ) : employee.left_at ? (
-            <>
-              <p className="text-lg">
-                {t("manageEmployee.leftSince", {
-                  date: formatBrusselsDate(new Date(`${employee.left_at}T12:00:00Z`)),
-                })}
-              </p>
-              <p className="text-lg">{t("manageEmployee.reinstateNote")}</p>
-              <ReinstateForm action={reinstateEmployeeAction.bind(null, employee.id)} />
-            </>
+    <PageTransition>
+      <NavBar
+        title={employee.display_name}
+        subtitle={header}
+        back={{ href: "/manage/team", label: t("manageTeam.heading") }}
+      />
+      <List className="pb-10">
+        <div className="-mt-5 px-4">
+          {leftDate ? (
+            <StatusLine size="sm" tone="off" label={t("manageEmployee.statusLeft")} />
           ) : (
-            <>
-              <p className="text-lg">
-                {t("manageEmployee.inService", { name: employee.display_name })}
-              </p>
-              {canOffboard ? (
-                <OffboardForm
-                  employeeName={employee.display_name}
-                  lines={offboardConfirmLines({
-                    name: employee.display_name,
-                    hasLogin: employee.user_id !== null,
-                    hasPin: pinRow !== null,
-                    retentionYears: effectiveRetentionYears(organization?.settings),
-                  })}
-                  action={offboardEmployeeAction.bind(null, employee.id)}
-                />
-              ) : null}
-            </>
+            <StatusLine
+              size="sm"
+              tone="working"
+              label={t("manageEmployee.statusInService")}
+            />
           )}
-        </section>
+        </div>
 
-        {isOrgAdmin ? (
-          <section className="flex flex-col gap-3">
-            <Heading level={2}>{t("manageEmployee.subjectExportHeading")}</Heading>
-            <p className="text-lg">{t("manageEmployee.subjectExportIntro")}</p>
-            <a
-              href={`/manage/medewerker/${employee.id}/inzage`}
-              download
-              className={`${buttonClassName("secondary", "md")} self-start`}
-            >
-              {t("manageEmployee.subjectExportLink")}
-            </a>
-          </section>
+        <Section header={t("manageEmployee.shiftsHeading")}>
+          {shifts.length === 0 ? (
+            <ListItem className="text-body text-ink-2">
+              {t("manageEmployee.noShifts")}
+            </ListItem>
+          ) : (
+            shifts.map((shift) => {
+              const row = formatShiftRow(shift);
+              return (
+                <Row
+                  key={shift.start}
+                  title={row.date}
+                  subtitle={
+                    <ShiftTags
+                      range={row.range}
+                      edited={row.edited}
+                      offline={row.offline}
+                      extra={
+                        row.offlineSkew
+                          ? t("offline.skewLabel", { value: row.offlineSkew })
+                          : null
+                      }
+                    />
+                  }
+                  value={shift.open ? formatDurationMs(workedMs(shift, now)) : row.net}
+                />
+              );
+            })
+          )}
+        </Section>
+
+        {correctionRows.length > 0 ? (
+          <Section header={t("manageEmployee.correctionsHeading")}>
+            {correctionRows.map((row) => (
+              <Row
+                key={row.id}
+                title={formatBrusselsDate(new Date(row.created_at))}
+                subtitle={
+                  [
+                    row.reason,
+                    row.decision_note
+                      ? t("questions.managerNote", { note: row.decision_note })
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ") || undefined
+                }
+                value={t(STATUS_LABEL_KEY[row.status] ?? "questions.statusPending")}
+              />
+            ))}
+          </Section>
         ) : null}
 
-        <section className="flex flex-col gap-3">
-          <Heading level={2}>{t("manageEmployee.shiftsHeading")}</Heading>
-          <ShiftList shifts={shifts} showOfflineSkew />
-        </section>
-
-        <section className="flex flex-col gap-3">
-          <Heading level={2}>{t("manageEmployee.correctionsHeading")}</Heading>
-          {correctionRows.length === 0 ? (
-            <p className="text-ink-2">{t("manageEmployee.noCorrections")}</p>
-          ) : (
-            <ul className="flex flex-col gap-2">
-              {correctionRows.map((row) => (
-                <li key={row.id} className="rounded-lg border border-line p-4">
-                  <p className="font-semibold">
-                    {formatBrusselsDate(new Date(row.created_at))} ·{" "}
-                    {t(STATUS_LABEL_KEY[row.status] ?? "questions.statusPending")}
-                  </p>
-                  {row.reason ? <p className="text-ink-2">{row.reason}</p> : null}
-                  {row.decision_note ? (
-                    <p className="text-ink-2">
-                      {t("questions.managerNote", { note: row.decision_note })}
-                    </p>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-
-        <section className="flex flex-col gap-3">
-          <Heading level={2}>{t("manageEmployee.scheduleHeading")}</Heading>
-          {scheduleRows.length > 0 ? (
-            <p className="font-semibold">
-              {t("manageEmployee.scheduleSummaryHours", {
-                hours: formatWeeklyHours(
-                  scheduleRows.reduce(
-                    (total, row) =>
-                      total +
-                      (Date.parse(row.end_at) - Date.parse(row.start_at)) / 60_000,
-                    0,
-                  ),
-                ),
-              })}
-            </p>
-          ) : null}
-          <Link
-            href={`/manage/medewerker/${employee.id}/rooster` as Route}
-            className={buttonClassName("secondary", "md")}
-          >
-            {t("manageEmployee.scheduleEditLink")}
-          </Link>
-          {scheduleRows.length === 0 ? (
-            <p className="text-ink-2">{t("manageEmployee.noSchedule")}</p>
-          ) : (
-            <ul className="flex flex-col gap-1">
-              {scheduleRows.map((row, index) => {
-                const range = `${formatBrusselsTime(new Date(row.start_at))}–${formatBrusselsTime(new Date(row.end_at))}`;
-                return (
-                  <li key={index} className="text-ink-2">
-                    {t("manageEmployee.scheduleRow", {
-                      date: formatBrusselsDate(new Date(row.start_at)),
-                      range,
-                    })}
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </section>
-
-        <section className="flex flex-col gap-3">
-          <Heading level={2}>{t("kiosk.pinSettingsHeading")}</Heading>
-          <p className="text-ink-2">
-            {pinRow
-              ? t("kiosk.managerPinSetAt", {
-                  date: formatBrusselsDate(new Date(pinRow.set_at)),
+        <Section
+          header={t("manageEmployee.upcomingHeading")}
+          footer={
+            scheduleRows.length > 0
+              ? t("manageEmployee.scheduleSummaryHours", {
+                  hours: formatWeeklyHours(plannedMinutes),
                 })
-              : t("kiosk.managerPinNone")}
-          </p>
-          <div className="max-w-md">
-            <PinForm
-              id="employee-pin"
-              submitLabel={t("kiosk.managerPinSubmit")}
-              savedMessage={t("kiosk.managerPinSaved")}
-              action={setEmployeePinAction.bind(null, employee.id)}
+              : t("manageEmployee.noSchedule")
+          }
+        >
+          {upcoming.map((day) => (
+            <Row key={day.key} title={day.label} value={day.value} />
+          ))}
+          <Row
+            href={`/manage/medewerker/${employee.id}/rooster`}
+            icon={CalendarDays}
+            title={t("manageEmployee.scheduleEditLink")}
+          />
+        </Section>
+
+        {employee.anonymised_at ? null : (
+          <PinSection
+            employeeName={employee.display_name}
+            stateLabel={pinRow ? t("kiosk.pinStateSet") : t("kiosk.pinStateNotSet")}
+            footer={
+              pinRow
+                ? t("kiosk.managerPinSetAt", {
+                    date: formatBrusselsDate(new Date(pinRow.set_at)),
+                  })
+                : t("kiosk.managerPinNone")
+            }
+            action={setEmployeePinAction.bind(null, employee.id)}
+          />
+        )}
+
+        {isOrgAdmin ? (
+          <Section footer={t("manageEmployee.subjectExportIntro")}>
+            <Row
+              href={`/manage/medewerker/${employee.id}/inzage`}
+              download
+              icon={Download}
+              title={t("manageEmployee.subjectExportLink")}
+              subtitle={t("manageEmployee.subjectExportFormat")}
             />
-          </div>
-        </section>
-      </div>
-    </ManageShell>
+          </Section>
+        ) : null}
+
+        {employee.user_id && !leftDate ? (
+          <SignOutSection
+            employeeId={employee.id}
+            employeeName={employee.display_name}
+            action={signOutEverywhereAction}
+          />
+        ) : null}
+
+        {employee.anonymised_at ? (
+          <p className="px-4 text-subhead text-ink-2">
+            {t("manageEmployee.anonymised")}
+          </p>
+        ) : leftDate ? (
+          <ReinstateSection
+            employeeName={employee.display_name}
+            footer={
+              <span className="flex flex-col gap-1">
+                <span>{t("manageEmployee.leftSince", { date: leftDate })}</span>
+                <span>{t("manageEmployee.reinstateNote")}</span>
+              </span>
+            }
+            action={reinstateEmployeeAction.bind(null, employee.id)}
+          />
+        ) : (
+          <OffboardSection
+            employeeName={employee.display_name}
+            footer={t("manageEmployee.inService", { name: employee.display_name })}
+            canOffboard={canOffboard}
+            lines={offboardConfirmLines({
+              name: employee.display_name,
+              hasLogin: employee.user_id !== null,
+              hasPin: pinRow !== null,
+              retentionYears: effectiveRetentionYears(organization?.settings),
+            })}
+            action={offboardEmployeeAction.bind(null, employee.id)}
+          />
+        )}
+      </List>
+    </PageTransition>
   );
 }

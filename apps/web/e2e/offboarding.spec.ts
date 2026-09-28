@@ -54,6 +54,7 @@ test("owner offboards and reinstates an employee, and downloads the AVG export",
   if ((await leftLink.count()) > 0) {
     await leftLink.click();
     await button(page, "Terug in dienst").click();
+    await button(page, "Ja, zet terug in dienst").click();
     await expect(page.getByText(`${EMPLOYEE_NAME} is in dienst.`)).toBeVisible();
   } else {
     await page.goto("/manage/team");
@@ -62,9 +63,9 @@ test("owner offboards and reinstates an employee, and downloads the AVG export",
   await expect(page).toHaveURL(/\/manage\/medewerker\/[0-9a-f-]{36}$/);
   const detailUrl = page.url();
 
-  // 1. "Uit dienst": the first button only explains, the second one acts.
+  // 1. "Uit dienst": the row only opens a sheet that explains; its button acts.
   await button(page, "Uit dienst").click();
-  const confirm = page.getByRole("region", {
+  const confirm = page.getByRole("dialog", {
     name: `${EMPLOYEE_NAME} uit dienst zetten?`,
   });
   await expect(confirm).toContainText("kan niet meer inloggen");
@@ -120,6 +121,8 @@ test("owner offboards and reinstates an employee, and downloads the AVG export",
   // 4. "Terug in dienst", and the employee gets in again.
   await page.goto(detailUrl);
   await button(page, "Terug in dienst").click();
+  await expect(page.getByRole("alertdialog")).toContainText("kan weer inloggen");
+  await button(page, "Ja, zet terug in dienst").click();
   await expect(page.getByText(`${EMPLOYEE_NAME} is in dienst.`)).toBeVisible({
     timeout: 15_000,
   });

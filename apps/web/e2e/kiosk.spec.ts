@@ -93,6 +93,7 @@ test("admin pairs a kiosk; an employee without login clocks in with a PIN", asyn
   await admin.goto("/manage/team");
   await admin.getByRole("link", { name: EMPLOYEE_NAME }).click();
   await expect(admin).toHaveURL(/\/manage\/medewerker\/.+/);
+  await admin.getByRole("button", { name: /^Kiosk-pincode/ }).click();
   await admin.getByLabel("Nieuwe pincode").fill(PIN);
   await admin.getByLabel("Herhaal de pincode").fill(PIN);
   await button(admin, "Kiosk-pincode instellen").click();

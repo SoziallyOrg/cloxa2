@@ -1,3 +1,8 @@
+"use client";
+
+// A client module on purpose: when a server-rendered <svg> streams in late,
+// React marks the spot with an <svg style="display:none"> placeholder, which
+// the nonce CSP blocks. Rendered here, the SVG never streams in parts.
 import type { TimelineRowModel, TimelineSpan } from "@/lib/manage/timeline";
 import {
   TIMELINE_AXIS_HOURS,

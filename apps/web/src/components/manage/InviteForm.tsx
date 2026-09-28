@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 
 import { t } from "@cloxa/i18n";
 
@@ -10,9 +9,8 @@ import type { InviteFormInput } from "@/lib/manage/invite-form";
 import { Notice } from "../ui/Notice";
 import { Button } from "../ui/Button";
 import { Field } from "../ui/Field";
-import { Heading } from "../ui/Heading";
-import { Stack } from "../ui/Stack";
-import { TextInput } from "../ui/TextInput";
+import { ListItem, Section } from "../ui/List";
+import { inputClassName, TextInput } from "../ui/TextInput";
 
 export interface InviteFormSite {
   readonly id: string;
@@ -29,6 +27,8 @@ export interface InviteFormProps {
   sites: readonly InviteFormSite[];
   canInvitePrivilegedRoles: boolean;
   action: (input: InviteFormInput) => Promise<InviteFormResult>;
+  /** After a sent invitation (the sheet closes and the list shows it). */
+  onSent: () => void;
 }
 
 const STATUTE_OPTIONS: readonly { value: string; labelKey: string }[] = [
@@ -44,8 +44,8 @@ export function InviteForm({
   sites,
   canInvitePrivilegedRoles,
   action,
+  onSent,
 }: InviteFormProps) {
-  const router = useRouter();
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [employeeCode, setEmployeeCode] = useState("");
@@ -55,7 +55,6 @@ export function InviteForm({
   const [submitting, setSubmitting] = useState(false);
   const [errorKey, setErrorKey] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Readonly<Record<string, string>>>({});
-  const [done, setDone] = useState(false);
 
   function toggleSite(id: string) {
     setSiteIds((current) =>
@@ -85,26 +84,18 @@ export function InviteForm({
       );
       return;
     }
-    setDone(true);
     setDisplayName("");
     setEmail("");
     setEmployeeCode("");
     setSiteIds([]);
-    router.refresh();
+    onSent();
   }
 
   return (
     <form
       onSubmit={(event) => void handleSubmit(event)}
-      className="flex flex-col gap-4"
+      className="flex flex-col gap-6"
     >
-      <Heading level={2}>{t("manageTeam.inviteHeading")}</Heading>
-
-      {done ? (
-        <Notice tone="success" onDismiss={() => setDone(false)}>
-          {t("manageTeam.invited")}
-        </Notice>
-      ) : null}
       {errorKey ? (
         <Notice tone="error" onDismiss={() => setErrorKey(null)}>
           {t(errorKey as Parameters<typeof t>[0])}
@@ -151,7 +142,7 @@ export function InviteForm({
       <Field id="invite-statute" label={t("manageTeam.statuteLabel")}>
         <select
           id="invite-statute"
-          className="focus-ring min-h-touch-target rounded-md border-2 border-line bg-paper px-4 text-lg text-ink"
+          className={inputClassName}
           value={statute}
           onChange={(event) => setStatute(event.target.value)}
         >
@@ -167,7 +158,7 @@ export function InviteForm({
         <Field id="invite-role" label={t("manageTeam.roleLabel")}>
           <select
             id="invite-role"
-            className="focus-ring min-h-touch-target rounded-md border-2 border-line bg-paper px-4 text-lg text-ink"
+            className={inputClassName}
             value={role}
             onChange={(event) => setRole(event.target.value)}
           >
@@ -178,28 +169,30 @@ export function InviteForm({
         </Field>
       ) : null}
 
-      <fieldset className="flex flex-col gap-2">
-        <legend className="text-lg font-semibold">{t("manageTeam.sitesLabel")}</legend>
-        <Stack gap="sm">
+      <fieldset className="flex flex-col">
+        <legend className="pb-2 text-body font-semibold">
+          {t("manageTeam.sitesLabel")}
+        </legend>
+        <Section>
           {sites.map((site) => (
-            <label key={site.id} className="flex items-center gap-3 text-lg">
-              <input
-                type="checkbox"
-                className="size-6"
-                checked={siteIds.includes(site.id)}
-                onChange={() => toggleSite(site.id)}
-              />
-              {site.name}
-            </label>
+            <ListItem key={site.id} className="py-0">
+              <label className="flex min-h-row cursor-pointer items-center gap-3 text-body">
+                <input
+                  type="checkbox"
+                  className="size-5 shrink-0 accent-ink"
+                  checked={siteIds.includes(site.id)}
+                  onChange={() => toggleSite(site.id)}
+                />
+                <span className="min-w-0 truncate">{site.name}</span>
+              </label>
+            </ListItem>
           ))}
-        </Stack>
+        </Section>
       </fieldset>
 
-      <div>
-        <Button type="submit" variant="primary" size="md" loading={submitting}>
-          {t("manageTeam.submit")}
-        </Button>
-      </div>
+      <Button type="submit" wide loading={submitting}>
+        {t("manageTeam.submit")}
+      </Button>
     </form>
   );
 }

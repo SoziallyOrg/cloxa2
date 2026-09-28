@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Plus } from "lucide-react";
 
 import { t, type CatalogKey } from "@cloxa/i18n";
 import type { SchedulePattern } from "@cloxa/db";
@@ -27,11 +28,11 @@ import {
   type ScheduleBlockErrorCode,
 } from "@/lib/schedule/validate";
 
-import { Notice } from "../ui/Notice";
 import { Button } from "../ui/Button";
-import { Field } from "../ui/Field";
-import { Heading } from "../ui/Heading";
-import { TextInput } from "../ui/TextInput";
+import { cx } from "../ui/cx";
+import { ListItem, Row, Section } from "../ui/List";
+import { Notice } from "../ui/Notice";
+import { inputClassName } from "../ui/TextInput";
 
 export interface ScheduleEditorProps {
   initialForm: ScheduleFormState;
@@ -51,14 +52,17 @@ const DAY_ERROR_KEY: Record<ScheduleBlockErrorCode, CatalogKey> = {
   afterOvernight: "schedule.errorAfterOvernight",
 };
 
+// Large, calm, filled: "08:00" in big tabular figures, the native picker behind it.
+const TIME_INPUT = cx(inputClassName, "min-h-control text-title-3 tabular-nums");
+
 function emptyBlock(): ScheduleFormBlock {
   return { start: "09:00", end: "17:00" };
 }
 
 /**
- * Weekly editor for `/manage/medewerker/[id]/rooster`. Seven day rows, 0-3
- * blocks each, native `<input type="time">` controls. Validates client-side
- * with the same rules the database enforces (`lib/schedule/validate`) before
+ * Weekly editor for `/manage/medewerker/[id]/rooster`: a soft group per
+ * weekday with its blocks (0–3), each two large time fields. Validates with
+ * the same rules the database enforces (`lib/schedule/validate`) before
  * calling the bound `rpc_set_schedule` server action.
  */
 export function ScheduleEditor({
@@ -80,6 +84,7 @@ export function ScheduleEditor({
     () => isLeadTimeShort(todayKey, validFrom),
     [todayKey, validFrom],
   );
+  const hasErrors = Object.keys(dayErrors).length > 0;
 
   function updateDay(day: ScheduleDayKey, blocks: readonly ScheduleFormBlock[]) {
     setForm((current) => ({ ...current, [day]: blocks }));
@@ -92,21 +97,11 @@ export function ScheduleEditor({
     field: "start" | "end",
     value: string,
   ) {
-    const blocks = form[day].map((block, blockIndex) =>
-      blockIndex === index ? { ...block, [field]: value } : block,
-    );
-    updateDay(day, blocks);
-  }
-
-  function addBlock(day: ScheduleDayKey) {
-    if (form[day].length >= MAX_BLOCKS_PER_DAY) return;
-    updateDay(day, [...form[day], emptyBlock()]);
-  }
-
-  function removeBlock(day: ScheduleDayKey, index: number) {
     updateDay(
       day,
-      form[day].filter((_, blockIndex) => blockIndex !== index),
+      form[day].map((block, blockIndex) =>
+        blockIndex === index ? { ...block, [field]: value } : block,
+      ),
     );
   }
 
@@ -115,14 +110,9 @@ export function ScheduleEditor({
     setSaved(false);
   }
 
-  function copyMonday() {
-    setForm((current) => copyMondayToWorkdays(current));
-    setSaved(false);
-  }
-
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
-    if (Object.keys(dayErrors).length > 0) return;
+    if (hasErrors) return;
 
     setSubmitting(true);
     setErrorKey(null);
@@ -142,161 +132,178 @@ export function ScheduleEditor({
       onSubmit={(event) => void handleSubmit(event)}
       className="flex flex-col gap-8"
     >
-      {saved ? (
-        <Notice tone="success" onDismiss={() => setSaved(false)}>
-          {t("schedule.saved")}
-        </Notice>
-      ) : null}
-      {errorKey ? (
-        <Notice tone="error" onDismiss={() => setErrorKey(null)}>
-          {t(errorKey as CatalogKey)}
-        </Notice>
-      ) : null}
+      <section aria-live="polite" className="flex flex-col gap-0.5 px-4">
+        <p className="text-subhead text-ink-2">{t("schedule.weekLabel")}</p>
+        <p className="text-number">{formatWeeklyHours(totalMinutes)}</p>
+        <p className="text-subhead text-ink-2">{t("hours.indicative")}</p>
+      </section>
 
-      <section className="flex flex-col gap-3">
-        <Heading level={2}>{t("schedule.templatesHeading")}</Heading>
-        <div className="flex flex-wrap gap-3">
-          <Button
-            type="button"
-            variant="secondary"
-            size="md"
-            onClick={() => applyTemplate(fullTimeTemplate)}
-          >
-            {t("schedule.templateFullTime")}
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            size="md"
-            onClick={() => applyTemplate(partTimeMorningTemplate)}
-          >
-            {t("schedule.templatePartTimeMorning")}
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            size="md"
-            onClick={() => applyTemplate(emptyTemplate)}
-          >
-            {t("schedule.templateEmpty")}
-          </Button>
-          <Button type="button" variant="plain" size="md" onClick={copyMonday}>
-            {t("schedule.copyMondayToWorkdays")}
-          </Button>
+      <section className="flex flex-col gap-2">
+        <h2 className="px-4 text-subhead text-ink-2">
+          {t("schedule.templatesHeading")}
+        </h2>
+        <div className="-mx-1 flex flex-wrap">
+          {(
+            [
+              ["schedule.templateFullTime", () => applyTemplate(fullTimeTemplate)],
+              [
+                "schedule.templatePartTimeMorning",
+                () => applyTemplate(partTimeMorningTemplate),
+              ],
+              ["schedule.templateEmpty", () => applyTemplate(emptyTemplate)],
+              [
+                "schedule.copyMondayToWorkdays",
+                () => {
+                  setForm((current) => copyMondayToWorkdays(current));
+                  setSaved(false);
+                },
+              ],
+            ] as const
+          ).map(([label, onClick]) => (
+            <Button key={label} type="button" variant="plain" onClick={onClick}>
+              {t(label)}
+            </Button>
+          ))}
         </div>
       </section>
 
-      <section className="flex flex-col gap-6">
-        {SCHEDULE_DAY_KEYS.map((day) => {
-          const dayError = dayErrors[day];
-          return (
-            <div
-              key={day}
-              data-testid={`schedule-day-${day}`}
-              className="flex flex-col gap-3 rounded-lg border border-line p-4"
-            >
-              <Heading level={3}>
-                {t(`schedule.dayHeading.${day}` as CatalogKey)}
-              </Heading>
-
-              {form[day].length === 0 ? null : (
-                <ul className="flex flex-col gap-3">
-                  {form[day].map((block, index) => {
-                    const overnight = block.end !== "" && block.end < block.start;
-                    return (
-                      <li key={index} className="flex flex-wrap items-end gap-3">
-                        <Field
-                          id={`schedule-${day}-${index}-start`}
-                          label={t("schedule.startLabel")}
-                        >
-                          <TextInput
-                            type="time"
-                            value={block.start}
-                            onChange={(event) =>
-                              updateBlock(day, index, "start", event.target.value)
-                            }
-                          />
-                        </Field>
-                        <Field
-                          id={`schedule-${day}-${index}-end`}
-                          label={t("schedule.endLabel")}
-                          {...(overnight ? { hint: t("schedule.overnightHint") } : {})}
-                        >
-                          <TextInput
-                            type="time"
-                            value={block.end}
-                            onChange={(event) =>
-                              updateBlock(day, index, "end", event.target.value)
-                            }
-                          />
-                        </Field>
-                        <Button
-                          type="button"
-                          variant="plain"
-                          size="md"
-                          onClick={() => removeBlock(day, index)}
-                          aria-label={t("schedule.removeBlock")}
-                        >
-                          {t("schedule.removeBlock")}
-                        </Button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-
-              {dayError ? (
-                <p role="alert" className="text-base font-semibold text-danger">
+      {SCHEDULE_DAY_KEYS.map((day) => {
+        const dayName = t(`schedule.dayHeading.${day}` as CatalogKey);
+        const dayError = dayErrors[day];
+        const full = form[day].length >= MAX_BLOCKS_PER_DAY;
+        return (
+          <Section
+            key={day}
+            header={dayName}
+            data-testid={`schedule-day-${day}`}
+            footer={
+              dayError ? (
+                <span role="alert" className="font-semibold text-danger">
                   {t(DAY_ERROR_KEY[dayError])}
-                </p>
-              ) : null}
+                </span>
+              ) : undefined
+            }
+          >
+            {form[day].length === 0 ? (
+              <ListItem className="text-body text-ink-2">
+                {t("schedule.dayOff")}
+              </ListItem>
+            ) : null}
+            {form[day].map((block, index) => {
+              const overnight = block.end !== "" && block.end < block.start;
+              const number = index + 1;
+              const startId = `schedule-${day}-${index}-start`;
+              const endId = `schedule-${day}-${index}-end`;
+              return (
+                <ListItem key={index} className="gap-2 py-3">
+                  <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-end gap-3">
+                    <div className="flex flex-col gap-1">
+                      <span aria-hidden="true" className="text-subhead text-ink-2">
+                        {t("schedule.startLabel")}
+                      </span>
+                      <input
+                        id={startId}
+                        type="time"
+                        aria-label={t("schedule.timeFromLabel", {
+                          day: dayName,
+                          number,
+                        })}
+                        value={block.start}
+                        onChange={(event) =>
+                          updateBlock(day, index, "start", event.target.value)
+                        }
+                        className={cx(TIME_INPUT, "bg-paper")}
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <span aria-hidden="true" className="text-subhead text-ink-2">
+                        {t("schedule.endLabel")}
+                      </span>
+                      <input
+                        id={endId}
+                        type="time"
+                        aria-label={t("schedule.timeToLabel", { day: dayName, number })}
+                        value={block.end}
+                        aria-describedby={overnight ? `${endId}-hint` : undefined}
+                        onChange={(event) =>
+                          updateBlock(day, index, "end", event.target.value)
+                        }
+                        className={cx(TIME_INPUT, "bg-paper")}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        updateDay(
+                          day,
+                          form[day].filter((_, blockIndex) => blockIndex !== index),
+                        )
+                      }
+                      aria-label={`${t("schedule.removeBlock")}: ${t("schedule.timeFromLabel", { day: dayName, number })}`}
+                      className="focus-ring min-h-control pressable rounded-control px-2 text-body text-danger"
+                    >
+                      {t("schedule.removeBlockShort")}
+                    </button>
+                  </div>
+                  {overnight ? (
+                    <p id={`${endId}-hint`} className="text-subhead text-ink-2">
+                      {t("schedule.overnightHint")}
+                    </p>
+                  ) : null}
+                </ListItem>
+              );
+            })}
+            <Row
+              icon={Plus}
+              title={full ? t("schedule.maxBlocksReached") : t("schedule.addBlock")}
+              disabled={full}
+              onClick={() => updateDay(day, [...form[day], emptyBlock()])}
+            />
+          </Section>
+        );
+      })}
 
-              <div>
-                <Button
-                  type="button"
-                  variant="plain"
-                  size="md"
-                  onClick={() => addBlock(day)}
-                  disabled={form[day].length >= MAX_BLOCKS_PER_DAY}
-                >
-                  {t("schedule.addBlock")}
-                </Button>
-              </div>
-            </div>
-          );
-        })}
-      </section>
+      <Section
+        footer={
+          <span className="flex flex-col gap-1">
+            {leadTimeShort ? (
+              <span className="font-medium text-attention">
+                {t("schedule.leadTimeShort")}
+              </span>
+            ) : null}
+            <span>{t("schedule.leadTimeWarning")}</span>
+          </span>
+        }
+      >
+        <ListItem className="py-3">
+          <label htmlFor="schedule-valid-from" className="flex flex-col gap-1">
+            <span className="text-subhead text-ink-2">
+              {t("schedule.validFromLabel")}
+            </span>
+            <input
+              id="schedule-valid-from"
+              type="date"
+              value={validFrom}
+              required
+              onChange={(event) => setValidFrom(event.target.value)}
+              className={cx(TIME_INPUT, "bg-paper")}
+            />
+          </label>
+        </ListItem>
+      </Section>
 
-      <section className="flex flex-col gap-3">
-        <Field
-          id="schedule-valid-from"
-          label={t("schedule.validFromLabel")}
-          {...(leadTimeShort ? { hint: t("schedule.leadTimeWarning") } : {})}
-        >
-          <TextInput
-            type="date"
-            value={validFrom}
-            onChange={(event) => setValidFrom(event.target.value)}
-            required
-          />
-        </Field>
-      </section>
-
-      <section className="flex flex-col gap-2 rounded-lg border border-line p-4">
-        <Heading level={2}>{t("schedule.summaryHeading")}</Heading>
-        <p className="text-lg font-semibold">
-          {t("schedule.summaryHours", { hours: formatWeeklyHours(totalMinutes) })}
-        </p>
-      </section>
-
-      <div>
-        <Button
-          type="submit"
-          variant="primary"
-          size="md"
-          loading={submitting}
-          disabled={Object.keys(dayErrors).length > 0}
-        >
+      <div className="flex flex-col gap-4">
+        {saved ? (
+          <Notice tone="success" onDismiss={() => setSaved(false)}>
+            {t("schedule.saved")}
+          </Notice>
+        ) : null}
+        {errorKey ? (
+          <Notice tone="error" onDismiss={() => setErrorKey(null)}>
+            {t(errorKey as CatalogKey)}
+          </Notice>
+        ) : null}
+        <Button type="submit" wide loading={submitting} disabled={hasErrors}>
           {t("schedule.submit")}
         </Button>
       </div>
