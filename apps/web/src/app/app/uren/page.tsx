@@ -118,7 +118,7 @@ export default async function HoursPage({
         />
         <List className="pb-10">
           {weekTotal !== null ? (
-            <section className="-mt-2 flex flex-col gap-0.5">
+            <section className="flex flex-col gap-0.5">
               <p className="text-subhead text-ink-2">{t("hours.weekLabel")}</p>
               <p className="text-number">{formatDurationMs(weekTotal)}</p>
               <p className="text-subhead text-ink-2">{t("hours.indicative")}</p>

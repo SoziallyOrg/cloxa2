@@ -840,7 +840,7 @@ export const catalog = {
     switchOffline: "Klokken zonder internet",
     switchLocation: "Locatie bij klokken",
     switchManaged: "Beheerd door je werkgever",
-    switchFooter: "Groen is aan. Een grijze schakelaar is uit.",
+    switchFooter: "Een gevulde schakelaar is aan. Een grijze is uit.",
     segmentLabel: "Periode",
     segmentWeek: "Week",
     segmentMonth: "Maand",

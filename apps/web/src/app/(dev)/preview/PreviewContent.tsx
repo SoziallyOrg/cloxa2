@@ -93,7 +93,7 @@ function Group({
   return (
     <section id={id} className="flex scroll-mt-24 flex-col">
       <h2 className="px-4 pb-2 text-subhead text-ink-2">{header}</h2>
-      <div className="flex flex-col gap-4 rounded-list bg-surface p-4">{children}</div>
+      <div className="flex flex-col gap-4 px-4 pt-1">{children}</div>
       {footer ? <p className="px-4 pt-2 text-subhead text-ink-2">{footer}</p> : null}
     </section>
   );
