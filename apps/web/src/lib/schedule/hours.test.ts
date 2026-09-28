@@ -52,11 +52,11 @@ describe("weeklyMinutes", () => {
 
 describe("formatWeeklyHours", () => {
   it("omits minutes on the hour", () => {
-    expect(formatWeeklyHours(480)).toBe("8u");
+    expect(formatWeeklyHours(480)).toBe("8 u");
   });
 
   it("shows minutes otherwise, zero-padded", () => {
-    expect(formatWeeklyHours(485)).toBe("8u05");
-    expect(formatWeeklyHours(510)).toBe("8u30");
+    expect(formatWeeklyHours(485)).toBe("8 u 5 min");
+    expect(formatWeeklyHours(510)).toBe("8 u 30 min");
   });
 });

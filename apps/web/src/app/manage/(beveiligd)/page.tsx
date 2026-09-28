@@ -25,6 +25,7 @@ import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { requireManager } from "@/lib/auth/context";
 import { nowMs } from "@/lib/clock/now";
 import {
+  attentionByEmployee,
   buildAttention,
   type AttentionItem,
   type OfflineEvent,
@@ -41,19 +42,23 @@ const EVENTS_LOOKBACK_MS = 3 * 24 * 3600 * 1000;
 
 const time = (at: number) => formatBrusselsTime(new Date(at));
 
-/** The orange note for one "aandacht nodig" item, in plain words. */
-function noteFor(
-  item: AttentionItem,
-  openShift: OpenShiftStatus | undefined,
-  today: string,
-) {
+interface NoteContext {
+  openShift: OpenShiftStatus | undefined;
+  scheduledStart: ScheduledStart | undefined;
+  offlineEvents: readonly OfflineEvent[];
+  today: string;
+  now: number;
+}
+
+/** One short line for one "aandacht nodig" item, in plain words. */
+function noteFor(item: AttentionItem, context: NoteContext): string {
   switch (item.reason) {
     case "forgotClockOut": {
-      const startedAt = openShift?.startedAt ?? null;
+      const startedAt = context.openShift?.startedAt ?? null;
       const when =
         startedAt === null
           ? ""
-          : brusselsDayKey(startedAt) === today
+          : brusselsDayKey(startedAt) === context.today
             ? time(startedAt)
             : t("manage.yesterdayAt", { time: time(startedAt) });
       return t("manage.noteForgotClockOut", { when });
@@ -61,14 +66,34 @@ function noteFor(
     case "longBreak":
       return t("manage.noteLongBreak");
     case "notStarted":
-      return t("manage.noteNotStarted");
-    case "offlineDelayed":
-      return t("manage.noteOfflineLate");
+      return t("manage.noteNotStarted", {
+        time: time(context.scheduledStart?.startAt ?? context.now),
+      });
+    case "offlineDelayed": {
+      const delay = context.offlineEvents
+        .filter(
+          (event) =>
+            event.employeeId === item.employeeId &&
+            brusselsDayKey(event.serverAt) === context.today,
+        )
+        .reduce(
+          (longest, event) => Math.max(longest, event.serverAt - event.occurredAt),
+          0,
+        );
+      return t("manage.noteOfflineLate", { delay: formatDurationMs(delay) });
+    }
     case "offlineWeekly":
       return t("manage.noteOfflineWeekly", { count: item.count ?? 0 });
     default:
-      return null;
+      return "";
   }
+}
+
+/** Looking is enough for patterns; a forgotten or missing clock-in needs a fix. */
+function actionFor(item: AttentionItem): string {
+  return item.reason === "forgotClockOut" || item.reason === "notStarted"
+    ? t("manage.fix")
+    : t("manage.viewAction");
 }
 
 export default async function ManagePage({
@@ -253,18 +278,7 @@ export default async function ManagePage({
     now,
   });
   // Pending requests have their own count on Aanvragen; here only people.
-  const notesByEmployee = new Map<string, string[]>();
-  for (const item of attentionItems) {
-    const note = noteFor(
-      item,
-      openShifts.find((shift) => shift.employeeId === item.employeeId),
-      todayKey,
-    );
-    if (note === null) continue;
-    const list = notesByEmployee.get(item.employeeId) ?? [];
-    list.push(note);
-    notesByEmployee.set(item.employeeId, list);
-  }
+  const attentionByPerson = attentionByEmployee(attentionItems);
 
   const people: TeamTimelinePerson[] = visibleEmployees.map((employee) => {
     const todays = todayShiftsByEmployee.get(employee.id) ?? [];
@@ -292,15 +306,37 @@ export default async function ManagePage({
     }
 
     const net = todays.reduce((total, shift) => total + workedMs(shift, now), 0);
-    const notes = notesByEmployee.get(employee.id) ?? [];
+    const personAttention = attentionByPerson.get(employee.id);
+    const attention: TeamTimelinePerson["attention"] = personAttention
+      ? (() => {
+          const context: NoteContext = {
+            openShift: openShifts.find((shift) => shift.employeeId === employee.id),
+            scheduledStart: scheduledStarts.find(
+              (entry) => entry.employeeId === employee.id,
+            ),
+            offlineEvents,
+            today: todayKey,
+            now,
+          };
+          return {
+            summary: noteFor(personAttention.primary, context),
+            extra: personAttention.extra,
+            href: `/manage/medewerker/${employee.id}`,
+            items: personAttention.items.map((item) => ({
+              id: item.id,
+              label: noteFor(item, context),
+              action: actionFor(item),
+            })),
+          };
+        })()
+      : null;
 
     return {
       id: employee.id,
       name: employee.display_name,
       status,
       statusWord,
-      notes,
-      fixHref: notes.length > 0 ? `/manage/medewerker/${employee.id}` : null,
+      attention,
       net: net > 0 ? formatDurationMs(net) : null,
       track: timelineRow({
         shifts: todays,
@@ -355,7 +391,7 @@ export default async function ManagePage({
               {
                 key: "attention",
                 label: t("manage.counterAttention"),
-                value: notesByEmployee.size,
+                value: attentionByPerson.size,
                 attention: true,
               },
             ]}

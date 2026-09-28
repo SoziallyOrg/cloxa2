@@ -83,6 +83,10 @@ test("the manager area of a bakery with a team", async ({ page }) => {
   await expect(page.getByText(FORGOT).first()).toBeVisible();
   await capture(page, "beheer-vandaag");
   await captureScrolled(page, "beheer-vandaag-ingeklapt");
+  await page.getByRole("button", { name: new RegExp(`^${FORGOT}`) }).click();
+  await expect(dialog(page)).toBeVisible();
+  await capture(page, "beheer-vandaag-aandacht", false);
+  await closeSheet(page);
   await page.getByRole("button", { name: /^Locatie:/ }).click();
   await expect(dialog(page)).toBeVisible();
   await capture(page, "beheer-vandaag-locatie", false);

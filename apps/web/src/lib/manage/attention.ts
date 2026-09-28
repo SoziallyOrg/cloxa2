@@ -207,3 +207,50 @@ export function buildAttention(input: BuildAttentionInput): AttentionItem[] {
     ...pendingQuestionsAttention(input.pendingCorrectionsCount),
   ];
 }
+
+/** Most important first: what the one orange line on Vandaag shows. */
+const PRIORITY: readonly AttentionReason[] = [
+  "forgotClockOut",
+  "longBreak",
+  "notStarted",
+  "offlineDelayed",
+  "offlineWeekly",
+];
+
+export interface PersonAttention {
+  /** All of this person's issues, most important first, contradictions removed. */
+  readonly items: readonly AttentionItem[];
+  readonly primary: AttentionItem;
+  /** How many issues come on top of `primary` ("+1"). */
+  readonly extra: number;
+}
+
+/**
+ * Per employee: their issues ordered by importance, one summary. A forgotten
+ * clock-out swallows "nog niet gestart": the open shift from an earlier day is
+ * the actual issue, not today's missing start. Summary items without a person
+ * (pending questions) are left out.
+ */
+export function attentionByEmployee(
+  items: readonly AttentionItem[],
+): Map<string, PersonAttention> {
+  const grouped = new Map<string, AttentionItem[]>();
+  for (const item of items) {
+    if (item.employeeId === "" || !PRIORITY.includes(item.reason)) continue;
+    const list = grouped.get(item.employeeId) ?? [];
+    list.push(item);
+    grouped.set(item.employeeId, list);
+  }
+
+  const result = new Map<string, PersonAttention>();
+  for (const [employeeId, list] of grouped) {
+    const forgot = list.some((item) => item.reason === "forgotClockOut");
+    const sorted = list
+      .filter((item) => !(forgot && item.reason === "notStarted"))
+      .sort((a, b) => PRIORITY.indexOf(a.reason) - PRIORITY.indexOf(b.reason));
+    const [primary] = sorted;
+    if (!primary) continue;
+    result.set(employeeId, { items: sorted, primary, extra: sorted.length - 1 });
+  }
+  return result;
+}

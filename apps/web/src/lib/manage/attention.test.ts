@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  attentionByEmployee,
   buildAttention,
   forgottenClockOuts,
   longBreaks,
@@ -8,6 +9,8 @@ import {
   offlineDelayedAttention,
   offlineWeeklyAttention,
   pendingQuestionsAttention,
+  type AttentionItem,
+  type AttentionReason,
   type OpenShiftStatus,
   type ScheduledStart,
 } from "./attention";
@@ -221,5 +224,52 @@ describe("buildAttention", () => {
       "offlineDelayed",
       "pendingQuestions",
     ]);
+  });
+});
+
+describe("attentionByEmployee", () => {
+  const item = (reason: AttentionReason, employeeId = "emp-1"): AttentionItem => ({
+    id: `${reason}-${employeeId}`,
+    employeeId,
+    employeeName: "Jan Jansen",
+    reason,
+  });
+
+  it("puts the most important issue first and counts the rest", () => {
+    const result = attentionByEmployee([
+      item("offlineWeekly"),
+      item("offlineDelayed"),
+      item("longBreak"),
+    ]).get("emp-1");
+    expect(result?.primary.reason).toBe("longBreak");
+    expect(result?.items.map((entry) => entry.reason)).toEqual([
+      "longBreak",
+      "offlineDelayed",
+      "offlineWeekly",
+    ]);
+    expect(result?.extra).toBe(2);
+  });
+
+  it("drops 'not started' when a clock-out was forgotten", () => {
+    const result = attentionByEmployee([
+      item("notStarted"),
+      item("forgotClockOut"),
+    ]).get("emp-1");
+    expect(result?.items.map((entry) => entry.reason)).toEqual(["forgotClockOut"]);
+    expect(result?.extra).toBe(0);
+  });
+
+  it("keeps 'not started' on its own", () => {
+    const result = attentionByEmployee([item("notStarted")]).get("emp-1");
+    expect(result?.primary.reason).toBe("notStarted");
+  });
+
+  it("groups per person and ignores the pending-questions summary", () => {
+    const result = attentionByEmployee([
+      item("longBreak", "emp-1"),
+      item("notStarted", "emp-2"),
+      ...pendingQuestionsAttention(2),
+    ]);
+    expect([...result.keys()].sort()).toEqual(["emp-1", "emp-2"]);
   });
 });

@@ -2,6 +2,7 @@
  * Weekly hours total for the "indicatief" summary shown before saving. Pure
  * so it's unit-testable without a DOM.
  */
+import { formatDurationMs } from "../../components/clock/format";
 import { SCHEDULE_DAY_KEYS, type ScheduleFormState } from "./types";
 
 function toMinutes(value: string): number {
@@ -26,9 +27,7 @@ export function weeklyMinutes(form: ScheduleFormState): number {
   return total;
 }
 
-/** "37u30" (no minutes shown when the total lands on the hour, e.g. "40u"). */
+/** Same "37 u 30 min" style as every other duration in the app. */
 export function formatWeeklyHours(totalMinutes: number): string {
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  return minutes === 0 ? `${hours}u` : `${hours}u${String(minutes).padStart(2, "0")}`;
+  return formatDurationMs(totalMinutes * 60_000);
 }

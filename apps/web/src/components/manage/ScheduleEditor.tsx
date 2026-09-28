@@ -53,7 +53,10 @@ const DAY_ERROR_KEY: Record<ScheduleBlockErrorCode, CatalogKey> = {
 };
 
 // Large, calm, filled: "08:00" in big tabular figures, the native picker behind it.
-const TIME_INPUT = cx(inputClassName, "min-h-control text-title-3 tabular-nums");
+const TIME_INPUT = cx(
+  inputClassName,
+  "min-h-control min-w-0 px-3! text-title-3 tabular-nums",
+);
 
 function emptyBlock(): ScheduleFormBlock {
   return { start: "09:00", end: "17:00" };
@@ -196,7 +199,7 @@ export function ScheduleEditor({
               const endId = `schedule-${day}-${index}-end`;
               return (
                 <ListItem key={index} className="gap-2 py-3">
-                  <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-end gap-3">
+                  <div className="grid grid-cols-2 items-end gap-x-3 gap-y-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
                     <div className="flex flex-col gap-1">
                       <span aria-hidden="true" className="text-subhead text-ink-2">
                         {t("schedule.startLabel")}
@@ -240,7 +243,7 @@ export function ScheduleEditor({
                         )
                       }
                       aria-label={`${t("schedule.removeBlock")}: ${t("schedule.timeFromLabel", { day: dayName, number })}`}
-                      className="focus-ring min-h-control pressable rounded-control px-2 text-body text-danger"
+                      className="focus-ring col-span-2 min-h-touch-target pressable justify-self-start rounded-control px-1 text-body text-danger sm:col-span-1"
                     >
                       {t("schedule.removeBlockShort")}
                     </button>

@@ -1,5 +1,3 @@
-import Link from "next/link";
-import type { Route } from "next";
 import { Users } from "lucide-react";
 
 import { t } from "@cloxa/i18n";
@@ -7,7 +5,7 @@ import { t } from "@cloxa/i18n";
 import type { TimelineRowModel } from "@/lib/manage/timeline";
 
 import { EmptyState } from "../ui/EmptyState";
-import { PUSH } from "../ui/transitions";
+import { PersonCell, type PersonAttention } from "./PersonCell";
 import { TimelineAxis, TimelineNow, TimelineTrack } from "./Timeline";
 
 export interface TeamTimelinePerson {
@@ -17,10 +15,8 @@ export interface TeamTimelinePerson {
   readonly status: string;
   /** Said before `status` to screen readers only, e.g. "Aan het werk". */
   readonly statusWord: string | null;
-  /** "Aandacht nodig" notes, in orange under the name. */
-  readonly notes: readonly string[];
-  /** Where "Oplossen" goes, when there is a note. */
-  readonly fixHref: string | null;
+  /** The one orange line and the sheet behind it; `null` when all is well. */
+  readonly attention: PersonAttention | null;
   /** Today's net so far, e.g. "3 u 36 min"; `null` when nothing was worked. */
   readonly net: string | null;
   readonly track: TimelineRowModel;
@@ -76,33 +72,13 @@ export function TeamTimeline({ people, nowPct }: TeamTimelineProps) {
               <div
                 className={`grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-3 py-3 pr-4 group-not-first/row:border-t-[0.5px] group-not-first/row:border-separator md:items-center md:py-3.5 md:pr-0 ${DESKTOP_COLUMNS}`}
               >
-                <div className="col-start-1 row-start-1 flex min-w-0 flex-col">
-                  <span className="truncate text-body">{person.name}</span>
-                  <span className="truncate text-subhead text-ink-2">
-                    {person.statusWord ? (
-                      <span className="sr-only">{person.statusWord}, </span>
-                    ) : null}
-                    {person.status}
-                  </span>
-                  {person.notes.length > 0 ? (
-                    <span className="flex flex-wrap items-baseline gap-x-3 text-subhead">
-                      <span className="font-medium text-attention">
-                        {person.notes.join(" · ")}
-                      </span>
-                      {person.fixHref ? (
-                        <Link
-                          href={person.fixHref as Route}
-                          transitionTypes={PUSH}
-                          aria-label={t("manage.fixFor", { name: person.name })}
-                          // A 44px hit area around the small word, without
-                          // pushing the row apart.
-                          className="focus-ring relative pressable rounded-md font-semibold text-ink before:absolute before:-inset-x-2 before:-inset-y-3 before:content-['']"
-                        >
-                          {t("manage.fix")}
-                        </Link>
-                      ) : null}
-                    </span>
-                  ) : null}
+                <div className="col-start-1 row-start-1 min-w-0">
+                  <PersonCell
+                    name={person.name}
+                    status={person.status}
+                    statusWord={person.statusWord}
+                    attention={person.attention}
+                  />
                 </div>
 
                 <div className="col-span-2 row-start-2 md:col-span-1 md:col-start-2 md:row-start-1">
