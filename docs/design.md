@@ -118,6 +118,82 @@ rules. If a screen needs to break one, the rule is updated here first.
 - **Login.** Centred and narrow. The logotype, one field, and one black button. The code
   step has one large OTP field. Nothing else.
 
+## iOS fidelity (owner requirement, 2026-09-28)
+
+The owner wants Cloxa to **look and behave like a native iOS app**, and every screen to
+be complete. The web app follows Apple's Human Interface Guidelines patterns, rebuilt
+with our own code (no Apple assets):
+
+- **Typeface.** Use `-apple-system` / SF Pro on Apple devices. Everywhere else,
+  self-hosted **Inter** (variable, OFL) is the stand-in, since it looks close to SF. Use
+  the iOS text styles: Large Title 34/700, Title 1 28, Title 2 22, Headline 17/600, Body
+  17, Callout 16, Subhead 15, Footnote 13, Caption 12. The timer keeps display 88/300.
+- **Navigation bar.**
+  - Every page has a **large title**. On scroll it collapses into a centred inline title
+    on a translucent bar (`backdrop-filter: blur`, with a hairline under it once
+    scrolled).
+  - Pushed pages get a back button: a chevron plus the previous page's title.
+  - Trailing actions are text buttons ("Klaar", "Bewerk") or icon buttons (44px
+    targets).
+- **Tab bar** (phone). It is translucent and blurred, with a hairline on top and
+  respects the safe-area inset. Each tab has an **icon plus a label** (10–11px medium).
+  Icons are outline when inactive and filled when active. Use an open SF-like icon set
+  (Lucide), same stroke width everywhere. There are 3–5 tabs.
+- **Inset grouped lists.**
+  - The page background is `#f2f2f7` (dark `#000`), groups are white (dark `#1c1c1e`)
+    with a 10px radius, and there is a 16px inset.
+  - Rows are 44px minimum (52px for two-line rows). Separators are inset from the
+    leading edge.
+  - A row can have a leading icon (on a coloured 29px rounded square, like Settings), a
+    title, a subtitle, a trailing value in secondary colour, and a chevron.
+  - Section headers are uppercase footnote text in secondary colour, and footers are
+    footnote text.
+- **Controls.**
+  - **Segmented control**: a pill track with a white sliding thumb.
+  - **Switch**: a real iOS-style toggle in green, for booleans in settings.
+  - Native `<input type=time/date>`, which are wheels on iOS.
+  - **Action sheet** for choices and destructive confirmations. A centred **alert** (two
+    buttons, where the destructive one is red) for irreversible steps.
+  - **Sheets**: a grabber, rounded top corners, and a detent feel (medium or large).
+    Drag down to dismiss, plus a "Sluiten"/"Klaar" button.
+- **Motion.**
+  - Push navigation slides from the right, and back slides out (View Transitions API
+    where supported).
+  - Sheets spring up. Buttons dim on press (`active` opacity 0.6), with no hover-only
+    affordances.
+  - Pull-to-refresh on Klok, Uren, Vragen and Vandaag.
+  - Everything respects `prefers-reduced-motion`.
+- **Haptics.** Use `navigator.vibrate` where available: a light tap on clock actions, a
+  double tap on errors.
+- **Colour.** The primary buttons stay ink (direction C). Status colours follow the iOS
+  system palette, tuned so text reaches AA: green `#248a3d`, orange `#c93400`, red
+  `#d70015`, plus tints for dots and backgrounds.
+- **Desktop.** This works like **iPadOS or macOS**:
+  - a translucent sidebar (source list with icons and labels), and the content in a
+    readable column (max ~720px for lists; full width for the timeline)
+  - sheets become centred modal cards
+  - large titles stay large
+- **PWA.** `display: standalone`, a status bar style, and `theme-color` for light and
+  dark. The apple-touch-icon and splash colours come from the logo, so "Add to Home
+  Screen" feels like an app.
+
+### "Fully built" checklist (every screen must have all of these)
+
+1. **Loading:** a skeleton that matches the final layout (`loading.tsx`). No spinners on
+   full pages.
+2. **Empty:** a friendly empty state (an icon in a circle, one sentence and one action).
+3. **Error:** inline for form fields; for page-level errors, a calm error view with
+   "Opnieuw proberen".
+4. **Offline:** a banner, and actions behave as the ADRs say.
+5. **Success:** confirmation feedback (the full-screen check for clocking, a toast-like
+   inline confirmation for others).
+6. **Pending:** buttons show a pending state, and double submits are impossible.
+7. **Long content:** long names are truncated with an ellipsis. Lists of 100+ items stay
+   usable (search or segmenting).
+8. **Accessibility:** focus order, labels, `aria-live` for status, and it works at 200%
+   text.
+9. **Both themes and both form factors** are checked in `pnpm screens`.
+
 ## Copy
 
 - B1 Dutch, using "je" and not "u".
