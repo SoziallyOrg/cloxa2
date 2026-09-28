@@ -123,8 +123,8 @@ jobs:
       # Hub rate limits) and fewer host ports.
       - name: Start local Supabase stack
         run: >-
-          supabase start
-          -x studio,imgproxy,storage-api,edge-runtime,logflare,vector,realtime,supavisor,postgres-meta,mailpit
+          supabase start -x
+          studio,imgproxy,storage-api,edge-runtime,logflare,vector,realtime,supavisor,postgres-meta,mailpit
 
       - name: Lint database
         run: supabase db lint --local --schema public,private --fail-on warning
