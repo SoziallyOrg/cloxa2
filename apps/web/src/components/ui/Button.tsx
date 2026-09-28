@@ -31,6 +31,18 @@ const SIZE_CLASSES: Record<ButtonSize, string> = {
   xl: "min-h-primary-action w-full px-8 text-2xl",
 };
 
+/** Button looks for a link that navigates (never nest a `<button>` in an `<a>`). */
+export function buttonClassName(
+  variant: ButtonVariant = "primary",
+  size: ButtonSize = "md",
+): string {
+  return cx(
+    "focus-ring inline-flex items-center justify-center gap-3 rounded-md font-semibold",
+    VARIANT_CLASSES[variant],
+    SIZE_CLASSES[size],
+  );
+}
+
 /**
  * The one interactive primitive every screen builds on. Disabled buttons
  * keep full-contrast text (never a faded grey) so seniors can still read
@@ -50,10 +62,8 @@ export function Button({
       disabled={disabled || loading}
       aria-busy={loading || undefined}
       className={cx(
-        "focus-ring inline-flex items-center justify-center gap-3 rounded-md font-semibold",
+        buttonClassName(variant, size),
         "disabled:cursor-not-allowed disabled:opacity-70",
-        VARIANT_CLASSES[variant],
-        SIZE_CLASSES[size],
       )}
     >
       {loading ? (

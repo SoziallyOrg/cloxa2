@@ -256,6 +256,12 @@ content_path = "./supabase/templates/invite.html"
 subject = "Je inlogcode voor Cloxa"
 content_path = "./supabase/templates/magic_link.html"
 
+# Security notice when a second factor is added (a hijacked session adding its own TOTP app).
+[auth.email.notification.mfa_factor_enrolled]
+enabled = true
+subject = "Nieuwe beveiligingsapp gekoppeld aan je Cloxa-account"
+content_path = "./supabase/templates/mfa_factor_enrolled_notification.html"
+
 # Uncomment to customize notification email template
 # [auth.email.notification.password_changed]
 # enabled = true

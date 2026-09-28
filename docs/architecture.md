@@ -215,13 +215,28 @@ everything from the earliest affected event to the latest one, under the same lo
   attempt limiter below first. Supabase's own rate limits then see the server, so the
   per-IP limit here uses the client IP from the trusted proxy header. Cloudflare
   Turnstile (the Supabase `auth.captcha` setting) is switched on in hosted environments.
-- **Attempt limiting** (`private.auth_attempts`, sha256 hashes only). The server calls
-  `rpc_auth_attempt(kind, email_hash, ip_hash)` (service_role) before each OTP request
-  or verification and `rpc_auth_attempt_reset(email_hash)` after a successful one.
-  `otp_request`: 3 per email and 20 per IP per 15 minutes. `otp_verify`: after 5
-  failures within 15 minutes the email is blocked for 15 minutes from the fifth. Blocked
-  calls are not recorded; rows older than 24 hours are purged by the call. No
-  organization is involved, so no audit row.
+- **Attempt limiting** (`private.auth_attempts`, keyed HMAC-SHA256 hashes only, pepper
+  `AUTH_HASH_PEPPER`). The server calls
+  `rpc_auth_attempt(kind, email_hash, ip_hash, subject_hash)` (service_role) before
+  every attempt and `rpc_auth_attempt_reset(key_hash)` after a success. Blocked calls
+  are not recorded; rows older than 24 hours are purged by the call. No organization, so
+  no audit row.
+  - `otp_request`: 3 per email and 20 per IP per 15 minutes. A blocked request gets the
+    same screen but no flow cookie, and the email is sent in `after()` so known and
+    unknown addresses answer equally fast.
+  - `otp_verify`: 5 failures per login flow (email plus a random nonce in the signed
+    `cx_flow` cookie), then blocked 15 minutes; 20 per email per hour; 30 per IP per 15
+    minutes. Typing wrong codes in one's own flow cannot lock out the real user's flow.
+  - `link_verify`: 10 per IP per 15 minutes. `/auth/confirm` only renders a button on
+    GET; the token is spent on the POST (server action), so mail scanners and cross-site
+    pages cannot sign anyone in.
+  - `totp_verify`: 5 failures per user id, then blocked 15 minutes; never the email key.
+- **Client IP** (`CLOXA_PROXY_MODE`): `vercel` (default) trusts `x-real-ip`, else the
+  first `x-forwarded-for` hop; `append:<n>` takes the n-th `x-forwarded-for` hop from
+  the right (for proxies that append); `none` trusts no header, so all requests share
+  one IP bucket and only the per-email limits apply. IPv6 is limited per /64. The IP is
+  also forwarded to Supabase Auth as `X-Forwarded-For`; hosted Supabase may ignore it,
+  so our limiter and Turnstile remain the backstop.
 - The service key is used only in server-side code, never for reading or writing user
   data on a user's behalf: sending invitations (after the privileged, audited
   `rpc_invite_member`) and `rpc_link_invited_user`, `rpc_admin_create_organization`

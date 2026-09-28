@@ -36,7 +36,8 @@ import {
 } from "./fake-data";
 
 const STATUS_TONES: readonly StatusTone[] = ["working", "break", "off", "error"];
-const NOOP = () => {};
+const NOOP = () => true;
+const PIN_NOOP = () => {};
 
 const NAV_ITEMS: readonly BottomNavItem[] = [
   {
@@ -271,7 +272,7 @@ function PreviewContent() {
       <section className="flex flex-col gap-4">
         <Heading level={2}>{t("preview.sectionKiosk")}</Heading>
         <div className="rounded-lg border border-border p-4">
-          <KioskHome employees={FAKE_KIOSK_EMPLOYEES} onSubmitPin={NOOP} />
+          <KioskHome employees={FAKE_KIOSK_EMPLOYEES} onSubmitPin={PIN_NOOP} />
         </div>
       </section>
 

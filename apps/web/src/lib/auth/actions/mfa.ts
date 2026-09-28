@@ -11,22 +11,18 @@ import { createClient } from "@/lib/supabase/server";
 import { requirePrivilegedRole, type MemberContext } from "../context";
 import { COOKIE } from "../cookies";
 import { parseSixDigitCode, type EnrolState, type FormState } from "../form-state";
-import { normalizeEmail } from "../hash";
-import { recordAttempt, resetAttempts, retryMinutes } from "../limiter";
+import { recordTotpVerify, resetUserAttempts, retryMinutes } from "../limiter";
 import { IDLE_TIMEOUT_SECONDS } from "../mfa";
 import { setCloxaCookie } from "../server-cookies";
 import { mintActivity } from "../session-cookies";
 
 /**
  * TOTP codes are only 6 digits and Supabase sees our server's IP, so every
- * check also goes through the attempt limiter, keyed on the user's email.
+ * check also goes through the attempt limiter, keyed on the user id (never the
+ * email, so a failed TOTP guess cannot lock anyone out of email login).
  */
-function limiterKey(context: MemberContext): string {
-  return normalizeEmail(context.claims.email) ?? `user:${context.claims.userId}`;
-}
-
 async function limited(context: MemberContext): Promise<FormState | null> {
-  const attempt = await recordAttempt("otp_verify", limiterKey(context));
+  const attempt = await recordTotpVerify(context.claims.userId);
   if (attempt.kind === "unavailable") return { error: t("login.unavailable") };
   if (attempt.kind === "blocked") {
     return {
@@ -40,7 +36,7 @@ async function limited(context: MemberContext): Promise<FormState | null> {
 
 /** A verified factor starts the idle clock and lands the manager in `/manage`. */
 async function finishVerification(context: MemberContext): Promise<never> {
-  await resetAttempts(limiterKey(context));
+  await resetUserAttempts(context.claims.userId);
   await setCloxaCookie(
     COOKIE.activity,
     mintActivity(context.claims.userId, env.FLOW_COOKIE_SECRET),
@@ -100,10 +96,18 @@ export async function confirmEnrolment(
   if (!id.success) return { error: t("mfa.setupFailed") };
   if (!code) return { error: t("loginCode.format") };
 
+  const supabase = await createClient();
+  // Only a first factor may be added here. A second one needs aal2 and the
+  // recovery flow (TODO), never an aal1 session that may be hijacked.
+  const { data: factors, error: listError } = await supabase.auth.mfa.listFactors();
+  if (listError) return { error: t("mfa.setupFailed") };
+  if (factors.totp.some((factor) => factor.status === "verified")) {
+    redirect("/manage/beveiliging/controle");
+  }
+
   const blocked = await limited(context);
   if (blocked) return blocked;
 
-  const supabase = await createClient();
   const { error } = await supabase.auth.mfa.challengeAndVerify({
     factorId: id.data,
     code,

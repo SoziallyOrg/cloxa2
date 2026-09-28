@@ -2,7 +2,16 @@ import { createHmac } from "node:crypto";
 
 import { describe, expect, it } from "vitest";
 
-import { clientIp, limiterHash, normalizeEmail, UNKNOWN_IP } from "./hash";
+import {
+  canonicalIp,
+  ipLimiterKey,
+  limiterHash,
+  normalizeEmail,
+  parseProxyMode,
+  resolveClientIp,
+  UNKNOWN_IP,
+  type ProxyMode,
+} from "./hash";
 
 const PEPPER = "p".repeat(32);
 
@@ -35,6 +44,8 @@ describe("limiterHash", () => {
     const base = limiterHash(PEPPER, "email", "x");
     expect(limiterHash("q".repeat(32), "email", "x")).not.toBe(base);
     expect(limiterHash(PEPPER, "ip", "x")).not.toBe(base);
+    expect(limiterHash(PEPPER, "flow", "x")).not.toBe(base);
+    expect(limiterHash(PEPPER, "user", "x")).not.toBe(base);
   });
 
   it("gives the same hash for differently typed forms of one address", () => {
@@ -44,21 +55,91 @@ describe("limiterHash", () => {
   });
 });
 
-describe("clientIp", () => {
-  const headers = (entries: Record<string, string>) => new Headers(entries);
+describe("parseProxyMode", () => {
+  it("defaults to vercel and parses the other modes", () => {
+    expect(parseProxyMode(undefined)).toEqual({ kind: "vercel" });
+    expect(parseProxyMode("")).toEqual({ kind: "vercel" });
+    expect(parseProxyMode("vercel")).toEqual({ kind: "vercel" });
+    expect(parseProxyMode("none")).toEqual({ kind: "none" });
+    expect(parseProxyMode("append:2")).toEqual({ kind: "append", hops: 2 });
+  });
 
-  it("takes the first hop of x-forwarded-for", () => {
-    expect(clientIp(headers({ "x-forwarded-for": "203.0.113.7, 10.0.0.1" }))).toBe(
-      "203.0.113.7",
+  it("rejects anything else", () => {
+    expect(parseProxyMode("append:0")).toBeNull();
+    expect(parseProxyMode("append:")).toBeNull();
+    expect(parseProxyMode("cloudflare")).toBeNull();
+  });
+});
+
+describe("resolveClientIp", () => {
+  const headers = (entries: Record<string, string>) => new Headers(entries);
+  const vercel: ProxyMode = { kind: "vercel" };
+
+  it("vercel: prefers x-real-ip, else the first x-forwarded-for hop", () => {
+    expect(
+      resolveClientIp(
+        headers({ "x-real-ip": "198.51.100.1", "x-forwarded-for": "203.0.113.7" }),
+        vercel,
+      ),
+    ).toBe("198.51.100.1");
+    expect(
+      resolveClientIp(headers({ "x-forwarded-for": "203.0.113.7, 10.0.0.1" }), vercel),
+    ).toBe("203.0.113.7");
+  });
+
+  it("append:n takes the n-th hop from the right, ignoring spoofed hops on the left", () => {
+    // The client sent "6.6.6.6"; our two proxies appended the real client and themselves.
+    const spoofed = headers({ "x-forwarded-for": "6.6.6.6, 203.0.113.7, 10.0.0.2" });
+    expect(resolveClientIp(spoofed, { kind: "append", hops: 2 })).toBe("203.0.113.7");
+    expect(resolveClientIp(spoofed, { kind: "append", hops: 1 })).toBe("10.0.0.2");
+    expect(
+      resolveClientIp(headers({ "x-forwarded-for": "203.0.113.7" }), {
+        kind: "append",
+        hops: 2,
+      }),
+    ).toBeNull();
+  });
+
+  it("none trusts no header at all", () => {
+    expect(
+      resolveClientIp(headers({ "x-real-ip": "198.51.100.1" }), { kind: "none" }),
+    ).toBeNull();
+  });
+
+  it("returns null for garbage and missing headers", () => {
+    expect(
+      resolveClientIp(headers({ "x-forwarded-for": "not-an-ip" }), vercel),
+    ).toBeNull();
+    expect(resolveClientIp(headers({}), vercel)).toBeNull();
+  });
+
+  it("keeps IPv6 addresses, lowercased", () => {
+    expect(resolveClientIp(headers({ "x-real-ip": "2001:DB8::1" }), vercel)).toBe(
+      "2001:db8::1",
     );
   });
+});
 
-  it("falls back to x-real-ip", () => {
-    expect(clientIp(headers({ "x-real-ip": "2001:DB8::1" }))).toBe("2001:db8::1");
+describe("canonicalIp / ipLimiterKey", () => {
+  it("keeps IPv4 as is", () => {
+    expect(canonicalIp("203.0.113.7")).toBe("203.0.113.7");
   });
 
-  it("collapses garbage and missing headers into one bucket", () => {
-    expect(clientIp(headers({ "x-forwarded-for": "not-an-ip" }))).toBe(UNKNOWN_IP);
-    expect(clientIp(headers({}))).toBe(UNKNOWN_IP);
+  it("reduces IPv6 to its /64, however it is written", () => {
+    const key = "2001:db8:abcd:12::/64";
+    expect(canonicalIp("2001:db8:abcd:12::1")).toBe(key);
+    expect(canonicalIp("2001:0db8:abcd:0012:ffff:ffff:ffff:ffff")).toBe(key);
+    expect(canonicalIp("2001:db8:abcd:12:1:2:3:4%eth0")).toBe(key);
+    expect(canonicalIp("::1")).toBe("0:0:0:0::/64");
+  });
+
+  it("treats IPv4-mapped IPv6 as IPv4", () => {
+    expect(canonicalIp("::ffff:203.0.113.7")).toBe("203.0.113.7");
+    expect(canonicalIp("::ffff:cb00:7107")).toBe("203.0.113.7");
+  });
+
+  it("uses one shared bucket when the IP is unknown", () => {
+    expect(ipLimiterKey(null)).toBe(UNKNOWN_IP);
+    expect(ipLimiterKey("2001:db8::1")).toBe("2001:db8:0:0::/64");
   });
 });

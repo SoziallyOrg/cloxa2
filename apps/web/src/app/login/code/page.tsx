@@ -1,6 +1,4 @@
 import Link from "next/link";
-import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
 
 import { t } from "@cloxa/i18n";
 
@@ -8,17 +6,12 @@ import { AuthShell } from "@/components/auth/AuthShell";
 import { CodeForm } from "@/components/auth/CodeForm";
 import { Stack } from "@/components/ui/Stack";
 import { verifyCode } from "@/lib/auth/actions/login";
-import { COOKIE } from "@/lib/auth/cookies";
-import { readFlow } from "@/lib/auth/session-cookies";
-import { env } from "@/lib/env.server";
 
-export default async function LoginCodePage() {
-  const cookieStore = await cookies();
-  // No (valid) flow cookie means the 10 minutes ran out or step 1 was skipped.
-  if (!readFlow(cookieStore.get(COOKIE.flow)?.value, env.FLOW_COOKIE_SECRET)) {
-    redirect("/login");
-  }
-
+/**
+ * Always rendered the same way, with or without a (valid) flow cookie: a
+ * rate-limited request gets no cookie, and that must not be visible here.
+ */
+export default function LoginCodePage() {
   return (
     <AuthShell title={t("loginCode.title")}>
       <p

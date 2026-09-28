@@ -1,10 +1,12 @@
+import type { ReactNode } from "react";
+
 import type { Shift, ShiftState } from "@cloxa/domain";
 import { t } from "@cloxa/i18n";
 
 import { BottomNav, type BottomNavItem } from "../ui/BottomNav";
 import { Heading } from "../ui/Heading";
 import { IconChat, IconClock, IconList } from "../ui/icons";
-import { ClockActions } from "../clock/ClockActions";
+import { ClockActions, type ClockActionCallback } from "../clock/ClockActions";
 import { ClockStatus } from "../clock/ClockStatus";
 import { ShiftList } from "../clock/ShiftList";
 
@@ -17,10 +19,16 @@ export interface EmployeeHomeProps {
   now: number;
   todayShifts: readonly Shift[];
   activeNav: EmployeeHomeNav;
-  onStartWork: () => void | Promise<void>;
-  onStopWork: () => void | Promise<void>;
-  onStartBreak: () => void | Promise<void>;
-  onStopBreak: () => void | Promise<void>;
+  onStartWork: ClockActionCallback;
+  onStopWork: ClockActionCallback;
+  onStartBreak: ClockActionCallback;
+  onStopBreak: ClockActionCallback;
+  /** Session actions (afmelden / overal afmelden), rendered in the menu disclosure. */
+  menu?: ReactNode;
+  /** Above the clock status: an offline banner or an error alert, if any. */
+  notice?: ReactNode;
+  /** Disables the clock buttons, e.g. while offline. */
+  actionsDisabled?: boolean;
 }
 
 /**
@@ -39,6 +47,9 @@ export function EmployeeHome({
   onStopWork,
   onStartBreak,
   onStopBreak,
+  menu,
+  notice,
+  actionsDisabled = false,
 }: EmployeeHomeProps) {
   const navItems: BottomNavItem[] = [
     {
@@ -51,14 +62,14 @@ export function EmployeeHome({
     {
       key: "hours",
       label: t("bottomNav.hours"),
-      href: "/app/hours",
+      href: "/app/uren",
       icon: <IconList />,
       current: activeNav === "hours",
     },
     {
       key: "questions",
       label: t("bottomNav.questions"),
-      href: "/app/questions",
+      href: "/app/vragen",
       icon: <IconChat />,
       current: activeNav === "questions",
     },
@@ -66,6 +77,7 @@ export function EmployeeHome({
 
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-xl flex-col">
+      <h1 className="sr-only">{t("app.heading")}</h1>
       <header className="flex items-center justify-between gap-3 p-4">
         <img
           src="/branding/cloxa-compact.svg"
@@ -79,10 +91,16 @@ export function EmployeeHome({
           <summary className="focus-ring min-h-touch-target cursor-pointer list-none rounded-md border border-border px-3 py-2 text-center font-semibold">
             {t("common.menu")}
           </summary>
+          {menu ? (
+            <div className="absolute right-0 z-10 mt-2 w-64 rounded-lg border border-border bg-surface p-4 shadow-none">
+              {menu}
+            </div>
+          ) : null}
         </details>
       </header>
 
       <main className="flex flex-1 flex-col gap-10 px-4 pb-28">
+        {notice}
         <ClockStatus state={shiftState} since={since} now={now} />
 
         <ClockActions
@@ -91,6 +109,7 @@ export function EmployeeHome({
           onStopWork={onStopWork}
           onStartBreak={onStartBreak}
           onStopBreak={onStopBreak}
+          disabled={actionsDisabled}
         />
 
         <section className="flex flex-col gap-4">

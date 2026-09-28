@@ -218,7 +218,57 @@ describe("service and member RPCs", () => {
       p_kind: "otp_request",
       p_email_hash: `\\x${HASH}`,
       p_ip_hash: `\\x${HASH}`,
+      p_subject_hash: null,
     });
+  });
+
+  it("sends the flow as subject for code checks and the user for TOTP", async () => {
+    const { client, calls } = fakeClient({
+      data: [{ allowed: true, retry_after: 0 }],
+      error: null,
+    });
+    const FLOW = "b".repeat(64);
+
+    await authAttempt(client, {
+      kind: "otp_verify",
+      emailHash: HASH,
+      flowHash: FLOW,
+      ipHash: HASH,
+    });
+    await authAttempt(client, { kind: "totp_verify", userHash: FLOW });
+    await authAttempt(client, { kind: "link_verify", ipHash: HASH });
+
+    expect(calls.map((call) => call.args)).toEqual([
+      {
+        p_kind: "otp_verify",
+        p_email_hash: `\\x${HASH}`,
+        p_ip_hash: `\\x${HASH}`,
+        p_subject_hash: `\\x${FLOW}`,
+      },
+      {
+        p_kind: "totp_verify",
+        p_email_hash: null,
+        p_ip_hash: null,
+        p_subject_hash: `\\x${FLOW}`,
+      },
+      {
+        p_kind: "link_verify",
+        p_email_hash: null,
+        p_ip_hash: `\\x${HASH}`,
+        p_subject_hash: null,
+      },
+    ]);
+  });
+
+  it("never lets a TOTP check carry an email", async () => {
+    const { client } = fakeClient({ data: [], error: null });
+    await expect(
+      authAttempt(client, {
+        kind: "totp_verify",
+        userHash: HASH,
+        emailHash: HASH,
+      } as never),
+    ).rejects.toThrow();
   });
 
   it("requires the IP hash for OTP requests", async () => {

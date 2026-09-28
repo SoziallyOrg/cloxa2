@@ -5,6 +5,7 @@
  *
  * Accounts (fictional, `.test` domain, no passwords; log in with an email code):
  *   eigenaar@demo.test (owner) · manager@demo.test (manager, both sites)
+ *   manager-e2e@demo.test (manager, site 1; reserved for the e2e tests)
  *   jan@demo.test, els@demo.test (site 1) · mohamed@demo.test, lotte@demo.test (site 2)
  * Codes arrive in the local Mailpit: http://127.0.0.1:54324
  *
@@ -44,6 +45,13 @@ const MEMBERS: readonly {
     name: "Marc Manager",
     role: "manager",
     sites: ["main", "second"],
+  },
+  // Dedicated to the manager e2e, which resets its TOTP factors on every run.
+  {
+    email: "manager-e2e@demo.test",
+    name: "Mia Testmanager",
+    role: "manager",
+    sites: ["main"],
   },
   { email: "jan@demo.test", name: "Jan Janssens", role: "employee", sites: ["main"] },
   { email: "els@demo.test", name: "Els Maes", role: "employee", sites: ["main"] },

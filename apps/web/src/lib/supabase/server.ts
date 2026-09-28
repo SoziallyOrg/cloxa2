@@ -7,6 +7,7 @@ import { cookies, headers } from "next/headers";
 import type { CloxaClient, Database } from "@cloxa/db";
 
 import { cookieSecurity, isSecureContext } from "@/lib/auth/cookies";
+import { resolveClientIp } from "@/lib/auth/hash";
 import { env } from "@/lib/env.server";
 
 /** Whether cookies set for this request must carry `Secure`. */
@@ -16,6 +17,20 @@ export async function requestIsSecure(): Promise<boolean> {
     forwardedProto: requestHeaders.get("x-forwarded-proto"),
     production: process.env.NODE_ENV === "production",
   });
+}
+
+/**
+ * Passes the real client IP on to Supabase Auth, so its own per-IP rate
+ * limits see the user rather than our server. Self-hosted/local GoTrue honours
+ * `X-Forwarded-For`; hosted Supabase may ignore a caller-supplied value, so
+ * our attempt limiter (and Turnstile in hosted environments) stays the backstop.
+ */
+export function clientIpHeaders(ip: string | null): Record<string, string> {
+  return ip ? { "X-Forwarded-For": ip } : {};
+}
+
+async function forwardedIpHeaders(): Promise<Record<string, string>> {
+  return clientIpHeaders(resolveClientIp(await headers(), env.CLOXA_PROXY_MODE));
 }
 
 /**
@@ -30,6 +45,7 @@ export async function createClient(): Promise<CloxaClient> {
     env.NEXT_PUBLIC_SUPABASE_URL,
     env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
     {
+      global: { headers: await forwardedIpHeaders() },
       cookieOptions: security,
       cookies: {
         getAll: () => cookieStore.getAll(),
@@ -63,6 +79,28 @@ export function createServiceClient(): CloxaClient {
         persistSession: false,
         autoRefreshToken: false,
         detectSessionInUrl: false,
+      },
+    },
+  );
+}
+
+/**
+ * Stateless publishable-key client for sending a login email outside the
+ * request (inside `after()`): no cookies, no PKCE verifier, so the emailed
+ * code and `token_hash` link work on any device. Takes the client IP as a
+ * value because request headers are gone by then.
+ */
+export function createOtpSender(clientIp: string | null): CloxaClient {
+  return createSupabaseClient<Database>(
+    env.NEXT_PUBLIC_SUPABASE_URL,
+    env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+    {
+      global: { headers: clientIpHeaders(clientIp) },
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+        flowType: "implicit",
       },
     },
   );

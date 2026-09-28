@@ -1,3 +1,6 @@
+import Link from "next/link";
+import type { Route } from "next";
+
 import { t } from "@cloxa/i18n";
 import type { Shift } from "@cloxa/domain";
 
@@ -6,10 +9,12 @@ import { formatShiftRow } from "./shift-row";
 
 export interface ShiftListProps {
   shifts: readonly Shift[];
+  /** When given, each row gets a "Klopt er iets niet?" link, e.g. to start a correction. */
+  correctionHref?: (shift: Shift, index: number) => string;
 }
 
 /** Day rows: date, start-end, pause, net, and an "aangepast" badge when edited. */
-export function ShiftList({ shifts }: ShiftListProps) {
+export function ShiftList({ shifts, correctionHref }: ShiftListProps) {
   if (shifts.length === 0) {
     return <EmptyState title={t("shifts.emptyTitle")} body={t("shifts.emptyBody")} />;
   }
@@ -39,6 +44,14 @@ export function ShiftList({ shifts }: ShiftListProps) {
                 <span className="rounded-md bg-status-off-bg px-2 py-1 text-base font-semibold text-status-off">
                   {t("shifts.edited")}
                 </span>
+              ) : null}
+              {correctionHref ? (
+                <Link
+                  href={correctionHref(shift, index) as Route}
+                  className="focus-ring font-semibold whitespace-nowrap text-primary underline"
+                >
+                  {t("hours.somethingWrong")}
+                </Link>
               ) : null}
             </div>
           </li>

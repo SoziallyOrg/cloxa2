@@ -2,6 +2,7 @@ import "server-only";
 
 import { z } from "zod";
 
+import { parseProxyMode, type ProxyMode } from "./auth/hash";
 import { publicEnv } from "./env";
 
 /**
@@ -16,6 +17,21 @@ const serverSchema = z
     AUTH_HASH_PEPPER: z.string().min(32),
     /** HMAC key for Cloxa's own signed cookies (login flow, org choice, activity). */
     FLOW_COOKIE_SECRET: z.string().min(32),
+    /** Which header carries the client IP: `vercel` (default), `append:<n>` or `none`. */
+    CLOXA_PROXY_MODE: z
+      .string()
+      .optional()
+      .transform((value, context): ProxyMode => {
+        const mode = parseProxyMode(value);
+        if (!mode) {
+          context.addIssue({
+            code: "custom",
+            message: "CLOXA_PROXY_MODE must be vercel, none or append:<n>",
+          });
+          return z.NEVER;
+        }
+        return mode;
+      }),
   })
   // One key per purpose: a leaked pepper must not forge cookies, and the
   // Supabase key never doubles as a signing key.
@@ -37,6 +53,7 @@ const serverOnlyEnv = serverSchema.parse({
   CLOXA_SITE_URL: process.env["CLOXA_SITE_URL"],
   AUTH_HASH_PEPPER: process.env["AUTH_HASH_PEPPER"],
   FLOW_COOKIE_SECRET: process.env["FLOW_COOKIE_SECRET"],
+  CLOXA_PROXY_MODE: process.env["CLOXA_PROXY_MODE"],
 });
 
 export const env = {

@@ -23,12 +23,18 @@ const SUCCESS_KEY: Record<
 
 const SUCCESS_DISPLAY_MS = 2500;
 
+/** `true` on success; `false` leaves the button idle without celebrating (the
+ * caller is expected to show its own error). */
+export type ClockActionCallback = () => boolean | Promise<boolean>;
+
 export interface ClockActionsProps {
   state: ShiftState;
-  onStartWork: () => void | Promise<void>;
-  onStopWork: () => void | Promise<void>;
-  onStartBreak: () => void | Promise<void>;
-  onStopBreak: () => void | Promise<void>;
+  onStartWork: ClockActionCallback;
+  onStopWork: ClockActionCallback;
+  onStartBreak: ClockActionCallback;
+  onStopBreak: ClockActionCallback;
+  /** Disables every button, e.g. while offline. Buttons stay full-contrast. */
+  disabled?: boolean;
   /**
    * Renders the success confirmation immediately, as if `action` had just
    * completed at `time`. For the design preview only — real usage always
@@ -48,6 +54,7 @@ export function ClockActions({
   onStopWork,
   onStartBreak,
   onStopBreak,
+  disabled = false,
   previewSuccess,
 }: ClockActionsProps) {
   const [pending, setPending] = useState<ActionKind | null>(null);
@@ -62,12 +69,13 @@ export function ClockActions({
     return () => window.clearTimeout(timer);
   }, [success]);
 
-  async function run(action: ActionKind, callback: () => void | Promise<void>) {
+  async function run(action: ActionKind, callback: ClockActionCallback) {
     setPending(action);
-    await callback();
+    const ok = await callback();
     setPending(null);
-    setSuccess({ action, time: formatBrusselsTime(new Date()) });
+    if (!ok) return;
 
+    setSuccess({ action, time: formatBrusselsTime(new Date()) });
     if (typeof navigator !== "undefined" && navigator.vibrate) {
       navigator.vibrate(50);
     }
@@ -90,6 +98,7 @@ export function ClockActions({
         size="xl"
         variant="primary"
         loading={pending === "startWork"}
+        disabled={disabled}
         onClick={() => void run("startWork", onStartWork)}
       >
         {t("actions.startWork")}
@@ -104,6 +113,7 @@ export function ClockActions({
           size="xl"
           variant="primary"
           loading={pending === "stopWork"}
+          disabled={disabled}
           onClick={() => void run("stopWork", onStopWork)}
         >
           {t("actions.stopWork")}
@@ -112,6 +122,7 @@ export function ClockActions({
           size="lg"
           variant="secondary"
           loading={pending === "startBreak"}
+          disabled={disabled}
           onClick={() => void run("startBreak", onStartBreak)}
         >
           {t("actions.startBreak")}
@@ -125,6 +136,7 @@ export function ClockActions({
       size="xl"
       variant="primary"
       loading={pending === "stopBreak"}
+      disabled={disabled}
       onClick={() => void run("stopBreak", onStopBreak)}
     >
       {t("actions.stopBreak")}

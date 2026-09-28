@@ -3,24 +3,36 @@
 import type { Route } from "next";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 
 import { t } from "@cloxa/i18n";
 
 import { env } from "@/lib/env.server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createOtpSender } from "@/lib/supabase/server";
 
 import { COOKIE, FLOW_TTL_SECONDS } from "../cookies";
 import { parseSixDigitCode, type FormState } from "../form-state";
 import { normalizeEmail } from "../hash";
-import { recordAttempt, resetAttempts, retryMinutes } from "../limiter";
+import {
+  recordOtpRequest,
+  recordOtpVerify,
+  requestClientIp,
+  resetEmailAttempts,
+  retryMinutes,
+} from "../limiter";
 import { safeNextPath } from "../redirects";
 import { deleteCloxaCookie, setCloxaCookie } from "../server-cookies";
-import { mintFlow, readFlow } from "../session-cookies";
+import { mintFlow, newFlowNonce, readFlow } from "../session-cookies";
 
 /**
- * Step 1: send a code. Whatever happens after the email passes validation
- * (unknown address, limiter block, Supabase error) the user sees the same
- * next screen, so the form cannot be used to find out who has an account.
+ * Step 1: send a code. After the email passes validation the user always
+ * lands on the same code screen, whether the address is known, unknown or
+ * rate limited:
+ * - the limiter does the same database work for every address;
+ * - the email itself is sent in `after()`, so the response never waits for
+ *   Supabase or SMTP (no timing difference between known and unknown);
+ * - a blocked request gets no flow cookie, so it cannot start new flows, and
+ *   any code typed on that screen is simply "wrong or expired".
  */
 export async function requestCode(
   _previous: FormState,
@@ -30,29 +42,29 @@ export async function requestCode(
   if (!email) return { error: t("login.emailInvalid") };
   const next = safeNextPath(formData.get("next"));
 
-  const attempt = await recordAttempt("otp_request", email);
+  const attempt = await recordOtpRequest(email);
   if (attempt.kind === "unavailable") return { error: t("login.unavailable") };
 
   if (attempt.kind === "allowed") {
-    const supabase = await createClient();
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        shouldCreateUser: false,
-        emailRedirectTo: new URL("/auth/confirm", env.CLOXA_SITE_URL).toString(),
-      },
+    const clientIp = await requestClientIp();
+    after(async () => {
+      const { error } = await createOtpSender(clientIp).auth.signInWithOtp({
+        email,
+        options: { shouldCreateUser: false },
+      });
+      // Unknown addresses fail here by design; log only the code, never the address.
+      if (error && error.code !== "otp_disabled" && error.code !== "user_not_found") {
+        console.error("otp_request_failed", error.code ?? error.status);
+      }
     });
-    // Unknown addresses fail here by design; log only the code, never the address.
-    if (error && error.code !== "otp_disabled" && error.code !== "user_not_found") {
-      console.error("otp_request_failed", error.code ?? error.status);
-    }
+
+    await setCloxaCookie(
+      COOKIE.flow,
+      mintFlow({ email, next, nonce: newFlowNonce() }, env.FLOW_COOKIE_SECRET),
+      FLOW_TTL_SECONDS,
+    );
   }
 
-  await setCloxaCookie(
-    COOKIE.flow,
-    mintFlow({ email, next }, env.FLOW_COOKIE_SECRET),
-    FLOW_TTL_SECONDS,
-  );
   redirect("/login/code");
 }
 
@@ -61,14 +73,15 @@ export async function verifyCode(
   _previous: FormState,
   formData: FormData,
 ): Promise<FormState> {
-  const cookieStore = await cookies();
-  const flow = readFlow(cookieStore.get(COOKIE.flow)?.value, env.FLOW_COOKIE_SECRET);
-  if (!flow) redirect("/login");
-
   const code = parseSixDigitCode(formData.get("code"));
   if (!code) return { error: t("loginCode.format") };
 
-  const attempt = await recordAttempt("otp_verify", flow.email);
+  const cookieStore = await cookies();
+  const flow = readFlow(cookieStore.get(COOKIE.flow)?.value, env.FLOW_COOKIE_SECRET);
+  // No flow (expired, or the request was rate limited): indistinguishable from a wrong code.
+  if (!flow) return { error: t("loginCode.invalid") };
+
+  const attempt = await recordOtpVerify(flow.email, flow.nonce);
   if (attempt.kind === "unavailable") return { error: t("login.unavailable") };
   if (attempt.kind === "blocked") {
     return {
@@ -86,7 +99,7 @@ export async function verifyCode(
   });
   if (error) return { error: t("loginCode.invalid") };
 
-  await resetAttempts(flow.email);
+  await resetEmailAttempts(flow.email);
   await deleteCloxaCookie(COOKIE.flow);
   redirect((safeNextPath(flow.next) ?? "/start") as Route);
 }

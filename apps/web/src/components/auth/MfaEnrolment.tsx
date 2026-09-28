@@ -47,7 +47,10 @@ export function MfaEnrolment() {
       </div>
       <Stack gap="sm">
         <p className="text-lg">{t("mfa.secretLabel")}</p>
-        <p className="font-mono text-xl tracking-wider break-all select-all">
+        <p
+          data-testid="totp-secret"
+          className="font-mono text-xl tracking-wider break-all select-all"
+        >
           {groupSecret(secret)}
         </p>
       </Stack>

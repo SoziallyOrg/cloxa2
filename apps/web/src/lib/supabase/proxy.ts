@@ -6,6 +6,7 @@ import type { Database } from "@cloxa/db";
 import { COOKIE, cookieSecurity, isSecureContext } from "@/lib/auth/cookies";
 import { decideManageAccess, IDLE_TIMEOUT_SECONDS } from "@/lib/auth/mfa";
 import { mintActivity, readActivity } from "@/lib/auth/session-cookies";
+import { countsAsActivity } from "@/lib/security/request-kind";
 import { env } from "@/lib/env.server";
 
 export const MFA_VERIFY_PATH = "/manage/beveiliging/controle";
@@ -88,10 +89,15 @@ export async function updateSession(
       nowSeconds: Math.floor(now / 1000),
     });
 
-    if (gate.kind === "ok") {
+    if (gate.kind !== "ok") {
+      // Our own origin, never the request's Host header. 303, not 307: a
+      // server-action POST must not be replayed against the verify page.
+      response = NextResponse.redirect(
+        new URL(MFA_VERIFY_PATH, env.CLOXA_SITE_URL),
+        303,
+      );
+    } else if (countsAsActivity(request.method, request.headers)) {
       activityToken = mintActivity(claims.sub, env.FLOW_COOKIE_SECRET, now);
-    } else {
-      response = NextResponse.redirect(new URL(MFA_VERIFY_PATH, request.url));
     }
   }
 

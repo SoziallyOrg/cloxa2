@@ -5,6 +5,7 @@ import {
   mintActivity,
   mintFlow,
   mintOrgChoice,
+  newFlowNonce,
   readActivity,
   readFlow,
   readOrgChoice,
@@ -89,12 +90,16 @@ describe("signValue / verifyValue", () => {
 
 describe("Cloxa cookie payloads", () => {
   it("flow keeps email and next for 10 minutes", () => {
-    const token = mintFlow({ email: "jan@example.be", next: "/app" }, SECRET, NOW);
-    expect(readFlow(token, SECRET, NOW + 9 * 60_000)).toEqual({
-      email: "jan@example.be",
-      next: "/app",
-    });
+    const flow = { email: "jan@example.be", next: "/app", nonce: newFlowNonce() };
+    const token = mintFlow(flow, SECRET, NOW);
+    expect(readFlow(token, SECRET, NOW + 9 * 60_000)).toEqual(flow);
     expect(readFlow(token, SECRET, NOW + 10 * 60_000)).toBeNull();
+  });
+
+  it("gives every flow its own random nonce", () => {
+    const a = newFlowNonce();
+    expect(a).toMatch(/^[A-Za-z0-9_-]{22}$/);
+    expect(newFlowNonce()).not.toBe(a);
   });
 
   it("org choice and activity are bound to the user", () => {

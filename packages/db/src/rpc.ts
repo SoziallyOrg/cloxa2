@@ -373,48 +373,72 @@ export async function decideCorrection(
 
 // Auth attempt limiting (service_role) -----------------------------------------------------
 
-/** Lowercase hex sha256 of the trimmed, lowercased email or of the client IP. */
+/**
+ * Lowercase hex keyed hash (HMAC-SHA256 on the server) of the normalised email,
+ * the client IP, a login flow or a user id. Never the raw value.
+ */
 const sha256Hex = z.string().regex(/^[0-9a-f]{64}$/);
 const bytea = (hex: string) => `\\x${hex}`;
 
 export const authAttemptInput = z.discriminatedUnion("kind", [
+  /** Sending a code: 3 per email, 20 per IP per 15 minutes. */
   z.strictObject({
     kind: z.literal("otp_request"),
     emailHash: sha256Hex,
     ipHash: sha256Hex,
   }),
+  /**
+   * Checking an email code: 5 failures per flow (email + per-flow nonce), 20 per
+   * email per hour, 30 per IP per 15 minutes.
+   */
   z.strictObject({
     kind: z.literal("otp_verify"),
     emailHash: sha256Hex,
-    ipHash: sha256Hex.optional(),
+    flowHash: sha256Hex,
+    ipHash: sha256Hex,
   }),
+  /** Posting an email link: 10 per IP per 15 minutes. */
+  z.strictObject({ kind: z.literal("link_verify"), ipHash: sha256Hex }),
+  /** Checking a TOTP code: 5 failures per user, then a 15-minute block. */
+  z.strictObject({ kind: z.literal("totp_verify"), userHash: sha256Hex }),
 ]);
 export type AuthAttemptInput = z.input<typeof authAttemptInput>;
 
 /**
  * service_role only (secret-key client). Call before each OTP request and
- * verification; a blocked attempt is not recorded.
+ * each code, link or TOTP verification; a blocked attempt is not recorded.
+ * Uses the four-argument (v2) limiter.
  */
 export async function authAttempt(
   client: CloxaClient,
   input: AuthAttemptInput,
 ): Promise<{ allowed: boolean; retryAfterSeconds: number }> {
   const parsed = authAttemptInput.parse(input);
+  const hex = (value: string | undefined) =>
+    value === undefined ? null : bytea(value);
+  const args = {
+    p_kind: parsed.kind,
+    p_email_hash: hex("emailHash" in parsed ? parsed.emailHash : undefined),
+    p_ip_hash: hex("ipHash" in parsed ? parsed.ipHash : undefined),
+    p_subject_hash: hex(
+      parsed.kind === "otp_verify"
+        ? parsed.flowHash
+        : parsed.kind === "totp_verify"
+          ? parsed.userHash
+          : undefined,
+    ),
+  };
   const rows = unwrap(
     "rpc_auth_attempt",
-    await client.rpc("rpc_auth_attempt", {
-      p_kind: parsed.kind,
-      p_email_hash: bytea(parsed.emailHash),
-      ...optional(
-        "p_ip_hash",
-        parsed.ipHash === undefined ? undefined : bytea(parsed.ipHash),
-      ),
-    }),
+    // All four keys are always sent (nulls included) so PostgREST picks the
+    // v2 overload; the generated types don't model SQL nulls for it.
+    await client.rpc("rpc_auth_attempt", args as Functions["rpc_auth_attempt"]["Args"]),
   );
   const row = first("rpc_auth_attempt", rows);
   return { allowed: row.allowed, retryAfterSeconds: row.retry_after };
 }
 
+/** The email hash after a code or link, the user hash after TOTP. */
 export const authAttemptResetInput = z.strictObject({ emailHash: sha256Hex });
 export type AuthAttemptResetInput = z.input<typeof authAttemptResetInput>;
 

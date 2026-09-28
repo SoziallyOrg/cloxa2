@@ -1,3 +1,5 @@
+import { randomBytes } from "node:crypto";
+
 import { z } from "zod";
 
 import { FLOW_TTL_SECONDS, ORG_TTL_SECONDS } from "./cookies";
@@ -15,15 +17,23 @@ const uuid = z.uuid();
 const flowSchema = z.strictObject({
   e: z.string().min(3).max(254),
   n: z.string().max(512).nullable(),
+  /** Random per flow: the tight code-guess limit counts per flow, not per email. */
+  f: z.string().regex(/^[A-Za-z0-9_-]{16,64}$/),
 });
 export interface LoginFlow {
   email: string;
   next: string | null;
+  nonce: string;
+}
+
+/** 128 random bits, base64url. */
+export function newFlowNonce(): string {
+  return randomBytes(16).toString("base64url");
 }
 
 export function mintFlow(flow: LoginFlow, secret: string, now = Date.now()): string {
   return signValue(
-    { e: flow.email, n: flow.next },
+    { e: flow.email, n: flow.next, f: flow.nonce },
     { secret, purpose: "flow", ttlSeconds: FLOW_TTL_SECONDS, now },
   );
 }
@@ -34,7 +44,7 @@ export function readFlow(
   now = Date.now(),
 ): LoginFlow | null {
   const data = verifyValue(token, flowSchema, { secret, purpose: "flow", now });
-  return data ? { email: data.e, next: data.n } : null;
+  return data ? { email: data.e, next: data.n, nonce: data.f } : null;
 }
 
 const orgSchema = z.strictObject({ u: uuid, o: uuid });

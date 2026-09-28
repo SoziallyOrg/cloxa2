@@ -28,6 +28,12 @@ function localSupabase(): Record<string, string> {
 // Fresh per run: nothing here outlives the test server.
 const secret = () => randomBytes(32).toString("base64url");
 
+// The app trusts `x-real-ip` (CLOXA_PROXY_MODE=vercel), as behind the real
+// platform. One random address per run (198.18.0.0/15, reserved for testing)
+// keeps repeated runs out of each other's per-IP limiter buckets.
+const [a = 0, b = 0] = randomBytes(2);
+const clientIp = `198.${18 + (a & 1)}.${b}.${(a >> 1) + 1}`;
+
 export default defineConfig({
   testDir: "apps/web/e2e",
   fullyParallel: false,
@@ -37,6 +43,7 @@ export default defineConfig({
   use: {
     baseURL: BASE_URL,
     trace: "retain-on-failure",
+    extraHTTPHeaders: { "x-real-ip": clientIp },
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
@@ -49,6 +56,7 @@ export default defineConfig({
     env: {
       ...localSupabase(),
       CLOXA_SITE_URL: BASE_URL,
+      CLOXA_PROXY_MODE: "vercel",
       AUTH_HASH_PEPPER: secret(),
       FLOW_COOKIE_SECRET: secret(),
     },

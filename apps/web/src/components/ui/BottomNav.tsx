@@ -1,3 +1,5 @@
+import Link from "next/link";
+import type { Route } from "next";
 import type { ReactNode } from "react";
 
 import { cx } from "./cx";
@@ -24,8 +26,8 @@ export function BottomNav({ items }: BottomNavProps) {
       <ul className="flex h-full">
         {visibleItems.map((item) => (
           <li key={item.key} className="flex-1">
-            <a
-              href={item.href}
+            <Link
+              href={item.href as Route}
               aria-current={item.current ? "page" : undefined}
               className={cx(
                 "focus-ring flex h-full flex-col items-center justify-center gap-1 text-base font-semibold",
@@ -34,7 +36,7 @@ export function BottomNav({ items }: BottomNavProps) {
             >
               {item.icon}
               <span>{item.label}</span>
-            </a>
+            </Link>
           </li>
         ))}
       </ul>

@@ -1,5 +1,6 @@
 export { catalog, type Catalog } from "./catalog";
 export {
+  brusselsLocalToInstant,
   formatBrusselsDate,
   formatBrusselsShortDate,
   formatBrusselsTime,
