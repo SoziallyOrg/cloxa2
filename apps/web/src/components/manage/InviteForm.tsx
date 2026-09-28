@@ -7,7 +7,7 @@ import { t } from "@cloxa/i18n";
 
 import type { InviteFormInput } from "@/lib/manage/invite-form";
 
-import { Alert } from "../ui/Alert";
+import { Notice } from "../ui/Notice";
 import { Button } from "../ui/Button";
 import { Field } from "../ui/Field";
 import { Heading } from "../ui/Heading";
@@ -101,14 +101,14 @@ export function InviteForm({
       <Heading level={2}>{t("manageTeam.inviteHeading")}</Heading>
 
       {done ? (
-        <Alert tone="success" onDismiss={() => setDone(false)}>
+        <Notice tone="success" onDismiss={() => setDone(false)}>
           {t("manageTeam.invited")}
-        </Alert>
+        </Notice>
       ) : null}
       {errorKey ? (
-        <Alert tone="error" onDismiss={() => setErrorKey(null)}>
+        <Notice tone="error" onDismiss={() => setErrorKey(null)}>
           {t(errorKey as Parameters<typeof t>[0])}
-        </Alert>
+        </Notice>
       ) : null}
 
       <Field

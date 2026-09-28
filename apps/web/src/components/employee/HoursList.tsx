@@ -76,7 +76,7 @@ export function HoursList({ heading, rows }: HoursListProps) {
               <ListRow title={t("hours.detailNet")} value={selected.net} />
             </GroupedList>
             {selected.offlineSkew ? (
-              <p className="text-callout text-ink-2">
+              <p className="text-subhead text-ink-2">
                 {t("hours.detailOfflineSkew", { value: selected.offlineSkew })}
               </p>
             ) : null}

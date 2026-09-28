@@ -52,6 +52,14 @@ describe("buildSecurityHeaders", () => {
     expect(csp).toMatch(/script-src 'self' 'nonce-n' 'strict-dynamic';/);
   });
 
+  it("allows only self-hosted fonts", () => {
+    const csp = buildSecurityHeaders({ nonce: "n", isDev: false, supabaseUrl })[
+      "Content-Security-Policy"
+    ];
+    expect(csp).toContain("font-src 'self';");
+    expect(csp).not.toMatch(/font-src[^;]*(data:|https:|\*)/);
+  });
+
   it("sets the remaining fixed headers", () => {
     const headers = buildSecurityHeaders({ nonce: "n", isDev: false, supabaseUrl });
     expect(headers["X-Content-Type-Options"]).toBe("nosniff");

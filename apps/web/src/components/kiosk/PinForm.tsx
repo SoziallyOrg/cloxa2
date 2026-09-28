@@ -7,7 +7,7 @@ import { t, type CatalogKey } from "@cloxa/i18n";
 
 import { pinFormProblem, pinProblemKey, type PinActionResult } from "@/lib/kiosk/pin";
 
-import { Alert } from "../ui/Alert";
+import { Notice } from "../ui/Notice";
 import { Button } from "../ui/Button";
 import { Field } from "../ui/Field";
 import { Stack } from "../ui/Stack";
@@ -63,9 +63,9 @@ export function PinForm({ id, submitLabel, savedMessage, action }: PinFormProps)
     <form onSubmit={(event) => void handleSubmit(event)} noValidate>
       <Stack gap="md">
         {saved ? (
-          <Alert tone="success" onDismiss={() => setSaved(false)}>
+          <Notice tone="success" onDismiss={() => setSaved(false)}>
             {savedMessage}
-          </Alert>
+          </Notice>
         ) : null}
         <Field
           id={`${id}-pin`}

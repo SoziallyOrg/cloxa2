@@ -8,7 +8,7 @@ import {
 
 import { ManageShell } from "@/components/manage/ManageShell";
 import { RequestCard, type RequestCardChange } from "@/components/manage/RequestCard";
-import { Alert } from "@/components/ui/Alert";
+import { Notice } from "@/components/ui/Notice";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Heading } from "@/components/ui/Heading";
 import type { StatusTone } from "@/components/ui/StatusLine";
@@ -187,7 +187,7 @@ export default async function ManageVragenPage({
     <ManageShell active="questions" pendingQuestionsCount={pendingCount}>
       <div className="flex flex-col gap-6">
         <Heading level={1}>{t("manageVragen.heading")}</Heading>
-        {errorKey ? <Alert tone="error">{t(errorKey)}</Alert> : null}
+        {errorKey ? <Notice tone="error">{t(errorKey)}</Notice> : null}
 
         <div className="flex gap-3">
           <a

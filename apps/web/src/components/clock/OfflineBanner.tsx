@@ -24,7 +24,7 @@ export function OfflineBanner({ queueing }: OfflineBannerProps) {
           queueing ? "bg-ink-3 ring-ink-3/20" : "bg-attention ring-attention/20",
         )}
       />
-      <p className="text-callout text-ink">
+      <p className="text-subhead text-ink">
         {t(queueing ? "offline.banner" : "offline.bannerUnsupported")}
       </p>
     </div>

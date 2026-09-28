@@ -27,7 +27,7 @@ import {
   type ScheduleBlockErrorCode,
 } from "@/lib/schedule/validate";
 
-import { Alert } from "../ui/Alert";
+import { Notice } from "../ui/Notice";
 import { Button } from "../ui/Button";
 import { Field } from "../ui/Field";
 import { Heading } from "../ui/Heading";
@@ -143,14 +143,14 @@ export function ScheduleEditor({
       className="flex flex-col gap-8"
     >
       {saved ? (
-        <Alert tone="success" onDismiss={() => setSaved(false)}>
+        <Notice tone="success" onDismiss={() => setSaved(false)}>
           {t("schedule.saved")}
-        </Alert>
+        </Notice>
       ) : null}
       {errorKey ? (
-        <Alert tone="error" onDismiss={() => setErrorKey(null)}>
+        <Notice tone="error" onDismiss={() => setErrorKey(null)}>
           {t(errorKey as CatalogKey)}
-        </Alert>
+        </Notice>
       ) : null}
 
       <section className="flex flex-col gap-3">

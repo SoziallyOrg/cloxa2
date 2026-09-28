@@ -6,7 +6,7 @@ import { t, type CatalogKey } from "@cloxa/i18n";
 
 import type { PairingCodeResult } from "@/app/manage/(beveiligd)/meer/kiosks/actions";
 
-import { Alert } from "../ui/Alert";
+import { Notice } from "../ui/Notice";
 import { Button } from "../ui/Button";
 import { PairingCodeCard } from "./PairingCodeCard";
 
@@ -45,9 +45,9 @@ export function KioskDeviceActions({
   return (
     <div className="flex flex-col gap-3">
       {errorKey ? (
-        <Alert tone="error" onDismiss={() => setErrorKey(null)}>
+        <Notice tone="error" onDismiss={() => setErrorKey(null)}>
           {t(errorKey)}
-        </Alert>
+        </Notice>
       ) : null}
       {code ? (
         <PairingCodeCard

@@ -6,7 +6,7 @@ import { t, type CatalogKey } from "@cloxa/i18n";
 
 import type { VerifyChainsActionResult } from "@/app/manage/(beveiligd)/meer/audit/actions";
 
-import { Alert } from "../ui/Alert";
+import { Notice } from "../ui/Notice";
 import { Button } from "../ui/Button";
 
 export interface AuditVerifyButtonProps {
@@ -65,12 +65,12 @@ export function AuditVerifyButton({ isOwner, action }: AuditVerifyButtonProps) {
       </Button>
       {!isOwner ? <p className="text-ink-2">{t("audit.verifyOwnerOnly")}</p> : null}
       {outcome?.kind === "success" ? (
-        <Alert tone="success">
+        <Notice tone="success">
           {t("audit.verifySuccess", { time: outcome.checkedAt })}
-        </Alert>
+        </Notice>
       ) : null}
       {outcome?.kind === "failure" ? (
-        <Alert tone="error">
+        <Notice tone="error">
           <span className="flex flex-col gap-1">
             <span className="font-semibold">{t("audit.verifyFailureHeading")}</span>
             {outcome.clockBrokenEventId ? (
@@ -85,12 +85,12 @@ export function AuditVerifyButton({ isOwner, action }: AuditVerifyButtonProps) {
             ) : null}
             <span>{t("audit.verifyFailureContact")}</span>
           </span>
-        </Alert>
+        </Notice>
       ) : null}
       {outcome?.kind === "error" ? (
-        <Alert tone="error" onDismiss={() => setOutcome(null)}>
+        <Notice tone="error" onDismiss={() => setOutcome(null)}>
           {t(outcome.errorKey)}
-        </Alert>
+        </Notice>
       ) : null}
     </div>
   );

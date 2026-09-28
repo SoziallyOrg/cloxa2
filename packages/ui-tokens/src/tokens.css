@@ -1,44 +1,99 @@
 /*
- * Tailwind 4 theme tokens, direction C (docs/design.md). Keep in sync with
- * `tokens.ts`. Dark mode follows the OS preference (`prefers-color-scheme`),
- * no toggle. Colour means status and nothing else; ink is the action.
+ * Tailwind 4 theme tokens: direction C with the iOS-fidelity layer
+ * (docs/design.md). Keep in sync with `tokens.ts`. Dark mode follows the OS
+ * preference (`prefers-color-scheme`), no toggle. Colour means status and
+ * nothing else; ink is the action.
  */
 @theme {
+  /* San Francisco on Apple devices, self-hosted Inter everywhere else. */
   --font-sans:
-    -apple-system, "SF Pro Text", "Segoe UI Variable Text", Roboto, system-ui,
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter Variable", system-ui,
     sans-serif;
 
   --color-ink: #0a0a0a;
-  --color-ink-2: #5c5c5c;
-  /* Tertiary: only for 18px+ or non-essential text (3.5:1). */
-  --color-ink-3: #8a8a8a;
+  /* Secondary label: >= 4.5:1 on every background. */
+  --color-ink-2: #6c6c70;
+  /* Tertiary: only for 18px+ or non-essential text (>= 3:1). */
+  --color-ink-3: #8a8a8e;
   --color-paper: #ffffff;
   --color-fill: #f5f5f7;
   --color-line: #e8e8ea;
 
-  /* Status: always paired with a word, never colour alone. */
-  --color-working: #15803d;
-  --color-break: #b45309;
-  --color-attention: #c2410c;
-  --color-danger: #b91c1c;
+  /* iOS inset grouped: page background, row surface, separator, pressed row. */
+  --color-grouped: #f2f2f7;
+  --color-surface: #ffffff;
+  /* Inside sheets: dark mode lifts both one step, as iOS does. */
+  --color-grouped-elevated: #f2f2f7;
+  --color-surface-elevated: #ffffff;
+  --color-separator: #c6c6c8;
+  --color-pressed: #d1d1d6;
+  /* Controls: the off track of a switch, the thumb of a segmented control. */
+  --color-track: #e9e9eb;
+  --color-thumb: #ffffff;
 
-  /* Type scale. `text-base`/`text-sm` follow body and callout for older screens. */
+  /* Status: always paired with a word, never colour alone. */
+  --color-working: #207936;
+  --color-break: #b25000;
+  --color-attention: #c93400;
+  --color-danger: #d70015;
+  --color-working-tint: rgb(32 121 54 / 0.12);
+  --color-break-tint: rgb(178 80 0 / 0.12);
+  --color-attention-tint: rgb(201 52 0 / 0.12);
+  --color-danger-tint: rgb(215 0 21 / 0.12);
+
+  /* Settings-style icon tiles (white glyph, >= 3:1). */
+  --color-tile-gray: #8e8e93;
+  --color-tile-ink: #3a3a3c;
+  --color-tile-blue: #007aff;
+  --color-tile-green: #207936;
+  --color-tile-orange: #c93400;
+  --color-tile-red: #d70015;
+
+  /* Translucent materials, always with `backdrop-blur-material`. */
+  --color-material-bar: rgb(249 249 249 / 0.8);
+  --color-material-sidebar: rgb(242 242 247 / 0.82);
+  --color-material-sheet: rgb(255 255 255 / 0.9);
+  --blur-material: 20px;
+
+  /* The iOS text styles. `display` (timer) and `number` (KPIs) are ours. */
+  --text-large-title: 34px;
+  --text-large-title--line-height: 41px;
+  --text-large-title--font-weight: 700;
+  --text-large-title--letter-spacing: -0.012em;
+  --text-title-1: 28px;
+  --text-title-1--line-height: 34px;
+  --text-title-1--letter-spacing: -0.01em;
+  --text-title-2: 22px;
+  --text-title-2--line-height: 28px;
+  --text-title-2--letter-spacing: -0.008em;
+  --text-title-3: 20px;
+  --text-title-3--line-height: 25px;
+  --text-headline: 17px;
+  --text-headline--line-height: 22px;
+  --text-headline--font-weight: 600;
+  --text-body: 17px;
+  --text-body--line-height: 1.45;
+  --text-callout: 16px;
+  --text-callout--line-height: 21px;
+  --text-subhead: 15px;
+  --text-subhead--line-height: 20px;
+  --text-footnote: 13px;
+  --text-footnote--line-height: 18px;
+  --text-caption: 12px;
+  --text-caption--line-height: 16px;
+  --text-caption-2: 11px;
+  --text-caption-2--line-height: 13px;
+  --text-caption-2--font-weight: 500;
+
   --text-display: 88px;
   --text-display--line-height: 1;
   --text-display--font-weight: 300;
   --text-display--letter-spacing: -0.035em;
+  /* Page titles on screens not yet on `NavBar`. */
   --text-title: 32px;
   --text-title--line-height: 1.15;
   --text-title--font-weight: 600;
   --text-title--letter-spacing: -0.015em;
-  --text-headline: 22px;
-  --text-headline--line-height: 1.25;
-  --text-headline--font-weight: 600;
-  --text-headline--letter-spacing: -0.01em;
-  --text-body: 17px;
-  --text-body--line-height: 1.45;
-  --text-callout: 15px;
-  --text-callout--line-height: 1.4;
   --text-number: 34px;
   --text-number--line-height: 1.1;
   --text-number--font-weight: 500;
@@ -48,32 +103,66 @@
   --text-sm: 15px;
   --text-sm--line-height: 1.4;
 
-  /* Radius: 14px controls, 16px grouped lists. */
   --radius-control: 14px;
   --radius-group: 16px;
-  --radius-sheet: 22px;
+  --radius-list: 10px;
+  --radius-tile: 7px;
+  --radius-sheet: 14px;
+  --radius-alert: 14px;
   --radius-md: 14px;
   --radius-lg: 16px;
 
   /* Sizes on the 4px grid. */
   --spacing-touch-target: 48px;
+  --spacing-bar-button: 44px;
   --spacing-control: 52px;
   --spacing-row: 56px;
+  --spacing-row-ios: 44px;
+  --spacing-row-two-line: 52px;
+  --spacing-tile: 29px;
   --spacing-primary-action: 72px;
-  --spacing-tab-bar: 64px;
+  --spacing-nav-bar: 44px;
+  --spacing-tab-bar: 50px;
+  --spacing-sidebar: 260px;
+  --spacing-readable: 720px;
+  --spacing-inset: 16px;
   --spacing-gutter: 24px;
   --spacing-gutter-desktop: 40px;
   --spacing-section: 32px;
   --spacing-kiosk-tile: 120px;
   --spacing-pin-key: 88px;
 
-  --animate-sheet-in: sheet-in 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  /* iOS-like springs: a fast start that settles softly, no bounce. */
+  --ease-spring: cubic-bezier(0.32, 0.72, 0, 1);
+
+  --animate-sheet-in: sheet-in 460ms var(--ease-spring);
+  --animate-sheet-out: sheet-out 260ms cubic-bezier(0.4, 0, 1, 1) forwards;
+  --animate-alert-in: alert-in 280ms var(--ease-spring);
   --animate-fade-in: fade-in 180ms ease-out;
+  --animate-fade-out: fade-out 180ms ease-in forwards;
   --animate-pop-in: pop-in 320ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  --animate-shimmer: shimmer 1.4s ease-in-out infinite;
+  --animate-activity: activity 1s steps(8) infinite;
 
   @keyframes sheet-in {
     from {
-      transform: translateY(24px);
+      transform: translateY(100%);
+    }
+    to {
+      transform: none;
+    }
+  }
+  @keyframes sheet-out {
+    from {
+      transform: var(--sheet-drag, none);
+    }
+    to {
+      transform: translateY(100%);
+    }
+  }
+  @keyframes alert-in {
+    from {
+      transform: scale(1.12);
       opacity: 0;
     }
     to {
@@ -89,6 +178,14 @@
       opacity: 1;
     }
   }
+  @keyframes fade-out {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+  }
   @keyframes pop-in {
     from {
       transform: scale(0.85);
@@ -99,21 +196,52 @@
       opacity: 1;
     }
   }
+  @keyframes activity {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  @keyframes shimmer {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.55;
+    }
+  }
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     --color-ink: #f5f5f5;
-    --color-ink-2: #a3a3a3;
-    --color-ink-3: #737373;
+    --color-ink-2: #98989f;
+    --color-ink-3: #7c7c80;
     --color-paper: #000000;
     --color-fill: #1c1c1e;
     --color-line: #2c2c2e;
 
-    --color-working: #4ade80;
-    --color-break: #fbbf24;
-    --color-attention: #fb923c;
-    --color-danger: #f87171;
+    --color-grouped: #000000;
+    --color-surface: #1c1c1e;
+    --color-grouped-elevated: #1c1c1e;
+    --color-surface-elevated: #2c2c2e;
+    --color-separator: #38383a;
+    --color-pressed: #3a3a3c;
+    --color-track: #39393d;
+    --color-thumb: #636366;
+
+    --color-working: #30d158;
+    --color-break: #ffd60a;
+    --color-attention: #ff9f0a;
+    --color-danger: #ff6961;
+    --color-working-tint: rgb(48 209 88 / 0.22);
+    --color-break-tint: rgb(255 214 10 / 0.22);
+    --color-attention-tint: rgb(255 159 10 / 0.22);
+    --color-danger-tint: rgb(255 105 97 / 0.22);
+
+    --color-material-bar: rgb(22 22 23 / 0.8);
+    --color-material-sidebar: rgb(28 28 30 / 0.82);
+    --color-material-sheet: rgb(30 30 32 / 0.9);
   }
 }
 

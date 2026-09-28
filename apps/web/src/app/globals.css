@@ -16,6 +16,87 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   -webkit-tap-highlight-color: transparent;
+  text-size-adjust: 100%;
+}
+
+/*
+ * Press feedback, as on iOS: a tappable dims to 0.6 at once while pressed and
+ * fades back on release. No hover-only cues anywhere.
+ */
+@utility pressable {
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity 200ms ease-out;
+
+  &:active:not(:disabled, [aria-disabled="true"]) {
+    opacity: 0.6;
+    transition-duration: 0ms;
+  }
+}
+
+/* Translucent bar materials (nav bar, tab bar, sidebar, sheets). */
+@utility material-bar {
+  background-color: var(--color-material-bar);
+  -webkit-backdrop-filter: saturate(180%) blur(var(--blur-material));
+  backdrop-filter: saturate(180%) blur(var(--blur-material));
+}
+
+@utility material-sidebar {
+  background-color: var(--color-material-sidebar);
+  -webkit-backdrop-filter: saturate(180%) blur(var(--blur-material));
+  backdrop-filter: saturate(180%) blur(var(--blur-material));
+}
+
+@utility material-sheet {
+  background-color: var(--color-material-sheet);
+  -webkit-backdrop-filter: saturate(180%) blur(var(--blur-material));
+  backdrop-filter: saturate(180%) blur(var(--blur-material));
+}
+
+/*
+ * Push and pop between pages (`PageTransition` + `<Link transitionTypes>`):
+ * the new page slides in from the right over the old one, which drifts left
+ * and dims; back is the mirror image. Browsers without the View Transitions
+ * API just swap pages.
+ */
+::view-transition {
+  pointer-events: none;
+}
+
+::view-transition-old(.nav-forward) {
+  animation: 420ms var(--ease-spring) both nav-push-out;
+}
+::view-transition-new(.nav-forward) {
+  animation: 420ms var(--ease-spring) both nav-push-in;
+}
+::view-transition-old(.nav-back) {
+  z-index: 1;
+  animation: 420ms var(--ease-spring) both nav-pop-out;
+}
+::view-transition-new(.nav-back) {
+  animation: 420ms var(--ease-spring) both nav-pop-in;
+}
+
+@keyframes nav-push-in {
+  from {
+    translate: 100% 0;
+  }
+}
+@keyframes nav-push-out {
+  to {
+    translate: -30% 0;
+    opacity: 0.7;
+  }
+}
+@keyframes nav-pop-in {
+  from {
+    translate: -30% 0;
+    opacity: 0.7;
+  }
+}
+@keyframes nav-pop-out {
+  to {
+    translate: 100% 0;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -25,5 +106,12 @@ body {
     animation-duration: 1ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 1ms !important;
+  }
+
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-group(*) {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
   }
 }

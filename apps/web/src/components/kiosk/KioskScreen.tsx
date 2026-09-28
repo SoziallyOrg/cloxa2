@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Check } from "lucide-react";
 
 import { formatBrusselsTime, t, type CatalogKey } from "@cloxa/i18n";
 
@@ -21,9 +22,8 @@ import {
 } from "@/lib/kiosk/machine";
 
 import { ClockActions } from "../clock/ClockActions";
-import { Alert } from "../ui/Alert";
+import { Notice } from "../ui/Notice";
 import { Button } from "../ui/Button";
-import { IconCheck } from "../ui/icons";
 import { KioskHome, type KioskEmployee } from "./KioskHome";
 
 export interface KioskScreenProps {
@@ -156,7 +156,7 @@ export function KioskScreen({ employees }: KioskScreenProps) {
         role="status"
         className="mx-auto flex min-h-screen w-full max-w-lg flex-col items-center justify-center gap-6 p-6 text-center"
       >
-        <IconCheck className="size-24 text-working" />
+        <Check aria-hidden="true" className="size-24 text-working" />
         <p className="text-3xl font-bold">
           {t(DONE_KEY[phase.clockType], {
             time: phase.time,
@@ -180,7 +180,7 @@ export function KioskScreen({ employees }: KioskScreenProps) {
         <h1 className="text-center text-3xl font-bold">
           {t("kiosk.actionTitle", { name: firstName(phase.person.name) })}
         </h1>
-        {phase.error ? <Alert tone="error">{errorText(phase.error)}</Alert> : null}
+        {phase.error ? <Notice tone="error">{errorText(phase.error)}</Notice> : null}
         <ClockActions
           state={phase.state}
           disabled={phase.busy}

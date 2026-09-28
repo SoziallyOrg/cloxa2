@@ -109,9 +109,9 @@ export default async function HoursPage({
 
       {weekTotal !== null ? (
         <section className="-mt-4 flex flex-col gap-1">
-          <p className="text-callout text-ink-2">{t("hours.weekLabel")}</p>
+          <p className="text-subhead text-ink-2">{t("hours.weekLabel")}</p>
           <p className="text-number">{formatDurationMs(weekTotal)}</p>
-          <p className="text-callout text-ink-2">{t("hours.indicative")}</p>
+          <p className="text-subhead text-ink-2">{t("hours.indicative")}</p>
         </section>
       ) : null}
 
@@ -133,7 +133,9 @@ export default async function HoursPage({
       </div>
 
       <section className="flex flex-col gap-4">
-        <h2 className="text-headline">{t("schedule.myScheduleHeading")}</h2>
+        <h2 className="text-title-2 font-semibold">
+          {t("schedule.myScheduleHeading")}
+        </h2>
         <ScheduleBlocksList
           heading={t("schedule.myScheduleThisWeek")}
           rows={thisWeekRows}
@@ -147,7 +149,7 @@ export default async function HoursPage({
       </section>
 
       <section className="flex flex-col gap-4">
-        <h2 className="text-headline">{t("hours.downloadHeading")}</h2>
+        <h2 className="text-title-2 font-semibold">{t("hours.downloadHeading")}</h2>
         <SelfExportLink />
       </section>
     </div>

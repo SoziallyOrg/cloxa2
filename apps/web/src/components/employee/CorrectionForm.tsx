@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Check } from "lucide-react";
 
 import { formatBrusselsTime, t } from "@cloxa/i18n";
 import type { RequestCorrectionInput } from "@cloxa/db";
@@ -19,12 +20,11 @@ import {
   type CorrectionKind,
 } from "@/lib/corrections/form";
 
-import { Alert } from "../ui/Alert";
+import { Notice } from "../ui/Notice";
 import { Button, buttonClassName } from "../ui/Button";
 import { cx } from "../ui/cx";
 import { Field } from "../ui/Field";
 import { GroupedList, ListButtonRow } from "../ui/GroupedList";
-import { IconCheck } from "../ui/icons";
 import { TextInput } from "../ui/TextInput";
 
 export interface CorrectionFormProps {
@@ -74,7 +74,7 @@ function StepDots({ step }: { step: 1 | 2 | 3 }) {
           />
         ))}
       </span>
-      <p className="text-callout text-ink-2">{t("correctionForm.stepOf", { step })}</p>
+      <p className="text-subhead text-ink-2">{t("correctionForm.stepOf", { step })}</p>
     </div>
   );
 }
@@ -108,7 +108,7 @@ function Choice({
             </span>
           ) : null}
           {selected ? (
-            <IconCheck className="size-5 text-ink" strokeWidth={2.5} />
+            <Check aria-hidden="true" className="size-5 text-ink" strokeWidth={2.5} />
           ) : (
             <span className="block size-5" />
           )}
@@ -148,7 +148,7 @@ export function CorrectionForm({
   if (done) {
     return (
       <div className="flex flex-1 flex-col gap-8">
-        <Alert tone="success">{t("correctionForm.submitted")}</Alert>
+        <Notice tone="success">{t("correctionForm.submitted")}</Notice>
         <Link
           href="/app/vragen"
           className={cx(buttonClassName("secondary", "md", true), "mt-auto")}
@@ -326,7 +326,7 @@ export function CorrectionForm({
           </Field>
 
           <section className="flex flex-col gap-2">
-            <h2 className="px-4 text-callout font-normal text-ink-2">
+            <h2 className="px-4 text-subhead font-normal text-ink-2">
               {t("correctionForm.summaryTitle")}
             </h2>
             <div className="flex flex-col gap-1 rounded-group bg-fill px-4 py-3.5 text-body">
@@ -347,9 +347,9 @@ export function CorrectionForm({
 
       <div className="mt-auto flex flex-col gap-3 pt-4">
         {error ? (
-          <Alert tone="error" onDismiss={() => setError(null)}>
+          <Notice tone="error" onDismiss={() => setError(null)}>
             {error}
-          </Alert>
+          </Notice>
         ) : null}
         {state.step === 3 ? (
           <Button

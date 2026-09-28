@@ -1,13 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Search } from "lucide-react";
 
 import { t } from "@cloxa/i18n";
 
-import { Alert } from "../ui/Alert";
+import { Notice } from "../ui/Notice";
 import { Button } from "../ui/Button";
 import { cx } from "../ui/cx";
-import { IconSearch } from "../ui/icons";
 
 export interface KioskEmployee {
   readonly id: string;
@@ -92,7 +92,7 @@ export function KioskHome({
 
         {employees.length > SEARCH_THRESHOLD ? (
           <label className="flex items-center gap-3 rounded-md border-2 border-line bg-paper px-4 py-3">
-            <IconSearch />
+            <Search aria-hidden="true" className="size-6" />
             <input
               type="search"
               value={query}
@@ -154,7 +154,7 @@ export function KioskHome({
       <h1 className="text-2xl font-bold">{t("kiosk.pinTitle")}</h1>
       <p className="text-lg">{selected.name}</p>
 
-      {error ? <Alert tone="error">{error}</Alert> : null}
+      {error ? <Notice tone="error">{error}</Notice> : null}
 
       <div className="flex gap-3" aria-hidden="true">
         {Array.from({ length: slots }, (_, index) => (

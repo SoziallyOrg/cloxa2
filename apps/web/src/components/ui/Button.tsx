@@ -2,6 +2,7 @@ import type { ButtonHTMLAttributes, ReactNode } from "react";
 
 import { t } from "@cloxa/i18n";
 
+import { ActivityIndicator } from "./ActivityIndicator";
 import { cx } from "./cx";
 
 export type ButtonVariant = "primary" | "secondary" | "plain" | "destructive";
@@ -22,14 +23,14 @@ export interface ButtonProps extends Omit<
 }
 
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
-  primary: "bg-ink text-paper active:opacity-80",
-  secondary: "border-[1.5px] border-line bg-paper text-ink active:bg-fill",
-  plain: "text-ink hover:bg-line/50 active:bg-line",
-  destructive: "border-[1.5px] border-line bg-paper text-danger active:bg-fill",
+  primary: "bg-ink text-paper",
+  secondary: "border-[1.5px] border-line bg-paper text-ink",
+  plain: "text-ink",
+  destructive: "border-[1.5px] border-line bg-paper text-danger",
 };
 
 const SIZE_CLASSES: Record<ButtonSize, string> = {
-  lg: "min-h-primary-action w-full text-headline",
+  lg: "min-h-primary-action w-full text-title-2 font-semibold",
   md: "min-h-control text-body font-semibold",
 };
 
@@ -40,7 +41,7 @@ export function buttonClassName(
   wide = false,
 ): string {
   return cx(
-    "focus-ring inline-flex items-center justify-center gap-3 rounded-control text-center transition-opacity select-none",
+    "pressable focus-ring inline-flex items-center justify-center gap-3 rounded-control text-center select-none",
     VARIANT_CLASSES[variant],
     SIZE_CLASSES[size],
     variant === "plain" ? "px-3" : "px-6",
@@ -50,8 +51,8 @@ export function buttonClassName(
 
 /**
  * The one interactive primitive every screen builds on. One `primary` (solid
- * ink) per screen. Disabled buttons keep readable text (never a faded grey)
- * so seniors can still read why nothing happens.
+ * ink) per screen. Dims while pressed. Disabled buttons keep readable text
+ * (never a faded grey) so seniors can still read why nothing happens.
  */
 export function Button({
   variant = "primary",
@@ -72,12 +73,7 @@ export function Button({
         "disabled:cursor-not-allowed disabled:opacity-60",
       )}
     >
-      {loading ? (
-        <span
-          aria-hidden="true"
-          className="size-5 shrink-0 rounded-full border-2 border-current border-t-transparent motion-safe:animate-spin"
-        />
-      ) : null}
+      {loading ? <ActivityIndicator size="sm" /> : null}
       <span>{children}</span>
       {loading ? <span className="sr-only">{t("common.loading")}</span> : null}
     </button>

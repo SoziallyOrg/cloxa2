@@ -8,7 +8,7 @@ import { t, type CatalogKey } from "@cloxa/i18n";
 
 import type { SettingsField, SettingsFormValues } from "@/lib/manage/settings-form";
 
-import { Alert } from "../ui/Alert";
+import { Notice } from "../ui/Notice";
 import { Button } from "../ui/Button";
 import { Field } from "../ui/Field";
 import { TextInput } from "../ui/TextInput";
@@ -92,14 +92,14 @@ export function OrgSettingsForm({ initial, action }: OrgSettingsFormProps) {
       noValidate
     >
       {saved ? (
-        <Alert tone="success" onDismiss={() => setSaved(false)}>
+        <Notice tone="success" onDismiss={() => setSaved(false)}>
           {t("orgSettings.saved")}
-        </Alert>
+        </Notice>
       ) : null}
       {errorKey ? (
-        <Alert tone="error" onDismiss={() => setErrorKey(null)}>
+        <Notice tone="error" onDismiss={() => setErrorKey(null)}>
           {t(errorKey)}
-        </Alert>
+        </Notice>
       ) : null}
 
       {NUMBER_FIELDS.map(({ field, id, label, hint, bounds }) => (

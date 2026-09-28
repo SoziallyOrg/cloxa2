@@ -704,6 +704,11 @@ export const catalog = {
   ui: {
     optional: "optioneel",
     dismiss: "Melding sluiten",
+    cancel: "Annuleer",
+    done: "Klaar",
+    edit: "Bewerk",
+    loadingContent: "Bezig met laden",
+    refreshing: "Vernieuwen...",
   },
   bottomNav: {
     label: "Hoofdmenu",

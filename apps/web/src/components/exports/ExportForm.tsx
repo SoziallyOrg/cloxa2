@@ -7,7 +7,7 @@ import { t, type CatalogKey } from "@cloxa/i18n";
 
 import type { ExportFormInput } from "@/lib/exports/form";
 
-import { Alert } from "../ui/Alert";
+import { Notice } from "../ui/Notice";
 import { Button } from "../ui/Button";
 import { Field } from "../ui/Field";
 import { Heading } from "../ui/Heading";
@@ -69,14 +69,14 @@ export function ExportForm({ sites, quickPicks, action }: ExportFormProps) {
       <Heading level={2}>{t("exports.createHeading")}</Heading>
 
       {done ? (
-        <Alert tone="success" onDismiss={() => setDone(false)}>
+        <Notice tone="success" onDismiss={() => setDone(false)}>
           {t("exports.created")}
-        </Alert>
+        </Notice>
       ) : null}
       {errorKey ? (
-        <Alert tone="error" onDismiss={() => setErrorKey(null)}>
+        <Notice tone="error" onDismiss={() => setErrorKey(null)}>
           {t(errorKey)}
-        </Alert>
+        </Notice>
       ) : null}
 
       <fieldset className="flex flex-col gap-2">

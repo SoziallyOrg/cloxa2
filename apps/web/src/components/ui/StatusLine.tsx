@@ -41,7 +41,7 @@ export function StatusLine({
         "inline-flex items-center",
         size === "lg"
           ? "gap-3 text-body font-semibold"
-          : "gap-2 text-callout font-medium",
+          : "gap-2 text-subhead font-medium",
       )}
       {...(live ? { "aria-live": "polite" as const } : {})}
     >

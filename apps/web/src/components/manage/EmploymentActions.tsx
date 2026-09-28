@@ -7,7 +7,7 @@ import { t, type CatalogKey } from "@cloxa/i18n";
 
 import type { CopyLine } from "@/lib/manage/offboarding";
 
-import { Alert } from "../ui/Alert";
+import { Notice } from "../ui/Notice";
 import { Button } from "../ui/Button";
 import { Heading } from "../ui/Heading";
 
@@ -59,9 +59,9 @@ export function OffboardForm({ employeeName, lines, action }: OffboardFormProps)
   return (
     <div className="flex flex-col gap-4">
       {errorKey ? (
-        <Alert tone="error" onDismiss={() => setErrorKey(null)}>
+        <Notice tone="error" onDismiss={() => setErrorKey(null)}>
           {t(errorKey)}
-        </Alert>
+        </Notice>
       ) : null}
       {confirming ? (
         <section
@@ -141,9 +141,9 @@ export function ReinstateForm({ action }: ReinstateFormProps) {
   return (
     <div className="flex flex-col gap-4">
       {errorKey ? (
-        <Alert tone="error" onDismiss={() => setErrorKey(null)}>
+        <Notice tone="error" onDismiss={() => setErrorKey(null)}>
           {t(errorKey)}
-        </Alert>
+        </Notice>
       ) : null}
       <div>
         <Button

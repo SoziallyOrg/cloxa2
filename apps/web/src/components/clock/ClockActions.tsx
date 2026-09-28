@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Check } from "lucide-react";
 
 import { formatBrusselsTime, t } from "@cloxa/i18n";
 import type { ShiftState } from "@cloxa/domain";
 
 import { Button } from "../ui/Button";
 import { cx } from "../ui/cx";
-import { IconCheck } from "../ui/icons";
 
 export type ActionKind = "startWork" | "stopWork" | "startBreak" | "stopBreak";
 
@@ -116,7 +116,7 @@ export function ClockActions({
             SUCCESS_TONE[success.action],
           )}
         >
-          <IconCheck className="size-16" strokeWidth={2.25} />
+          <Check aria-hidden="true" className="size-16" strokeWidth={2.25} />
         </span>
         <p className="text-title">
           {t(`actions.${SUCCESS_KEY[success.action]}`, { time: success.time })}

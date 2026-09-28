@@ -28,7 +28,7 @@ export default function LoginCodePage() {
         action={verifyCode}
       />
       <div className="flex flex-col items-center gap-1 text-center">
-        <p className="text-callout text-ink-2">{t("loginCode.noMail")}</p>
+        <p className="text-subhead text-ink-2">{t("loginCode.noMail")}</p>
         <Link
           href="/login"
           className="focus-ring inline-flex min-h-touch-target items-center rounded-control px-3 text-body font-semibold underline-offset-4 hover:underline"

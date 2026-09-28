@@ -98,7 +98,7 @@ export function SessionActions({
           <Button type="submit" variant="plain">
             {t("session.logoutEverywhere")}
           </Button>
-          <p className="text-center text-callout text-ink-2">
+          <p className="text-center text-subhead text-ink-2">
             {t("session.logoutEverywhereHint")}
           </p>
         </form>

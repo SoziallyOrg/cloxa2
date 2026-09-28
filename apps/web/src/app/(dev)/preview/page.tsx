@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { CalendarDays, Clock, MessageCircleQuestionMark } from "lucide-react";
 import { notFound } from "next/navigation";
 
 import { t } from "@cloxa/i18n";
@@ -12,7 +13,7 @@ import { ShiftList } from "@/components/clock/ShiftList";
 import { EmployeeHome } from "@/components/employee/EmployeeHome";
 import { KioskHome, type KioskEmployee } from "@/components/kiosk/KioskHome";
 import { TodayBoard } from "@/components/manage/TodayBoard";
-import { Alert } from "@/components/ui/Alert";
+import { Notice } from "@/components/ui/Notice";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Field } from "@/components/ui/Field";
@@ -46,9 +47,21 @@ const NOOP = () => true;
 const PIN_NOOP = () => {};
 
 const NAV_ITEMS: readonly NavItem[] = [
-  { key: "clock", label: t("bottomNav.clock"), href: "#", current: true },
-  { key: "hours", label: t("bottomNav.hours"), href: "#", current: false },
-  { key: "questions", label: t("bottomNav.questions"), href: "#", current: false },
+  { key: "clock", label: t("bottomNav.clock"), href: "#", current: true, icon: Clock },
+  {
+    key: "hours",
+    label: t("bottomNav.hours"),
+    href: "#",
+    current: false,
+    icon: CalendarDays,
+  },
+  {
+    key: "questions",
+    label: t("bottomNav.questions"),
+    href: "#",
+    current: false,
+    icon: MessageCircleQuestionMark,
+  },
 ];
 
 /**
@@ -67,7 +80,7 @@ export default function PreviewPage() {
 function Demo({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="flex flex-col gap-4">
-      <h3 className="text-callout text-ink-2">{title}</h3>
+      <h3 className="text-subhead text-ink-2">{title}</h3>
       {children}
     </section>
   );
@@ -81,7 +94,7 @@ function PreviewContent() {
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-16 px-gutter py-10 md:px-gutter-desktop">
-      <p className="rounded-control bg-break/10 px-4 py-3 text-center text-callout font-semibold text-break">
+      <p className="rounded-control bg-break/10 px-4 py-3 text-center text-subhead font-semibold text-break">
         {t("preview.fakeDataLabel")}
       </p>
 
@@ -174,12 +187,12 @@ function PreviewContent() {
         </Demo>
 
         <Demo title={t("preview.demoAlertHeading")}>
-          <Alert tone="info">{t("preview.demoAlertInfo")}</Alert>
-          <Alert tone="success">{t("preview.demoAlertSuccess")}</Alert>
+          <Notice tone="info">{t("preview.demoAlertInfo")}</Notice>
+          <Notice tone="success">{t("preview.demoAlertSuccess")}</Notice>
           {!dismissed ? (
-            <Alert tone="error" onDismiss={() => setDismissed(true)}>
+            <Notice tone="error" onDismiss={() => setDismissed(true)}>
               {t("preview.demoAlertError")}
-            </Alert>
+            </Notice>
           ) : null}
           <OfflineBanner queueing />
           <OfflineBanner queueing={false} />

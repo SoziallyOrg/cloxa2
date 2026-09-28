@@ -12,7 +12,7 @@ export interface HeadingProps {
 
 const LEVEL_CLASSES: Record<HeadingLevel, string> = {
   1: "text-title",
-  2: "text-headline",
+  2: "text-title-2 font-semibold",
   3: "text-body font-semibold",
 };
 

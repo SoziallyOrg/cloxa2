@@ -1,68 +1,175 @@
 "use client";
 
-import { useEffect, useId, useRef, type ReactNode } from "react";
+import { useId, useRef, useState, type PointerEvent, type ReactNode } from "react";
 
 import { t } from "@cloxa/i18n";
 
+import { cx } from "./cx";
+import { ELEVATED, useModalDialog } from "./useModalDialog";
+
+export type SheetDetent = "medium" | "large";
+
 export interface SheetProps {
   open: boolean;
-  /** Called on Esc, a tap outside, "Sluiten", or when `open` turns false. */
+  /** Called once closed: Esc, a tap outside, the close button, a drag down, or `open` turning false. */
   onClose: () => void;
   title: string;
   /** Plain-language consequences, right under the title. */
   description?: ReactNode;
   children: ReactNode;
+  /**
+   * Phones: `medium` opens at half height and can be dragged up to `large`;
+   * `large` fills the screen below the status bar. Unset, the sheet fits its
+   * content. Desktop always shows a centred card.
+   */
+  detent?: SheetDetent;
+  /** The close button's label ("Sluiten" by default, "Klaar" after edits). */
+  closeLabel?: string;
 }
 
-/**
- * A bottom sheet on phones and a centred dialog on desktop. A native modal
- * `<dialog>`: the page behind is inert (focus stays inside), Esc closes it,
- * and focus returns to the control that opened it. Never `confirm()`.
- */
-export function Sheet({ open, onClose, title, description, children }: SheetProps) {
-  const ref = useRef<HTMLDialogElement>(null);
-  const titleId = useId();
+const HEIGHT: Record<SheetDetent | "fit", string> = {
+  fit: "max-h-[calc(100dvh-env(safe-area-inset-top)-0.75rem)]",
+  medium: "h-[55dvh]",
+  large: "h-[calc(100dvh-env(safe-area-inset-top)-0.75rem)]",
+};
 
-  useEffect(() => {
+/** Share of the sheet's height, or a flick, that dismisses it. */
+const DISMISS_FRACTION = 0.3;
+const DISMISS_VELOCITY = 0.5; // px per ms
+const EXPAND_DISTANCE = 60;
+
+/**
+ * An iOS sheet on phones (grabber, rounded top, springs up, drag down to
+ * dismiss) and a centred modal card on desktop. A native modal `<dialog>`:
+ * the page behind is inert, Esc closes it, focus returns to the opener.
+ * Never `confirm()`.
+ */
+export function Sheet({
+  open,
+  onClose,
+  title,
+  description,
+  children,
+  detent,
+  closeLabel,
+}: SheetProps) {
+  const { ref, requestClose } = useModalDialog(open, onClose);
+  const [current, setCurrent] = useState<SheetDetent | undefined>(detent);
+  const [prevOpen, setPrevOpen] = useState(open);
+  const titleId = useId();
+  const descriptionId = useId();
+  const drag = useRef<{ startY: number; startTime: number; offset: number } | null>(
+    null,
+  );
+
+  // Every opening starts at the requested detent again.
+  if (open !== prevOpen) {
+    setPrevOpen(open);
+    if (open) setCurrent(detent);
+  }
+
+  const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    // Touch and pen only, and only where the sheet is a sheet (not the card).
+    if (
+      event.pointerType === "mouse" ||
+      window.matchMedia("(min-width: 48rem)").matches
+    ) {
+      return;
+    }
+    // Capturing the pointer would steal the close button's click.
+    if (event.target instanceof Element && event.target.closest("button, a")) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    drag.current = { startY: event.clientY, startTime: performance.now(), offset: 0 };
+    ref.current?.style.setProperty("transition", "none");
+  };
+
+  const onPointerMove = (event: PointerEvent<HTMLDivElement>) => {
     const dialog = ref.current;
-    if (!dialog) return;
-    if (open && !dialog.open) dialog.showModal();
-    if (!open && dialog.open) dialog.close();
-  }, [open]);
+    if (!drag.current || !dialog) return;
+    const raw = event.clientY - drag.current.startY;
+    // Upward: a little give (rubber band), downward: follows the finger.
+    const offset = raw < 0 ? raw / 4 : raw;
+    drag.current.offset = raw;
+    dialog.style.transform = `translateY(${offset}px)`;
+  };
+
+  const onPointerUp = () => {
+    const dialog = ref.current;
+    const state = drag.current;
+    drag.current = null;
+    if (!dialog || !state) return;
+    const elapsed = Math.max(1, performance.now() - state.startTime);
+    const velocity = state.offset / elapsed;
+    const height = dialog.getBoundingClientRect().height;
+    dialog.style.removeProperty("transition");
+
+    if (
+      state.offset > height * DISMISS_FRACTION ||
+      (velocity > DISMISS_VELOCITY && state.offset > 24)
+    ) {
+      // Slide out from where the finger let go.
+      dialog.style.setProperty("--sheet-drag", `translateY(${state.offset}px)`);
+      dialog.style.removeProperty("transform");
+      requestClose();
+      return;
+    }
+    if (state.offset < -EXPAND_DISTANCE && current === "medium") setCurrent("large");
+    dialog.style.removeProperty("transform");
+  };
 
   return (
     <dialog
       ref={ref}
       aria-labelledby={titleId}
-      onClose={onClose}
+      aria-describedby={description ? descriptionId : undefined}
       // The dialog box is filled by its content, so only a backdrop tap targets it.
       onClick={(event) => {
-        if (event.target === event.currentTarget) ref.current?.close();
+        if (event.target === event.currentTarget) requestClose();
       }}
-      className="m-0 mt-auto max-h-[92dvh] w-full max-w-none overflow-y-auto rounded-t-sheet border-0 bg-paper p-0 text-ink backdrop:bg-black/45 open:motion-safe:animate-sheet-in md:m-auto md:w-[min(30rem,calc(100%-3rem))] md:rounded-group dark:bg-fill"
+      className={cx(
+        // Phone: a sheet from the bottom edge.
+        ELEVATED,
+        "m-0 mt-auto flex w-full max-w-none flex-col overflow-visible rounded-t-sheet border-0 bg-grouped p-0 text-ink",
+        "transition-[height,transform] duration-300 ease-spring",
+        HEIGHT[current ?? "fit"],
+        "not-open:hidden data-closing:animate-sheet-out open:motion-safe:animate-sheet-in",
+        "backdrop:bg-black/40 open:backdrop:animate-fade-in data-closing:backdrop:animate-fade-out",
+        // The surface continues below the bottom edge, so a drag up shows no gap.
+        "after:absolute after:inset-x-0 after:top-full after:h-[50vh] after:bg-grouped md:after:hidden",
+        // Desktop: a centred card.
+        "md:m-auto md:h-auto md:max-h-[85dvh] md:w-[min(34rem,calc(100%-3rem))] md:rounded-alert",
+        "md:data-closing:animate-fade-out md:open:motion-safe:animate-alert-in",
+      )}
     >
-      <div className="flex flex-col gap-6 px-gutter pt-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] md:px-8 md:pt-6 md:pb-8">
-        <div
-          aria-hidden="true"
-          className="mx-auto h-1.5 w-10 rounded-full bg-line md:hidden"
-        />
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex min-w-0 flex-col gap-2">
-            <h2 id={titleId} className="text-headline">
-              {title}
-            </h2>
-            {description ? (
-              <div className="text-body text-ink-2">{description}</div>
-            ) : null}
-          </div>
+      <div
+        className="shrink-0 touch-none select-none"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+      >
+        <div aria-hidden="true" className="flex justify-center pt-1.5 md:hidden">
+          <span className="h-[5px] w-9 rounded-full bg-separator" />
+        </div>
+        <div className="grid min-h-14 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 pr-2 pl-gutter md:pt-2 md:pl-8">
+          <h2 id={titleId} className="min-w-0 text-headline break-words">
+            {title}
+          </h2>
           <button
             type="button"
-            onClick={() => ref.current?.close()}
-            className="focus-ring -mt-2 -mr-3 min-h-touch-target shrink-0 rounded-control px-3 text-body text-ink-2 hover:text-ink"
+            onClick={requestClose}
+            className="focus-ring min-h-touch-target shrink-0 rounded-control px-3 text-body font-semibold text-ink pressable"
           >
-            {t("common.close")}
+            {closeLabel ?? t("common.close")}
           </button>
         </div>
+      </div>
+      <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto overscroll-contain px-gutter pt-1 pb-[max(1.5rem,env(safe-area-inset-bottom))] md:px-8 md:pb-8">
+        {description ? (
+          <div id={descriptionId} className="text-body text-ink-2">
+            {description}
+          </div>
+        ) : null}
         {children}
       </div>
     </dialog>

@@ -12,7 +12,7 @@ import { messageFor, staleMessage, type OfflineMessage } from "@/lib/offline/out
 import { displayedState, type QueueEntry, type SyncReport } from "@/lib/offline/queue";
 import { useOfflineQueue } from "@/lib/offline/use-offline-queue";
 
-import { Alert } from "../ui/Alert";
+import { Notice } from "../ui/Notice";
 import { StatusLine } from "../ui/StatusLine";
 import { OfflineBanner } from "../clock/OfflineBanner";
 import type { ClockActionResult } from "../clock/ClockActions";
@@ -179,7 +179,7 @@ export function EmployeeHomeContainer({
               </div>
             ) : null}
             {messages.map((message, index) => (
-              <Alert
+              <Notice
                 key={`${message.key}-${index}`}
                 tone={message.tone}
                 onDismiss={() =>
@@ -187,16 +187,16 @@ export function EmployeeHomeContainer({
                 }
               >
                 {t(message.key, message.values)}
-              </Alert>
+              </Notice>
             ))}
           </>
         ) : null
       }
       error={
         error ? (
-          <Alert tone="error" onDismiss={() => setError(null)}>
+          <Notice tone="error" onDismiss={() => setError(null)}>
             {error}
-          </Alert>
+          </Notice>
         ) : null
       }
     />

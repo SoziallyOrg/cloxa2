@@ -7,7 +7,7 @@ import { t, type CatalogKey } from "@cloxa/i18n";
 
 import type { PairingCodeResult } from "@/app/manage/(beveiligd)/meer/kiosks/actions";
 
-import { Alert } from "../ui/Alert";
+import { Notice } from "../ui/Notice";
 import { Button } from "../ui/Button";
 import { Field } from "../ui/Field";
 import { Heading } from "../ui/Heading";
@@ -59,9 +59,9 @@ export function KioskCreateForm({ sites, pairUrl, action }: KioskCreateFormProps
     >
       <Heading level={2}>{t("manageKiosks.newHeading")}</Heading>
       {errorKey ? (
-        <Alert tone="error" onDismiss={() => setErrorKey(null)}>
+        <Notice tone="error" onDismiss={() => setErrorKey(null)}>
           {t(errorKey)}
-        </Alert>
+        </Notice>
       ) : null}
       {created ? (
         <PairingCodeCard

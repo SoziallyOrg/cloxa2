@@ -1,58 +1,94 @@
 "use client";
 
-import { useEffect, useRef, type ReactNode } from "react";
+import { useId } from "react";
 
 import { t } from "@cloxa/i18n";
 
 import { cx } from "./cx";
-
-export type AlertTone = "info" | "success" | "error";
+import { ELEVATED, useModalDialog } from "./useModalDialog";
 
 export interface AlertProps {
-  tone: AlertTone;
-  children: ReactNode;
-  onDismiss?: () => void;
+  open: boolean;
+  /** Called once closed, whichever button (or Esc) closed it. */
+  onClose: () => void;
+  title: string;
+  /** The consequence, in one or two plain sentences. */
+  message?: string;
+  confirmLabel: string;
+  onConfirm: () => void;
+  /** Red confirm button, for irreversible steps. */
+  destructive?: boolean;
+  /** "Annuleer" by default. */
+  cancelLabel?: string;
 }
 
-const TONE_CLASSES: Record<AlertTone, string> = {
-  info: "text-ink",
-  success: "font-medium text-working",
-  error: "font-medium text-danger",
-};
+const BUTTON =
+  "pressable focus-ring min-h-touch-target px-3 py-2.5 text-body focus-visible:-outline-offset-3";
 
 /**
- * An inline note, placed next to what caused it. Announces itself
- * (`role="status"` for info and success, `role="alert"` for errors) and
- * takes focus so it isn't missed on a long page.
+ * The iOS alert: a small centred card with a title, a message and two
+ * buttons side by side. For irreversible steps only; everyday choices use an
+ * `ActionSheet`. A tap outside does nothing, as on iOS; Esc cancels.
  */
-export function Alert({ tone, children, onDismiss }: AlertProps) {
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    ref.current?.focus();
-  }, []);
+export function Alert({
+  open,
+  onClose,
+  title,
+  message,
+  confirmLabel,
+  onConfirm,
+  destructive = false,
+  cancelLabel,
+}: AlertProps) {
+  const { ref, requestClose } = useModalDialog(open, onClose);
+  const titleId = useId();
+  const messageId = useId();
 
   return (
-    <div
+    <dialog
       ref={ref}
-      tabIndex={-1}
-      role={tone === "error" ? "alert" : "status"}
+      role="alertdialog"
+      aria-labelledby={titleId}
+      aria-describedby={message ? messageId : undefined}
       className={cx(
-        "focus-ring flex items-start justify-between gap-4 rounded-control bg-fill py-3 pr-2 pl-4 text-body",
-        TONE_CLASSES[tone],
+        ELEVATED,
+        "m-auto w-[min(18rem,calc(100%-3rem))] max-w-none overflow-hidden rounded-alert border-0 material-sheet p-0 text-ink",
+        "data-closing:animate-fade-out open:motion-safe:animate-alert-in",
+        "backdrop:bg-black/40 open:backdrop:animate-fade-in data-closing:backdrop:animate-fade-out",
       )}
     >
-      <p className="py-1">{children}</p>
-      {onDismiss ? (
+      <div className="flex flex-col gap-1 px-4 pt-5 pb-4 text-center">
+        <h2 id={titleId} className="text-headline break-words">
+          {title}
+        </h2>
+        {message ? (
+          <p id={messageId} className="text-subhead text-ink">
+            {message}
+          </p>
+        ) : null}
+      </div>
+      <div className="grid grid-cols-2 border-t-[0.5px] border-separator">
         <button
           type="button"
-          onClick={onDismiss}
-          aria-label={t("ui.dismiss")}
-          className="focus-ring min-h-touch-target shrink-0 rounded-control px-3 text-callout font-normal text-ink-2 hover:text-ink"
+          onClick={requestClose}
+          className={cx(
+            BUTTON,
+            "border-r-[0.5px] border-separator font-semibold text-ink",
+          )}
         >
-          {t("common.close")}
+          {cancelLabel ?? t("ui.cancel")}
         </button>
-      ) : null}
-    </div>
+        <button
+          type="button"
+          onClick={() => {
+            onConfirm();
+            requestClose();
+          }}
+          className={cx(BUTTON, destructive ? "text-danger" : "text-ink")}
+        >
+          {confirmLabel}
+        </button>
+      </div>
+    </dialog>
   );
 }

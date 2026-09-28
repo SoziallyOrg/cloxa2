@@ -33,12 +33,12 @@ export function GroupedList({
   return (
     <section className={cx("flex flex-col gap-2", className)} data-testid={testId}>
       {heading ? (
-        <Heading className="px-4 text-callout font-normal text-ink-2">
+        <Heading className="px-4 text-subhead font-normal text-ink-2">
           {heading}
         </Heading>
       ) : null}
       <ul className="overflow-hidden rounded-group bg-fill">{children}</ul>
-      {footer ? <div className="px-4 text-callout text-ink-2">{footer}</div> : null}
+      {footer ? <div className="px-4 text-subhead text-ink-2">{footer}</div> : null}
     </section>
   );
 }
@@ -89,7 +89,7 @@ function RowContent({
         >
           {title}
         </span>
-        {detail ? <span className="text-callout text-ink-2">{detail}</span> : null}
+        {detail ? <span className="text-subhead text-ink-2">{detail}</span> : null}
       </span>
       {value !== undefined && value !== null ? (
         <span className="shrink-0 text-right text-body text-ink-2">{value}</span>

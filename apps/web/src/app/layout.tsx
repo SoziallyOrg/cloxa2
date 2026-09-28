@@ -4,10 +4,22 @@ import { connection } from "next/server";
 import { t } from "@cloxa/i18n";
 import { colors } from "@cloxa/ui-tokens";
 
+// Self-hosted Inter: the SF-like stand-in where San Francisco isn't installed.
+import "@fontsource-variable/inter/wght.css";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: t("common.appName"),
+  applicationName: t("common.appName"),
+  // "Add to Home Screen" opens full screen, like an app. `appleWebApp` emits
+  // the standard `mobile-web-app-capable`; older iOS only reads the prefixed one.
+  appleWebApp: {
+    capable: true,
+    title: t("common.appName"),
+    statusBarStyle: "default",
+  },
+  other: { "apple-mobile-web-app-capable": "yes" },
+  formatDetection: { telephone: false },
 };
 
 export const viewport: Viewport = {

@@ -1,5 +1,7 @@
 import Link from "next/link";
 import type { Route } from "next";
+import type { LucideIcon } from "lucide-react";
+import { Ellipsis, Inbox, LayoutGrid, Users } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { t } from "@cloxa/i18n";
@@ -22,6 +24,7 @@ interface NavEntry {
   key: ManageNavKey;
   label: string;
   href: string;
+  icon: LucideIcon;
 }
 
 /**
@@ -40,21 +43,24 @@ export function ManageShell({
       : t("manageNav.questions");
 
   const entries: NavEntry[] = [
-    { key: "today", label: t("manageNav.today"), href: "/manage" },
+    { key: "today", label: t("manageNav.today"), href: "/manage", icon: LayoutGrid },
     {
       key: "questions",
       label: questionsLabel,
       href: "/manage/vragen",
+      icon: Inbox,
     },
     {
       key: "team",
       label: t("manageNav.team"),
       href: "/manage/team",
+      icon: Users,
     },
     {
       key: "more",
       label: t("manageNav.more"),
       href: "/manage/meer",
+      icon: Ellipsis,
     },
   ];
 
@@ -62,6 +68,7 @@ export function ManageShell({
     key: entry.key,
     label: entry.label,
     href: entry.href,
+    icon: entry.icon,
     current: active === entry.key,
   }));
 

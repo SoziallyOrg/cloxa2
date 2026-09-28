@@ -44,6 +44,9 @@ export function buildSecurityHeaders({
     `script-src ${scriptSrc}`,
     `style-src 'self' 'nonce-${nonce}'`,
     "img-src 'self' data: blob:",
+    // Self-hosted Inter (the SF stand-in off Apple devices). Explicit, so the
+    // policy says what it allows instead of leaning on default-src.
+    "font-src 'self'",
     `connect-src 'self' ${supabaseUrl}`,
     // The /app service worker (public/sw.js). Without this, worker-src falls
     // back to script-src, where 'strict-dynamic' ignores 'self'.
