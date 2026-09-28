@@ -60,10 +60,10 @@ async function loadMemberships(
   return data;
 }
 
-async function activeMemberships(
+async function activeRows(
   supabase: CloxaClient,
   userId: string,
-): Promise<ActiveMembership[]> {
+): Promise<MembershipRow[]> {
   let rows = await loadMemberships(supabase, userId);
 
   // First login after an invitation: activate the linked memberships.
@@ -77,19 +77,13 @@ async function activeMemberships(
     }
   }
 
-  const active = rows.filter((row) => row.status === "active" && isRole(row.role));
-  if (active.length === 0) return [];
+  return rows.filter((row) => row.status === "active" && isRole(row.role));
+}
 
-  const { data: organizations, error } = await supabase
-    .from("organizations")
-    .select("id, name")
-    .in(
-      "id",
-      active.map((row) => row.organization_id),
-    );
-  if (error) throw new Error(`organizations_unavailable:${error.code}`);
-  const names = new Map(organizations.map((org) => [org.id, org.name]));
-
+function toActiveMemberships(
+  active: readonly MembershipRow[],
+  names: ReadonlyMap<string, string>,
+): ActiveMembership[] {
   return active
     .map((row) => ({
       id: row.id,
@@ -117,32 +111,61 @@ export const getAuthContext = cache(async (): Promise<AuthContext> => {
     amr: data.claims.amr,
   };
 
-  const memberships = await activeMemberships(supabase, claims.userId);
+  const active = await activeRows(supabase, claims.userId);
+  if (active.length === 0) return { kind: "none", claims };
+
+  // The org names (for display/the chooser) and the employee row for the
+  // cookie-selected (or only) organization don't depend on each other, so
+  // they're fetched together instead of as two round trips.
   const cookieStore = await cookies();
   const selected = readOrgChoice(
     cookieStore.get(COOKIE.org)?.value,
     claims.userId,
     env.FLOW_COOKIE_SECRET,
   );
+  const candidateOrganizationId =
+    active.length === 1
+      ? active[0]!.organization_id
+      : (active.find((row) => row.organization_id === selected)?.organization_id ??
+        null);
+
+  const [organizationsResult, employeeResult] = await Promise.all([
+    supabase
+      .from("organizations")
+      .select("id, name")
+      .in(
+        "id",
+        active.map((row) => row.organization_id),
+      ),
+    candidateOrganizationId === null
+      ? Promise.resolve({ data: null, error: null })
+      : supabase
+          .from("employees")
+          .select("id")
+          .eq("organization_id", candidateOrganizationId)
+          .eq("user_id", claims.userId)
+          .eq("active", true)
+          .maybeSingle(),
+  ]);
+  if (organizationsResult.error) {
+    throw new Error(`organizations_unavailable:${organizationsResult.error.code}`);
+  }
+  if (employeeResult.error) {
+    throw new Error(`employee_unavailable:${employeeResult.error.code}`);
+  }
+
+  const names = new Map(organizationsResult.data.map((org) => [org.id, org.name]));
+  const memberships = toActiveMemberships(active, names);
   const choice = chooseMembership(memberships, selected);
 
   if (choice.kind === "none") return { kind: "none", claims };
   if (choice.kind === "choose") return { kind: "choose", claims, memberships };
 
-  const { data: employee, error } = await supabase
-    .from("employees")
-    .select("id")
-    .eq("organization_id", choice.membership.organizationId)
-    .eq("user_id", claims.userId)
-    .eq("active", true)
-    .maybeSingle();
-  if (error) throw new Error(`employee_unavailable:${error.code}`);
-
   return {
     kind: "member",
     claims,
     membership: choice.membership,
-    employeeId: employee?.id ?? null,
+    employeeId: employeeResult.data?.id ?? null,
     memberships,
   };
 });

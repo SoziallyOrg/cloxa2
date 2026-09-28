@@ -10,10 +10,11 @@ import {
 /**
  * Owner: opens the activity log, sees recent entries, and runs the
  * integrity check. Reuses the TOTP enrolment pattern from `manager.spec.ts`
- * / `manager-journey.spec.ts`; `eigenaar@demo.test`'s factors are reset by
- * `resetFactors` first so the spec is idempotent.
+ * / `manager-journey.spec.ts`. `owner-e2e@demo.test` is a dedicated seeded
+ * owner account (not the human `eigenaar@demo.test`), so `resetFactors`
+ * first is safe and the spec is idempotent.
  */
-const OWNER = "eigenaar@demo.test";
+const OWNER = "owner-e2e@demo.test";
 
 test("owner reads the activity log and verifies the integrity chains", async ({
   page,

@@ -15,10 +15,11 @@ import {
  * withdraws its own leftover requests first and always revokes the
  * invitation it creates.
  */
-// Els is used only by this spec, so other specs can't leave events that collide with
-// the "forgot to clock in" correction below (clock events are append-only).
-const EMPLOYEE = "els@demo.test";
-const EMPLOYEE_NAME = "Els Maes";
+// journey-e2e is used only by this spec, so other specs can't leave events
+// that collide with the "forgot to clock in" correction below (clock events
+// are append-only). Not a human demo account, unlike els@demo.test.
+const EMPLOYEE = "journey-e2e@demo.test";
+const EMPLOYEE_NAME = "Jef Journeytest";
 const MANAGER = "manager-e2e@demo.test";
 const REASON_PREFIX = "E2E-manager-test";
 

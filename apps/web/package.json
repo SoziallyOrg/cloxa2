@@ -9,7 +9,8 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "dev:seed": "node --env-file-if-exists=.env.local scripts/dev-seed.ts",
-    "setup:env": "node scripts/setup-local-env.mjs"
+    "setup:env": "node scripts/setup-local-env.mjs",
+    "start:standalone": "node scripts/e2e-standalone-server.ts"
   },
   "dependencies": {
     "@cloxa/db": "workspace:*",

@@ -11,13 +11,21 @@
  *   kiosk-admin@demo.test (admin), kiosk-e2e@demo.test (site 1; reserved for the kiosk e2e)
  *   offline-e2e@demo.test (site 1; reserved for the offline e2e)
  *   offboard-e2e@demo.test (site 1; reserved for the offboarding e2e)
+ *   journey-e2e@demo.test (site 1; reserved for manager-journey.spec.ts)
+ *   owner-e2e@demo.test (owner, site 1; reserved for e2e specs needing owner
+ *     rights, so eigenaar@demo.test's session is never disturbed)
  * Codes arrive in the local Mailpit: http://127.0.0.1:54324
  *
  * Refuses to run unless both the Supabase API and the database are on
  * loopback. Uses the secret key (admin API, service_role RPCs) and, for the
- * invitations, a short-lived owner session with a throwaway TOTP factor,
- * because `rpc_invite_member` requires fresh MFA like any real inviter.
- * There is no site RPC yet, so the second site is inserted with SQL.
+ * invitations, a short-lived session for a dedicated `seed-owner@demo.test`
+ * account with a throwaway TOTP factor, because `rpc_invite_member` requires
+ * fresh MFA like any real inviter. This account (and only this account) has
+ * its MFA factors reset on every run: the human demo accounts
+ * (eigenaar@, manager@, jan@, els@, mohamed@, lotte@demo.test) are never
+ * touched, so a tester's manual session at /manage survives a reseed.
+ * There is no site RPC yet, so the second site and the seed-owner membership
+ * are inserted with SQL.
  *
  * Runs on Node's built-in TypeScript support: erasable syntax only, and
  * type-only imports from workspace packages.
@@ -38,6 +46,14 @@ type SiteKey = "main" | "second";
 const ORG_NAME = "Bakkerij Demo (fictief)";
 const SECOND_SITE_NAME = "Filiaal Markt (fictief)";
 const OWNER = { email: "eigenaar@demo.test", name: "Olivia Eigenaar" };
+// Seed-only account used to call rpc_invite_member: never a human's account,
+// so its MFA factor can be reset on every run without breaking a manual
+// session. Not part of MEMBERS: it is given a membership directly, below.
+const SEED_OWNER = { email: "seed-owner@demo.test", name: "Seed Owner (intern)" };
+// A second, dedicated owner for e2e specs that need owner rights (audit log,
+// offboarding): also never a human's account, so its factors can be reset
+// freely. Given a membership and employee row directly, like SEED_OWNER.
+const OWNER_E2E = { email: "owner-e2e@demo.test", name: "Owen Testeigenaar" };
 const MEMBERS: readonly {
   email: string;
   name: string;
@@ -91,6 +107,14 @@ const MEMBERS: readonly {
   {
     email: "offboard-e2e@demo.test",
     name: "Otto Uitdiensttest",
+    role: "employee",
+    sites: ["main"],
+  },
+  // Dedicated to manager-journey.spec.ts (a "forgot to clock in" correction
+  // is appended to this account's history, so it can't be shared).
+  {
+    email: "journey-e2e@demo.test",
+    name: "Jef Journeytest",
     role: "employee",
     sites: ["main"],
   },
@@ -287,28 +311,58 @@ async function main(): Promise<void> {
   }
   const siteIds: Record<SiteKey, string> = { main: mainSite.id, second: secondSiteId };
 
+  // Seed-only inviter -----------------------------------------------------------------------
+  // A dedicated admin membership so invitations never require resetting the
+  // MFA of a human demo account (eigenaar@demo.test's factor is left alone).
+  const seedOwnerId = await ensureUser(SEED_OWNER.email);
+  const ownerE2eId = await ensureUser(OWNER_E2E.email);
+  {
+    const sql = postgres(dbUrl, { max: 1, onnotice: () => undefined });
+    try {
+      await sql`
+        insert into public.memberships (organization_id, user_id, role, status)
+        values (${orgId}, ${seedOwnerId}, 'admin', 'active')
+        on conflict (organization_id, user_id) do nothing`;
+
+      const [ownerMembership] = await sql<{ id: string }[]>`
+        insert into public.memberships (organization_id, user_id, role, status)
+        values (${orgId}, ${ownerE2eId}, 'owner', 'active')
+        on conflict (organization_id, user_id) do update set role = excluded.role
+        returning id`;
+      const [ownerEmployee] = await sql<{ id: string }[]>`
+        insert into public.employees (organization_id, user_id, display_name)
+        values (${orgId}, ${ownerE2eId}, ${OWNER_E2E.name})
+        on conflict (organization_id, user_id) do update set display_name = excluded.display_name
+        returning id`;
+      if (ownerMembership && ownerEmployee) {
+        await sql`
+          insert into public.site_assignments (organization_id, site_id, employee_id)
+          values (${orgId}, ${siteIds.main}, ${ownerEmployee.id})
+          on conflict (organization_id, site_id, employee_id) do nothing`;
+      }
+    } finally {
+      await sql.end();
+    }
+  }
+
   // Members -------------------------------------------------------------------------------
   let owner: { client: Client; factorId: string } | null = null;
 
   async function privilegedOwner(): Promise<{ client: Client; factorId: string }> {
     // Enrolling at aal1 is refused once a verified factor exists, so the
-    // owner's factors are reset. Local, fictional data only.
+    // seed-owner's factors are reset on every run. This account is never
+    // logged into by a human, so this never breaks a manual session.
     const { data: factors, error: listError } = await admin.auth.admin.mfa.listFactors({
-      userId: ownerId,
+      userId: seedOwnerId,
     });
     if (listError) fail("admin.mfa.listFactors", listError);
-    if (factors.factors.length > 0) {
-      console.log(
-        "Note: the owner's TOTP factors were reset; set up a new one at /manage.",
-      );
-    }
     for (const factor of factors.factors) {
-      await admin.auth.admin.mfa.deleteFactor({ id: factor.id, userId: ownerId });
+      await admin.auth.admin.mfa.deleteFactor({ id: factor.id, userId: seedOwnerId });
     }
 
     const { data: link, error: linkError } = await admin.auth.admin.generateLink({
       type: "magiclink",
-      email: OWNER.email,
+      email: SEED_OWNER.email,
     });
     if (linkError) fail("generateLink", linkError);
 
@@ -383,7 +437,10 @@ async function main(): Promise<void> {
     }
   } finally {
     if (owner) {
-      await admin.auth.admin.mfa.deleteFactor({ id: owner.factorId, userId: ownerId });
+      await admin.auth.admin.mfa.deleteFactor({
+        id: owner.factorId,
+        userId: seedOwnerId,
+      });
       await owner.client.auth.signOut({ scope: "local" });
     }
   }

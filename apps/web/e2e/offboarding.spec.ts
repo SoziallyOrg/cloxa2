@@ -12,10 +12,12 @@ import {
 /**
  * Owner: "Uit dienst" for a dedicated employee, who then cannot get in any
  * more; the AVG subject export; "Terug in dienst", after which the employee
- * can log in again. `offboard-e2e@demo.test` is reserved for this spec; a
- * run that failed half-way is repaired by reinstating first.
+ * can log in again. `offboard-e2e@demo.test` is reserved for this spec, and
+ * `owner-e2e@demo.test` is a dedicated seeded owner account (not the human
+ * `eigenaar@demo.test`), so resetting its factors is safe. A run that failed
+ * half-way is repaired by reinstating first.
  */
-const OWNER = "eigenaar@demo.test";
+const OWNER = "owner-e2e@demo.test";
 const EMPLOYEE = "offboard-e2e@demo.test";
 const EMPLOYEE_NAME = "Otto Uitdiensttest";
 

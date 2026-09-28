@@ -51,9 +51,12 @@ export default defineConfig({
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
-    // A production build: exercises the real CSP and Secure cookies, and does
-    // not clash with a `next dev` that may already run for this app.
-    command: `pnpm --filter @cloxa/web build && pnpm --filter @cloxa/web start --port ${PORT}`,
+    // A production build of the standalone server (`next.config.ts` has
+    // `output: "standalone"` for Docker; `next start` does not run it, so
+    // this runs the same server.js production does): exercises the real CSP
+    // and Secure cookies, and does not clash with a `next dev` that may
+    // already run for this app.
+    command: `pnpm --filter @cloxa/web build && pnpm --filter @cloxa/web start:standalone`,
     url: `${BASE_URL}/login`,
     reuseExistingServer: false,
     timeout: 300_000,
@@ -65,6 +68,8 @@ export default defineConfig({
       FLOW_COOKIE_SECRET: secret(),
       EXPORT_SIGNING_KEY: exportSigningKey(),
       EXPORT_SIGNING_KEY_ID: "e2e",
+      PORT: String(PORT),
+      HOSTNAME: "127.0.0.1",
     },
   },
 });
