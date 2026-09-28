@@ -1,0 +1,49 @@
+# Reverse proxy for cloxa.app. Caddy handles TLS automatically (Let's
+# Encrypt) for both domains below; nothing else needs to be configured for
+# HTTPS.
+#
+# CLOXA_PROXY_MODE=append:1 in .env.production matches this setup: Caddy is
+# the only proxy in front of the app, and its reverse_proxy handler *appends*
+# the real peer address to X-Forwarded-For rather than trusting (or
+# stripping) whatever a client sent — so the right-most hop is always the one
+# Caddy added, and every hop left of it is client-controlled. "1 hop from the
+# right" is exactly what apps/web/src/lib/auth/hash.ts expects for
+# `{ kind: "append", hops: 1 }`.
+
+(no_pii_log) {
+	log {
+		output file /data/access.log {
+			roll_size 10mb
+			roll_keep 5
+			roll_keep_for 720h
+		}
+		format filter {
+			wrap json
+			fields {
+				# No client IPs in logs (CLAUDE.md: no PII in logs).
+				request>remote_ip delete
+				request>remote_port delete
+				request>client_ip delete
+				# No query strings (may carry tokens or identifiers).
+				request>uri regexp "\?.*$" ""
+				# No session cookies or bearer tokens.
+				request>headers>Cookie delete
+				request>headers>Authorization delete
+				request>headers>Set-Cookie delete
+			}
+		}
+	}
+}
+
+cloxa.app {
+	import no_pii_log
+	encode zstd gzip
+	header -Server
+	reverse_proxy app:3000
+}
+
+www.cloxa.app {
+	import no_pii_log
+	header -Server
+	redir https://cloxa.app{uri} permanent
+}

@@ -1,3 +1,5 @@
+import { fileURLToPath } from "node:url";
+
 import type { NextConfig } from "next";
 
 /**
@@ -18,6 +20,13 @@ function siteHost(): string[] {
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   typedRoutes: true,
+  // Standalone server.js for the Docker image (see /Dockerfile). The repo
+  // root, not this app's directory, is where the pnpm workspace's lockfile
+  // and node_modules live, so Next's file tracing needs pointing there
+  // explicitly — otherwise it infers the wrong root in a monorepo and the
+  // standalone bundle can miss (or over-include) files.
+  outputFileTracingRoot: fileURLToPath(new URL("../..", import.meta.url)),
+  output: "standalone",
   experimental: {
     serverActions: {
       allowedOrigins: siteHost(),

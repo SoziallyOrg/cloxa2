@@ -1,0 +1,167 @@
+name: Deploy
+
+# Deliberately not on every push: the owner decides when to go live, by
+# pushing a `v*` tag or running this manually.
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+env:
+  IMAGE: ghcr.io/sociallyorg/cloxa-web
+
+jobs:
+  build-and-push:
+    name: build and push image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      tag: ${{ steps.tag.outputs.value }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Resolve image tag
+        id: tag
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            echo "value=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=manual-${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Log in to GHCR
+        uses: docker/login-action@06fb636fac595d6fb4b28a5dfcb21a6f5091859c # v4.5.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          push: true
+          # NEXT_PUBLIC_* and CLOXA_SITE_URL are the app's public URL and
+          # public Supabase project config — not secrets (see
+          # apps/web/src/lib/env.ts) — so they come from repo *variables*,
+          # set once under Settings > Secrets and variables > Actions >
+          # Variables. Runtime secrets never touch this build (see Dockerfile
+          # comments and docs/deploy.md).
+          build-args: |
+            NEXT_PUBLIC_SUPABASE_URL=${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+            NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${{ vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+            CLOXA_SITE_URL=${{ vars.CLOXA_SITE_URL }}
+          tags: |
+            ${{ env.IMAGE }}:${{ steps.tag.outputs.value }}
+            ${{ env.IMAGE }}:${{ github.sha }}
+
+  db-migrate:
+    name: apply database migrations
+    needs: build-and-push
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    # A human must approve before this touches the hosted database. Configure
+    # this environment's required reviewers under Settings > Environments.
+    environment: production
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Supabase CLI
+        uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359 # v3.0.1
+        with:
+          version: 2.116.0
+
+      - name: Push migrations
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          supabase link --project-ref "${{ secrets.SUPABASE_PROJECT_REF }}"
+          supabase db push
+
+  deploy:
+    name: deploy over SSH
+    needs: [build-and-push, db-migrate]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Configure SSH
+        shell: bash
+        run: |
+          mkdir -p -m 700 ~/.ssh
+          printf '%s\n' "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "${{ secrets.VPS_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Deploy new tag, verify health, roll back on failure
+        shell: bash
+        env:
+          NEW_TAG: ${{ needs.build-and-push.outputs.tag }}
+          SSH_TARGET: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+        run: |
+          set -euo pipefail
+          ssh_opts=(-o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts -i ~/.ssh/id_ed25519)
+
+          echo "== recording currently deployed tag for possible rollback"
+          prev_tag="$(ssh "${ssh_opts[@]}" "$SSH_TARGET" 'cat ~/cloxa/CURRENT_TAG 2>/dev/null || true')"
+          echo "previous tag: ${prev_tag:-none}"
+
+          deploy() {
+            local tag="$1"
+            ssh "${ssh_opts[@]}" "$SSH_TARGET" bash -s -- "$tag" <<'EOF'
+          set -euo pipefail
+          cd ~/cloxa
+          export TAG="$1"
+          docker compose -f deploy/docker-compose.yml pull
+          docker compose -f deploy/docker-compose.yml up -d
+          echo "$1" > CURRENT_TAG
+          EOF
+          }
+
+          echo "== deploying $NEW_TAG"
+          deploy "$NEW_TAG"
+
+          echo "== health check"
+          ok=""
+          for _ in $(seq 1 10); do
+            if curl -fsS --max-time 5 https://cloxa.app/healthz | grep -q '"status":"ok"'; then
+              ok=1
+              break
+            fi
+            sleep 5
+          done
+
+          if [[ -z "$ok" ]]; then
+            echo "Health check failed for $NEW_TAG." >&2
+            if [[ -n "$prev_tag" ]]; then
+              echo "Rolling back to $prev_tag" >&2
+              deploy "$prev_tag"
+            else
+              echo "No previous tag on record; not rolling back automatically." >&2
+            fi
+            exit 1
+          fi
+
+          echo "Deployed $NEW_TAG, healthy."
