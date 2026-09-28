@@ -59,6 +59,8 @@ export default defineConfig({
         ...devices["Desktop Chrome"],
         locale: "nl-BE",
         timezoneId: "Europe/Brussels",
+        // Native date/time pickers follow the browser language, not `locale`.
+        launchOptions: { args: ["--lang=nl-BE"] },
       },
     },
   ],

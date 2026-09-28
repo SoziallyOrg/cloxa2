@@ -103,7 +103,7 @@ export default async function QuestionsPage() {
         </GroupedList>
       )}
 
-      <div className="sticky bottom-[calc(var(--spacing-tab-bar)+env(safe-area-inset-bottom)+1rem)] mt-auto bg-paper pt-2 md:bottom-8">
+      <div className="sticky bottom-[calc(var(--spacing-tab-bar)+env(safe-area-inset-bottom)+1rem)] mt-auto bg-paper pt-2 md:static md:mt-0">
         <Link href="/app/vragen/nieuw" className={buttonClassName("primary", "lg")}>
           {t("questions.newRequest")}
         </Link>
