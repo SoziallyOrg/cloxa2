@@ -137,7 +137,7 @@ export function Sheet({
         // The surface continues below the bottom edge, so a drag up shows no gap.
         "after:absolute after:inset-x-0 after:top-full after:h-[50vh] after:bg-grouped md:after:hidden",
         // Desktop: a centred card.
-        "md:m-auto md:h-auto md:max-h-[85dvh] md:w-[min(34rem,calc(100%-3rem))] md:rounded-alert",
+        "md:m-auto md:h-fit md:max-h-[85dvh] md:w-[min(34rem,calc(100%-3rem))] md:rounded-alert",
         "md:data-closing:animate-fade-out md:open:motion-safe:animate-alert-in",
       )}
     >
@@ -151,14 +151,19 @@ export function Sheet({
         <div aria-hidden="true" className="flex justify-center pt-1.5 md:hidden">
           <span className="h-[5px] w-9 rounded-full bg-separator" />
         </div>
-        <div className="grid min-h-14 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 pr-2 pl-gutter md:pt-2 md:pl-8">
-          <h2 id={titleId} className="min-w-0 text-headline break-words">
+        {/* As on iOS: the title centred, the close button trailing. */}
+        <div className="grid min-h-14 grid-cols-[1fr_auto_1fr] items-center gap-2 px-2 md:pt-2">
+          <span aria-hidden="true" />
+          <h2
+            id={titleId}
+            className="max-w-[60vw] text-center text-headline break-words md:max-w-sm"
+          >
             {title}
           </h2>
           <button
             type="button"
             onClick={requestClose}
-            className="focus-ring min-h-touch-target shrink-0 rounded-control px-3 text-body font-semibold text-ink pressable"
+            className="focus-ring min-h-touch-target shrink-0 justify-self-end rounded-control px-3 text-body font-semibold text-ink pressable"
           >
             {closeLabel ?? t("common.close")}
           </button>
