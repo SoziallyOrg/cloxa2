@@ -119,64 +119,66 @@ green `#248a3d` is 4.40:1 on white, so text uses `#207936`.
 - **Login.** Centred and narrow. The logotype, one field, and one black button. The code
   step has one large OTP field. Nothing else.
 
-## iOS fidelity (owner requirement, 2026-09-28)
+## iOS vibe, not an iOS copy (owner feedback, 2026-09-28)
 
-The owner wants Cloxa to **look and behave like a native iOS app**, and every screen to
-be complete. The web app follows Apple's Human Interface Guidelines patterns, rebuilt
-with our own code (no Apple assets):
+The owner wants the **feel** of a premium iOS app (think Apple Health, Clock, Things,
+Linear), **not** a 1:1 copy of the stock Settings app. The approved reference is batch 1
+as shown in `docs/design/batch1-approved.png`: white pages, soft grey row groups, a big
+thin timer, and black primary buttons. Make it **more sophisticated, modern and
+minimal**, with effortless UX.
 
-- **Typeface.** Use `-apple-system` / SF Pro on Apple devices. Everywhere else,
-  self-hosted **Inter** (variable, OFL) is the stand-in, since it looks close to SF. Use
-  the iOS text styles: Large Title 34/700, Title 1 28, Title 2 22, Headline 17/600, Body
-  17, Callout 16, Subhead 15, Footnote 13, Caption 12. The timer keeps display 88/300.
-- **Navigation bar.**
-  - Every page has a **large title**. On scroll it collapses into a centred inline title
-    on a translucent bar (`backdrop-filter: blur`, with a hairline under it once
-    scrolled).
-  - Pushed pages get a back button: a chevron plus the previous page's title.
-  - Trailing actions are text buttons ("Klaar", "Bewerk") or icon buttons (44px
-    targets).
-- **Tab bar** (phone). It is translucent and blurred, with a hairline on top and
-  respects the safe-area inset. Each tab has an **icon plus a label** (10–11px medium).
-  Icons are outline when inactive and filled when active. Use an open SF-like icon set
-  (Lucide), same stroke width everywhere. There are 3–5 tabs.
-- **Inset grouped lists.**
-  - The page background is `#f2f2f7` (dark `#000`), groups are white (dark `#1c1c1e`)
-    with a 10px radius, and there is a 16px inset.
-  - Rows are 44px minimum (52px for two-line rows). Separators are inset from the
-    leading edge.
-  - A row can have a leading icon (on a coloured 29px rounded square, like Settings), a
-    title, a subtitle, a trailing value in secondary colour, and a chevron.
-  - Section headers are uppercase footnote text in secondary colour, and footers are
-    footnote text.
-- **Controls.**
-  - **Segmented control**: a pill track with a white sliding thumb.
-  - **Switch**: a real iOS-style toggle in green, for booleans in settings.
-  - Native `<input type=time/date>`, which are wheels on iOS.
-  - **Action sheet** for choices and destructive confirmations. A centred **alert** (two
-    buttons, where the destructive one is red) for irreversible steps.
-  - **Sheets**: a grabber, rounded top corners, and a detent feel (medium or large).
-    Drag down to dismiss, plus a "Sluiten"/"Klaar" button.
+**Keep from iOS (the vibe):**
+
 - **Motion.**
-  - Push navigation slides from the right, and back slides out (View Transitions API
-    where supported).
-  - Sheets spring up. Buttons dim on press (`active` opacity 0.6), with no hover-only
-    affordances.
-  - Pull-to-refresh on Klok, Uren, Vragen and Vandaag.
-  - Everything respects `prefers-reduced-motion`.
-- **Haptics.** Use `navigator.vibrate` where available: a light tap on clock actions, a
-  double tap on errors.
-- **Colour.** The primary buttons stay ink (direction C). Status colours follow the iOS
-  system palette, tuned so text reaches AA: green `#248a3d`, orange `#c93400`, red
-  `#d70015`, plus tints for dots and backgrounds.
-- **Desktop.** This works like **iPadOS or macOS**:
-  - a translucent sidebar (source list with icons and labels), and the content in a
-    readable column (max ~720px for lists; full width for the timeline)
-  - sheets become centred modal cards
-  - large titles stay large
-- **PWA.** `display: standalone`, a status bar style, and `theme-color` for light and
-  dark. The apple-touch-icon and splash colours come from the logo, so "Add to Home
-  Screen" feels like an app.
+  - Push and pop page slides (View Transitions), sheets that spring up with a grabber
+    and drag-to-dismiss, and pull-to-refresh.
+  - Pressed states: rows get a subtle grey highlight, buttons scale to 0.98 and dim
+    slightly.
+  - Haptics on clock actions.
+  - Everything respects reduced motion.
+- **Navigation.** A large title that collapses into an inline title on a translucent
+  blurred bar with a hairline when scrolled, and a back chevron with the previous title.
+- **Tab bar.** Translucent blur, **thin monochrome line icons (1.5px stroke) plus small
+  labels**, and the active tab in ink. No colour.
+- **Sheets, action sheets and alerts** for choices and confirmations, styled in our
+  monochrome look (white and ink, with red only for destructive actions).
+- **Typeface.** SF on Apple devices, and self-hosted Inter elsewhere, with tight
+  tracking on titles.
+
+**Do NOT copy (the owner said no):**
+
+- No coloured icon tiles in rows. If a row needs an icon, use a thin monochrome line
+  icon in `ink-2`, and only where it helps scanning (for example settings). Data rows
+  get no icons.
+- No `#f2f2f7` Settings-grey page backgrounds. Pages are white (dark: black). Row groups
+  sit on the soft `fill` (`#f5f5f7` / dark `#1c1c1e`) with a 16px radius, as in batch 1.
+- No green iOS switches. The switch is monochrome: ink when on, `fill` when off.
+- No uppercase section headers. Use small sentence-case labels in `ink-2` (13–15px), as
+  in batch 1.
+
+**Refinement targets ("sophisticated, modern, minimal"):**
+
+- **One rhythm.** A 24px gutter on phones and 32px between sections. Rows are 56px
+  (single line) or 64px (two lines). Buttons are 56px (primary 64px on Klok).
+- **Typography.**
+  - Titles are 30–34px, weight 600, with letter-spacing -0.02em.
+  - The timer is 96px, weight 200–300, with tabular figures.
+  - Secondary text uses `ink-2`. Never more than 3 text sizes on one screen.
+- **Soft geometry.** Radius 16 on groups, 14 on buttons and inputs, and full rounding on
+  pills. No borders on cards. Hairlines only as separators inside groups.
+- **Quiet chrome.** The logo in the header is small. The user's name is a subtle button
+  that opens the account sheet.
+- **Inputs.** Time and date fields are large, calm and filled (`fill` background, no
+  heavy black focus border: use a 2px ink ring _outside_ on focus-visible only). They
+  show values like "08:00" in large tabular text, with the native picker behind them.
+- **Status.** A small dot plus a word. Colours are muted, not saturated: green
+  `#207936`, amber `#b45309`, red `#b91c1c`, and orange for attention `#c2410c`.
+- **Empty and error states.** A thin line icon (not in a coloured circle), one sentence,
+  and one action.
+- **Less on screen.** When in doubt, hide it behind a tap (a sheet), and keep one clear
+  primary action per screen.
+- **Desktop.** A quiet sidebar with thin line icons plus labels, the content in a
+  readable column, and sheets as centred cards.
 
 ### "Fully built" checklist (every screen must have all of these)
 
