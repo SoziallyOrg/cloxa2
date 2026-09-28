@@ -447,8 +447,7 @@ function ReasonStep({
       <Section footer={<span id="reason-hint">{t("correctionForm.reasonHint")}</span>}>
         <ListItem className="gap-1">
           <label htmlFor="reason" className="text-subhead text-ink-2">
-            {t("correctionForm.reasonLabel")}
-            <span className="ml-1.5">({t("ui.optional")})</span>
+            {t("correctionForm.reasonLabel")} <span>({t("ui.optional")})</span>
           </label>
           <textarea
             id="reason"

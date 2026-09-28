@@ -146,16 +146,18 @@ export default async function HoursPage({
             <h2 className="px-4 text-title-3 font-semibold">
               {t("schedule.myScheduleHeading")}
             </h2>
-            <ScheduleBlocksList
-              heading={t("schedule.myScheduleThisWeek")}
-              rows={thisWeekRows}
-              testId="schedule-this-week"
-            />
-            <ScheduleBlocksList
-              heading={t("schedule.myScheduleNextWeek")}
-              rows={nextWeekRows}
-              testId="schedule-next-week"
-            />
+            <div className="flex flex-col gap-8">
+              <ScheduleBlocksList
+                heading={t("schedule.myScheduleThisWeek")}
+                rows={thisWeekRows}
+                testId="schedule-this-week"
+              />
+              <ScheduleBlocksList
+                heading={t("schedule.myScheduleNextWeek")}
+                rows={nextWeekRows}
+                testId="schedule-next-week"
+              />
+            </div>
           </section>
 
           <SelfExportLink heading={t("hours.downloadHeading")} />

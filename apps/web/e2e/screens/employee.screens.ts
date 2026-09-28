@@ -334,7 +334,11 @@ test("the confirmation after clocking", async ({ page }) => {
   await page.goto("/app/vragen/nieuw");
   await button(page, "Ik vergat in te klokken").click();
   await button(page, "Volgende").click();
-  await page.getByRole("button", { name: /^Gisteren, / }).click();
+  // A day without hours, so the added clock-in always fits.
+  await page
+    .getByRole("button", { name: /, Geen uren$/ })
+    .last()
+    .click();
   await button(page, "Begonnen met werken").click();
   await page.getByLabel("Tijdstip").fill("08:00");
   await button(page, "Volgende").click();

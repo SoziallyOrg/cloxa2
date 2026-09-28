@@ -17,6 +17,8 @@ export interface RequestRow {
   title: string;
   /** "28 september 2026". */
   date: string;
+  /** "ma 28 sep", in the list. */
+  shortDate: string;
   statusLabel: string;
   statusTone: StatusTone;
   pending: boolean;
@@ -63,9 +65,17 @@ export function RequestsList({ rows, withdrawAction }: RequestsListProps) {
             key={row.id}
             aria-haspopup="dialog"
             title={row.title}
-            subtitle={row.reason ? `${row.date} · ${row.reason}` : row.date}
-            value={
-              <StatusLine tone={row.statusTone} label={row.statusLabel} size="sm" />
+            subtitle={
+              <>
+                <StatusLine tone={row.statusTone} label={row.statusLabel} size="sm" />
+                {` · ${row.shortDate}`}
+                {row.reason ? (
+                  <>
+                    <br />
+                    {row.reason}
+                  </>
+                ) : null}
+              </>
             }
             chevron
             onClick={() => setSelectedId(row.id)}

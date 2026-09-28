@@ -70,8 +70,9 @@ export function NavBarFrame({
           <p
             aria-hidden="true"
             className={cx(
-              "max-w-[50vw] truncate text-headline opacity-0 transition-opacity duration-200 md:max-w-sm",
-              collapsed && "opacity-100",
+              "truncate text-headline opacity-0 transition-opacity duration-200",
+              // Hidden, it takes no width, so a back label has room (as on iOS).
+              collapsed ? "max-w-[50vw] opacity-100 md:max-w-sm" : "max-w-0",
             )}
           >
             {title}

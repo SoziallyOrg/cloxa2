@@ -244,7 +244,7 @@ function RowBody({
           ) : null}
         </span>
         {value !== undefined && value !== null ? (
-          <span className="max-w-[45%] shrink-0 truncate text-right text-body text-ink-2 tabular-nums">
+          <span className="max-w-[55%] shrink-0 truncate text-right text-body text-ink-2 tabular-nums">
             {value}
           </span>
         ) : null}

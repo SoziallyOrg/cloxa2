@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { MessageSquare } from "lucide-react";
 
-import { formatBrusselsDate, t } from "@cloxa/i18n";
+import { formatBrusselsDate, formatBrusselsShortDate, t } from "@cloxa/i18n";
 
 import { AccountButton } from "@/components/employee/Account";
 import { RequestsList, type RequestRow } from "@/components/employee/RequestsList";
@@ -68,6 +68,7 @@ export default async function QuestionsPage() {
       id: request.id,
       title: kind ? t(kind) : date,
       date,
+      shortDate: formatBrusselsShortDate(new Date(request.created_at)),
       statusLabel: t(STATUS_LABEL_KEY[key]),
       statusTone: STATUS_TONE[key],
       pending: request.status === "pending",
