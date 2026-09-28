@@ -7,7 +7,7 @@ import { InviteForm } from "@/components/manage/InviteForm";
 import { ManageShell } from "@/components/manage/ManageShell";
 import { SignOutEverywhereForm } from "@/components/manage/SignOutEverywhereForm";
 import { Heading } from "@/components/ui/Heading";
-import { StatusBadge, type StatusTone } from "@/components/ui/StatusBadge";
+import { StatusLine, type StatusTone } from "@/components/ui/StatusLine";
 import { Button } from "@/components/ui/Button";
 import { cx } from "@/components/ui/cx";
 import { requireManager } from "@/lib/auth/context";
@@ -38,7 +38,7 @@ const STATUS_LABEL_KEY: Record<string, CatalogKey> = {
 const STATUS_TONE: Record<string, StatusTone> = {
   active: "working",
   invited: "break",
-  suspended: "error",
+  suspended: "danger",
   left: "off",
 };
 
@@ -173,8 +173,8 @@ export default async function ManageTeamPage({
                 className={cx(
                   "focus-ring inline-flex min-h-touch-target items-center rounded-md border-2 px-5 text-lg font-semibold",
                   tab.left === showLeft
-                    ? "border-primary bg-primary text-primary-contrast"
-                    : "border-border text-ink",
+                    ? "border-ink bg-ink text-paper"
+                    : "border-line text-ink",
                 )}
               >
                 {tab.label}
@@ -182,7 +182,7 @@ export default async function ManageTeamPage({
             ))}
           </nav>
           {listed.length === 0 ? (
-            <p className="text-ink/70">
+            <p className="text-ink-2">
               {t(
                 showLeft
                   ? "manageTeam.noLeftEmployees"
@@ -196,16 +196,16 @@ export default async function ManageTeamPage({
               return (
                 <li
                   key={employee.id}
-                  className="flex flex-col gap-2 rounded-lg border border-border p-4 sm:flex-row sm:items-center sm:justify-between"
+                  className="flex flex-col gap-2 rounded-lg border border-line p-4 sm:flex-row sm:items-center sm:justify-between"
                 >
                   <div className="flex flex-col gap-1">
                     <Link
                       href={`/manage/medewerker/${employee.id}` as Route}
-                      className="focus-ring text-lg font-semibold text-primary underline"
+                      className="focus-ring text-lg font-semibold text-ink underline"
                     >
                       {employee.display_name}
                     </Link>
-                    <span className="text-ink/70">
+                    <span className="text-ink-2">
                       {employee.employee_code ?? "—"} ·{" "}
                       {t(
                         STATUTE_LABEL_KEY[employee.statute] ??
@@ -216,7 +216,8 @@ export default async function ManageTeamPage({
                     </span>
                   </div>
                   <div className="flex items-center gap-3">
-                    <StatusBadge
+                    <StatusLine
+                      size="sm"
                       tone={STATUS_TONE[status] ?? "off"}
                       label={t(STATUS_LABEL_KEY[status] ?? "manageTeam.statusActive")}
                     />
@@ -237,18 +238,18 @@ export default async function ManageTeamPage({
         <section className="flex flex-col gap-4">
           <Heading level={2}>{t("manageTeam.pendingInvitesHeading")}</Heading>
           {invitationRows.length === 0 ? (
-            <p className="text-ink/70">{t("manageTeam.noPendingInvites")}</p>
+            <p className="text-ink-2">{t("manageTeam.noPendingInvites")}</p>
           ) : (
             <ul className="flex flex-col gap-3">
               {invitationRows.map((invitation) => (
                 <li
                   key={invitation.id}
-                  className="flex flex-col gap-2 rounded-lg border border-border p-4 sm:flex-row sm:items-center sm:justify-between"
+                  className="flex flex-col gap-2 rounded-lg border border-line p-4 sm:flex-row sm:items-center sm:justify-between"
                 >
                   <span>{invitation.email}</span>
                   <form action={revokeInvitationAction}>
                     <input type="hidden" name="id" value={invitation.id} />
-                    <Button type="submit" variant="quiet" size="md">
+                    <Button type="submit" variant="plain" size="md">
                       {t("manageTeam.revoke")}
                     </Button>
                   </form>
@@ -258,7 +259,7 @@ export default async function ManageTeamPage({
           )}
         </section>
 
-        <section className="max-w-xl rounded-lg border border-border p-4">
+        <section className="max-w-xl rounded-lg border border-line p-4">
           <InviteForm
             sites={siteRows}
             canInvitePrivilegedRoles={canInvitePrivilegedRoles}

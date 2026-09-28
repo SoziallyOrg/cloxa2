@@ -6,7 +6,7 @@ import { KioskCreateForm } from "@/components/manage/KioskCreateForm";
 import { KioskDeviceActions } from "@/components/manage/KioskDeviceActions";
 import { ManageShell } from "@/components/manage/ManageShell";
 import { Heading } from "@/components/ui/Heading";
-import { StatusBadge, type StatusTone } from "@/components/ui/StatusBadge";
+import { StatusLine, type StatusTone } from "@/components/ui/StatusLine";
 import { requireManager } from "@/lib/auth/context";
 import { nowMs } from "@/lib/clock/now";
 import { env } from "@/lib/env.server";
@@ -31,7 +31,7 @@ function deviceStatus(
     return { tone: "off", label: t("manageKiosks.statusRevoked") };
   }
   if (device.paused_until !== null && Date.parse(device.paused_until) > now) {
-    return { tone: "error", label: t("manageKiosks.statusPaused") };
+    return { tone: "attention", label: t("manageKiosks.statusPaused") };
   }
   return { tone: "working", label: t("manageKiosks.statusActive") };
 }
@@ -91,11 +91,11 @@ export default async function ManageKiosksPage() {
       <div className="flex flex-col gap-8">
         <div className="flex flex-col gap-2">
           <Heading level={1}>{t("manageKiosks.heading")}</Heading>
-          <p className="text-lg text-ink/70">{t("manageKiosks.intro")}</p>
+          <p className="text-lg text-ink-2">{t("manageKiosks.intro")}</p>
         </div>
 
         {activeSites.length > 0 ? (
-          <section className="max-w-xl rounded-lg border border-border p-4">
+          <section className="max-w-xl rounded-lg border border-line p-4">
             <KioskCreateForm
               sites={activeSites.map((site) => ({ id: site.id, name: site.name }))}
               pairUrl={pairUrl}
@@ -112,7 +112,7 @@ export default async function ManageKiosksPage() {
               <div key={site.id} className="flex flex-col gap-3">
                 <Heading level={3}>{site.name}</Heading>
                 {siteDevices.length === 0 ? (
-                  <p className="text-ink/70">{t("manageKiosks.noDevices")}</p>
+                  <p className="text-ink-2">{t("manageKiosks.noDevices")}</p>
                 ) : (
                   <ul className="flex flex-col gap-3">
                     {siteDevices.map((device) => {
@@ -120,13 +120,17 @@ export default async function ManageKiosksPage() {
                       return (
                         <li
                           key={device.id}
-                          className="flex flex-col gap-3 rounded-lg border border-border p-4"
+                          className="flex flex-col gap-3 rounded-lg border border-line p-4"
                         >
                           <div className="flex flex-wrap items-center gap-3">
                             <p className="text-lg font-semibold">{device.name}</p>
-                            <StatusBadge tone={status.tone} label={status.label} />
+                            <StatusLine
+                              size="sm"
+                              tone={status.tone}
+                              label={status.label}
+                            />
                           </div>
-                          <p className="text-ink/70">{lastSeen(device)}</p>
+                          <p className="text-ink-2">{lastSeen(device)}</p>
                           {device.status === "active" ? (
                             <KioskDeviceActions
                               deviceId={device.id}

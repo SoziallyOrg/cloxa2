@@ -3,114 +3,96 @@ import type { ReactNode } from "react";
 import type { Shift, ShiftState } from "@cloxa/domain";
 import { t } from "@cloxa/i18n";
 
-import { BottomNav, type BottomNavItem } from "../ui/BottomNav";
-import { Heading } from "../ui/Heading";
-import { IconChat, IconClock, IconList } from "../ui/icons";
+import { ProgressTrack } from "../ui/ProgressTrack";
+import { StatusLine } from "../ui/StatusLine";
+import { Timer } from "../ui/Timer";
 import { ClockActions, type ClockActionCallback } from "../clock/ClockActions";
-import { ClockStatus } from "../clock/ClockStatus";
-import { ShiftList } from "../clock/ShiftList";
-
-export type EmployeeHomeNav = "clock" | "hours" | "questions";
+import {
+  clockFace,
+  type PendingClockAction,
+  type PlannedDay,
+} from "../clock/clock-face";
+import { statusTone, statusWord } from "../clock/format";
 
 export interface EmployeeHomeProps {
-  firstName: string;
   shiftState: ShiftState;
   since: number | null;
   now: number;
   todayShifts: readonly Shift[];
-  /** "08:00–16:30" (or joined blocks) when a shift is planned today, else `null`. */
-  plannedToday?: string | null;
-  activeNav: EmployeeHomeNav;
+  /** Clock actions still queued on the device, oldest first. */
+  pending?: readonly PendingClockAction[];
+  /** Today's schedule, or `null` when nothing is planned. */
+  planned?: PlannedDay | null;
   onStartWork: ClockActionCallback;
   onStopWork: ClockActionCallback;
   onStartBreak: ClockActionCallback;
   onStopBreak: ClockActionCallback;
-  /** Session actions (afmelden / overal afmelden), rendered in the menu disclosure. */
-  menu?: ReactNode;
-  /** Above the clock status: an offline banner or an error alert, if any. */
+  /** Above the clock: the offline banner and sync messages, if any. */
   notice?: ReactNode;
+  /** Right above the buttons: what went wrong with the last press. */
+  error?: ReactNode;
   /** Disables the clock buttons, e.g. while offline. */
   actionsDisabled?: boolean;
 }
 
 /**
- * The employee's whole screen: header, status, actions, today's summary and
- * navigation. Works from 320px wide with no horizontal scroll — one column,
- * no fixed pixel widths beyond the touch targets.
+ * Klok: the status line, the timer, "Gestart om 08:02 · geen pauze" and the
+ * progress against today's schedule; the actions sit at the bottom, in reach
+ * of the thumb. Works from 320px wide with no horizontal scroll.
  */
 export function EmployeeHome({
-  firstName,
   shiftState,
   since,
   now,
   todayShifts,
-  plannedToday = null,
-  activeNav,
+  pending = [],
+  planned = null,
   onStartWork,
   onStopWork,
   onStartBreak,
   onStopBreak,
-  menu,
   notice,
+  error,
   actionsDisabled = false,
 }: EmployeeHomeProps) {
-  const navItems: BottomNavItem[] = [
-    {
-      key: "clock",
-      label: t("bottomNav.clock"),
-      href: "/app",
-      icon: <IconClock />,
-      current: activeNav === "clock",
-    },
-    {
-      key: "hours",
-      label: t("bottomNav.hours"),
-      href: "/app/uren",
-      icon: <IconList />,
-      current: activeNav === "hours",
-    },
-    {
-      key: "questions",
-      label: t("bottomNav.questions"),
-      href: "/app/vragen",
-      icon: <IconChat />,
-      current: activeNav === "questions",
-    },
-  ];
+  const face = clockFace({
+    state: shiftState,
+    since,
+    now,
+    todayShifts,
+    pending,
+    planned,
+  });
 
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-xl flex-col">
+    <div className="flex flex-1 flex-col">
       <h1 className="sr-only">{t("app.heading")}</h1>
-      <header className="flex items-center justify-between gap-3 p-4">
-        <img
-          src="/branding/cloxa-compact.svg"
-          alt={t("common.appName")}
-          className="h-8 w-auto"
-        />
-        <p className="truncate text-lg font-semibold">
-          {t("common.greeting", { name: firstName })}
-        </p>
-        <details className="relative">
-          <summary className="focus-ring min-h-touch-target cursor-pointer list-none rounded-md border border-border px-3 py-2 text-center font-semibold">
-            {t("common.menu")}
-          </summary>
-          {menu ? (
-            <div className="absolute right-0 z-10 mt-2 w-64 rounded-lg border border-border bg-surface p-4 shadow-none">
-              {menu}
-            </div>
-          ) : null}
-        </details>
-      </header>
+      {notice ? <div className="flex flex-col gap-3 pb-4">{notice}</div> : null}
 
-      <main className="flex flex-1 flex-col gap-10 px-4 pb-28">
-        {notice}
-        <ClockStatus state={shiftState} since={since} now={now} />
-        {plannedToday ? (
-          <p className="text-base text-ink/70">
-            {t("schedule.todayPlanned", { range: plannedToday })}
+      <section className="flex flex-col pt-10 md:pt-4">
+        <StatusLine tone={statusTone(shiftState)} label={statusWord(shiftState)} live />
+        {face.timerMs !== null && face.timerSpoken !== null ? (
+          <div className="mt-6 -ml-1">
+            <Timer valueMs={face.timerMs} spoken={face.timerSpoken} />
+          </div>
+        ) : null}
+        {face.subline ? (
+          <p className="mt-4 text-body text-ink-2">{face.subline}</p>
+        ) : null}
+        {face.plannedLine ? (
+          <p className="mt-4 text-headline font-normal text-ink-2">
+            {face.plannedLine}
           </p>
         ) : null}
+        {face.progress ? (
+          <div className="mt-10">
+            <ProgressTrack label={t("clock.progressLabel")} {...face.progress} />
+          </div>
+        ) : null}
+      </section>
 
+      <div className="mt-auto flex flex-col gap-4 pt-12 md:mt-14 md:pt-0">
+        {error}
         <ClockActions
           state={shiftState}
           onStartWork={onStartWork}
@@ -119,15 +101,6 @@ export function EmployeeHome({
           onStopBreak={onStopBreak}
           disabled={actionsDisabled}
         />
-
-        <section className="flex flex-col gap-4">
-          <Heading level={2}>{t("employeeHome.todayHeading")}</Heading>
-          <ShiftList shifts={todayShifts} />
-        </section>
-      </main>
-
-      <div className="fixed inset-x-0 bottom-0 mx-auto w-full max-w-xl">
-        <BottomNav items={navItems} />
       </div>
     </div>
   );

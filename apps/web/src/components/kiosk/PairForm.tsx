@@ -37,10 +37,10 @@ export function PairForm({ action }: PairFormProps) {
             autoCorrect="off"
             spellCheck={false}
             maxLength={12}
-            className="focus-ring min-h-primary-action rounded-md border-2 border-border bg-surface px-4 text-center font-mono text-4xl tracking-widest text-ink uppercase aria-invalid:border-status-error"
+            className="focus-ring min-h-primary-action rounded-md border-2 border-line bg-paper px-4 text-center font-mono text-4xl tracking-widest text-ink uppercase aria-invalid:border-danger"
           />
         </Field>
-        <Button type="submit" size="xl" loading={pending}>
+        <Button type="submit" size="lg" loading={pending}>
           {t("kiosk.pairSubmit")}
         </Button>
       </Stack>

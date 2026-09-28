@@ -1,47 +1,59 @@
 import type { ReactNode } from "react";
 
-import { t } from "@cloxa/i18n";
-
-import { BottomNav, type BottomNavItem } from "../ui/BottomNav";
-import { IconChat, IconClock, IconList } from "../ui/icons";
-import type { EmployeeHomeNav } from "./EmployeeHome";
+import { Logo } from "../brand/Logo";
+import { AccountMenu } from "./AccountMenu";
+import { EmployeeNav } from "./EmployeeNav";
 
 export interface AppShellProps {
-  active: EmployeeHomeNav;
+  employeeId: string;
+  /** The employee's display name, e.g. "Jan Janssens". */
+  displayName: string;
   children: ReactNode;
 }
 
-/** The shared frame for `/app/uren` and `/app/vragen`: content plus the bottom nav. */
-export function AppShell({ active, children }: AppShellProps) {
-  const navItems: BottomNavItem[] = [
-    {
-      key: "clock",
-      label: t("bottomNav.clock"),
-      href: "/app",
-      icon: <IconClock />,
-      current: active === "clock",
-    },
-    {
-      key: "hours",
-      label: t("bottomNav.hours"),
-      href: "/app/uren",
-      icon: <IconList />,
-      current: active === "hours",
-    },
-    {
-      key: "questions",
-      label: t("bottomNav.questions"),
-      href: "/app/vragen",
-      icon: <IconChat />,
-      current: active === "questions",
-    },
-  ];
+/** "Jan Janssens" → "Jan J."; a single name stays as it is. */
+export function shortDisplayName(displayName: string): string {
+  const parts = displayName.trim().split(/\s+/);
+  const first = parts[0] ?? displayName;
+  const last = parts.length > 1 ? parts[parts.length - 1] : undefined;
+  return last ? `${first} ${last.charAt(0).toUpperCase()}.` : first;
+}
+
+/**
+ * The frame of every `/app` page. Phones: the logotype and the name on top,
+ * the tab bar at the bottom. Desktop: a quiet sidebar and one centred column.
+ */
+export function AppShell({ employeeId, displayName, children }: AppShellProps) {
+  const account = {
+    employeeId,
+    shortName: shortDisplayName(displayName),
+    fullName: displayName,
+  };
 
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-xl flex-col">
-      <main className="flex flex-1 flex-col gap-6 px-4 py-6 pb-28">{children}</main>
-      <div className="fixed inset-x-0 bottom-0 mx-auto w-full max-w-xl">
-        <BottomNav items={navItems} />
+    <div className="min-h-dvh md:flex">
+      <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col gap-10 border-r border-line px-5 py-8 md:flex">
+        <div className="px-3">
+          <Logo />
+        </div>
+        <EmployeeNav variant="side" />
+        <div className="mt-auto">
+          <AccountMenu {...account} placement="sidebar" />
+        </div>
+      </aside>
+
+      <div className="flex min-h-dvh min-w-0 flex-1 flex-col">
+        <header className="flex h-16 items-center justify-between px-gutter pt-[env(safe-area-inset-top)] md:hidden">
+          <Logo />
+          <AccountMenu {...account} placement="header" />
+        </header>
+        <main className="mx-auto flex w-full max-w-xl flex-1 flex-col px-gutter pt-2 pb-[calc(var(--spacing-tab-bar)+env(safe-area-inset-bottom)+2rem)] md:px-gutter-desktop md:pt-16 md:pb-16">
+          {children}
+        </main>
+      </div>
+
+      <div className="fixed inset-x-0 bottom-0 z-20 md:hidden">
+        <EmployeeNav variant="tabs" />
       </div>
     </div>
   );

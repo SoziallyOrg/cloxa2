@@ -2,18 +2,16 @@
 
 import { t } from "@cloxa/i18n";
 
+import { Button } from "@/components/ui/Button";
+
 export default function ErrorPage({ reset }: { error: Error; reset: () => void }) {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-4 p-8 text-center">
-      <h1 className="text-3xl font-semibold">{t("errors.genericTitle")}</h1>
-      <p className="text-lg">{t("errors.genericBody")}</p>
-      <button
-        type="button"
-        onClick={reset}
-        className="min-h-touch-target rounded-md bg-primary px-6 py-3 text-lg text-paper"
-      >
+    <main className="mx-auto flex min-h-dvh w-full max-w-sm flex-col justify-center gap-6 px-gutter">
+      <h1 className="text-title">{t("errors.genericTitle")}</h1>
+      <p className="text-body text-ink-2">{t("errors.genericBody")}</p>
+      <Button type="button" wide onClick={reset}>
         {t("errors.retry")}
-      </button>
+      </Button>
     </main>
   );
 }

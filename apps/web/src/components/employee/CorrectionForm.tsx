@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { formatBrusselsTime, t } from "@cloxa/i18n";
@@ -19,10 +20,11 @@ import {
 } from "@/lib/corrections/form";
 
 import { Alert } from "../ui/Alert";
-import { Button } from "../ui/Button";
+import { Button, buttonClassName } from "../ui/Button";
+import { cx } from "../ui/cx";
 import { Field } from "../ui/Field";
-import { Heading } from "../ui/Heading";
-import { Stack } from "../ui/Stack";
+import { GroupedList, ListButtonRow } from "../ui/GroupedList";
+import { IconCheck } from "../ui/icons";
 import { TextInput } from "../ui/TextInput";
 
 export interface CorrectionFormProps {
@@ -35,25 +37,77 @@ export interface CorrectionFormProps {
   ) => Promise<{ ok: boolean; errorKey?: string }>;
 }
 
-const KIND_OPTIONS: readonly { kind: CorrectionKind; labelKey: string }[] = [
+type Key = Parameters<typeof t>[0];
+
+const KIND_OPTIONS: readonly { kind: CorrectionKind; labelKey: Key }[] = [
   { kind: "add", labelKey: "correctionForm.kindAdd" },
   { kind: "adjust", labelKey: "correctionForm.kindAdjust" },
   { kind: "remove", labelKey: "correctionForm.kindRemove" },
 ];
 
-const EVENT_TYPE_OPTIONS: readonly { type: CorrectionEventType; labelKey: string }[] = [
+const EVENT_TYPE_OPTIONS: readonly { type: CorrectionEventType; labelKey: Key }[] = [
   { type: "clock_in", labelKey: "correctionForm.eventTypeClockIn" },
   { type: "clock_out", labelKey: "correctionForm.eventTypeClockOut" },
   { type: "break_start", labelKey: "correctionForm.eventTypeBreakStart" },
   { type: "break_end", labelKey: "correctionForm.eventTypeBreakEnd" },
 ];
 
-const KIND_LABEL_KEY: Record<CorrectionKind, string> = {
+const KIND_LABEL_KEY: Record<CorrectionKind, Key> = {
   add: "correctionForm.kindAdd",
   adjust: "correctionForm.kindAdjust",
   remove: "correctionForm.kindRemove",
 };
 
+/** Three dots plus "Stap 1 van 3": where you are in the wizard. */
+function StepDots({ step }: { step: 1 | 2 | 3 }) {
+  return (
+    <div className="flex items-center gap-3">
+      <span aria-hidden="true" className="flex gap-1.5">
+        {[1, 2, 3].map((dot) => (
+          <span
+            key={dot}
+            className={cx(
+              "size-2 rounded-full",
+              dot === step ? "bg-ink" : dot < step ? "bg-ink-3" : "bg-line",
+            )}
+          />
+        ))}
+      </span>
+      <p className="text-callout text-ink-2">{t("correctionForm.stepOf", { step })}</p>
+    </div>
+  );
+}
+
+/** A big choice row: the whole row is the button; the chosen one gets a check. */
+function Choice({
+  label,
+  selected,
+  onSelect,
+}: {
+  label: string;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <ListButtonRow
+      aria-pressed={selected}
+      title={<span className={selected ? "font-semibold" : undefined}>{label}</span>}
+      value={
+        selected ? (
+          <IconCheck className="size-5 text-ink" strokeWidth={2.5} />
+        ) : (
+          <span className="block size-5" />
+        )
+      }
+      onClick={onSelect}
+    />
+  );
+}
+
+/**
+ * "Klopt er iets niet?" in three steps, one question per screen: what is
+ * wrong, which moment, and why. The step logic lives in `lib/corrections/form`.
+ */
 export function CorrectionForm({
   siteId,
   targets,
@@ -72,7 +126,17 @@ export function CorrectionForm({
   const payload = useMemo(() => buildCorrectionPayload(state, siteId), [state, siteId]);
 
   if (done) {
-    return <Alert tone="success">{t("correctionForm.submitted")}</Alert>;
+    return (
+      <div className="flex flex-1 flex-col gap-8">
+        <Alert tone="success">{t("correctionForm.submitted")}</Alert>
+        <Link
+          href="/app/vragen"
+          className={cx(buttonClassName("secondary", "md", true), "mt-auto")}
+        >
+          {t("correctionForm.toQuestions")}
+        </Link>
+      </div>
+    );
   }
 
   async function handleSubmit() {
@@ -83,133 +147,94 @@ export function CorrectionForm({
     const result = await submitAction(toSubmit);
     setSubmitting(false);
     if (!result.ok) {
-      setError(
-        t(
-          (result.errorKey as Parameters<typeof t>[0]) ?? "correctionForm.genericError",
-        ),
-      );
+      setError(t((result.errorKey as Key) ?? "correctionForm.genericError"));
       return;
     }
     setDone(true);
     router.refresh();
   }
 
+  const title =
+    state.step === 1
+      ? t("correctionForm.step1Title")
+      : state.step === 2
+        ? state.kind === "remove"
+          ? t("correctionForm.step2TitleRemove")
+          : t("correctionForm.step2Title")
+        : t("correctionForm.step3Title");
+
   return (
-    <Stack gap="lg">
-      <p className="text-base text-ink/70">
-        {t("correctionForm.stepOf", { step: state.step })}
-      </p>
-      {error ? (
-        <Alert tone="error" onDismiss={() => setError(null)}>
-          {error}
-        </Alert>
-      ) : null}
+    <div className="flex flex-1 flex-col gap-8">
+      <div className="flex flex-col gap-4">
+        <StepDots step={state.step} />
+        <h1 className="text-title">{title}</h1>
+      </div>
 
       {state.step === 1 ? (
-        <Stack gap="md">
-          <Heading level={2}>{t("correctionForm.step1Title")}</Heading>
+        <GroupedList>
           {KIND_OPTIONS.map((option) => (
-            <Button
+            <Choice
               key={option.kind}
-              variant={state.kind === option.kind ? "primary" : "secondary"}
-              size="xl"
-              onClick={() =>
+              label={t(option.labelKey)}
+              selected={state.kind === option.kind}
+              onSelect={() =>
                 setState((current) => ({
                   ...current,
                   kind: option.kind,
                   targetEventId: null,
                 }))
               }
-            >
-              {t(option.labelKey as Parameters<typeof t>[0])}
-            </Button>
+            />
           ))}
-          <div>
-            <Button
-              variant="primary"
-              size="md"
-              disabled={!canAdvance(state, targets)}
-              onClick={() => setState((current) => goNext(current, targets))}
-            >
-              {t("correctionForm.next")}
-            </Button>
-          </div>
-        </Stack>
+        </GroupedList>
       ) : null}
 
       {state.step === 2 ? (
-        <Stack gap="md">
-          <Heading level={2}>
-            {state.kind === "remove"
-              ? t("correctionForm.step2TitleRemove")
-              : t("correctionForm.step2Title")}
-          </Heading>
-
+        <div className="flex flex-col gap-8">
           {state.kind === "add" ? (
-            <Field id="event-type" label={t("correctionForm.eventTypeLabel")}>
-              <select
-                id="event-type"
-                className="focus-ring min-h-touch-target rounded-md border-2 border-border bg-surface px-4 text-lg text-ink"
-                value={state.eventType ?? ""}
-                onChange={(event) =>
-                  setState((current) => ({
-                    ...current,
-                    eventType: event.target.value as CorrectionEventType,
-                  }))
-                }
-              >
-                <option value="" disabled>
-                  {t("correctionForm.eventTypeLabel")}
-                </option>
-                {EVENT_TYPE_OPTIONS.map((option) => (
-                  <option key={option.type} value={option.type}>
-                    {t(option.labelKey as Parameters<typeof t>[0])}
-                  </option>
-                ))}
-              </select>
-            </Field>
+            <GroupedList heading={t("correctionForm.eventTypeLabel")}>
+              {EVENT_TYPE_OPTIONS.map((option) => (
+                <Choice
+                  key={option.type}
+                  label={t(option.labelKey)}
+                  selected={state.eventType === option.type}
+                  onSelect={() =>
+                    setState((current) => ({ ...current, eventType: option.type }))
+                  }
+                />
+              ))}
+            </GroupedList>
           ) : null}
 
-          {(state.kind === "adjust" || state.kind === "remove") && (
-            <Field
-              id="target-event"
-              label={t("correctionForm.targetLabel")}
-              {...(targets.length === 0 ? { hint: t("correctionForm.noTargets") } : {})}
-            >
-              <select
-                id="target-event"
-                className="focus-ring min-h-touch-target rounded-md border-2 border-border bg-surface px-4 text-lg text-ink"
-                value={state.targetEventId ?? ""}
-                onChange={(event) =>
-                  setState((current) => ({
-                    ...current,
-                    targetEventId: event.target.value || null,
-                  }))
-                }
-              >
-                <option value="" disabled>
-                  {t("correctionForm.targetLabel")}
-                </option>
+          {state.kind === "adjust" || state.kind === "remove" ? (
+            targets.length === 0 ? (
+              <p className="text-body text-ink-2">{t("correctionForm.noTargets")}</p>
+            ) : (
+              <GroupedList heading={t("correctionForm.targetLabel")}>
                 {targets.map((target) => (
-                  <option key={target.id} value={target.id}>
-                    {t("correctionForm.targetOption", {
+                  <Choice
+                    key={target.id}
+                    label={t("correctionForm.targetOption", {
                       type: t(
                         EVENT_TYPE_OPTIONS.find((option) => option.type === target.type)
-                          ?.labelKey as Parameters<typeof t>[0],
+                          ?.labelKey ?? "correctionForm.eventTypeClockIn",
                       ),
                       time: formatBrusselsTime(new Date(target.occurredAtIso)),
                     })}
-                  </option>
+                    selected={state.targetEventId === target.id}
+                    onSelect={() =>
+                      setState((current) => ({ ...current, targetEventId: target.id }))
+                    }
+                  />
                 ))}
-              </select>
-            </Field>
-          )}
+              </GroupedList>
+            )
+          ) : null}
 
           {state.kind !== "remove" ? (
-            <>
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
               <Field id="date" label={t("correctionForm.dateLabel")}>
                 <TextInput
-                  id="date"
                   type="date"
                   value={state.date}
                   onChange={(event) =>
@@ -219,7 +244,6 @@ export function CorrectionForm({
               </Field>
               <Field id="time" label={t("correctionForm.timeLabel")}>
                 <TextInput
-                  id="time"
                   type="time"
                   value={state.time}
                   onChange={(event) =>
@@ -227,28 +251,13 @@ export function CorrectionForm({
                   }
                 />
               </Field>
-            </>
+            </div>
           ) : null}
-
-          <Stack row gap="md">
-            <Button variant="secondary" size="md" onClick={() => setState(goBack)}>
-              {t("correctionForm.back")}
-            </Button>
-            <Button
-              variant="primary"
-              size="md"
-              disabled={!canAdvance(state, targets)}
-              onClick={() => setState((current) => goNext(current, targets))}
-            >
-              {t("correctionForm.next")}
-            </Button>
-          </Stack>
-        </Stack>
+        </div>
       ) : null}
 
       {state.step === 3 ? (
-        <Stack gap="md">
-          <Heading level={2}>{t("correctionForm.step3Title")}</Heading>
+        <div className="flex flex-col gap-8">
           <Field
             id="reason"
             label={t("correctionForm.reasonLabel")}
@@ -256,7 +265,6 @@ export function CorrectionForm({
             optional
           >
             <TextInput
-              id="reason"
               value={state.reason}
               maxLength={280}
               onChange={(event) =>
@@ -265,34 +273,56 @@ export function CorrectionForm({
             />
           </Field>
 
-          <Heading level={3}>{t("correctionForm.summaryTitle")}</Heading>
-          <p>
-            {t("correctionForm.summaryKind", {
-              value: t(KIND_LABEL_KEY[state.kind ?? "add"] as Parameters<typeof t>[0]),
-            })}
-          </p>
-          <p>
-            {state.reason.trim()
-              ? t("correctionForm.summaryReason", { value: state.reason.trim() })
-              : t("correctionForm.summaryNoReason")}
-          </p>
-
-          <Stack row gap="md">
-            <Button variant="secondary" size="md" onClick={() => setState(goBack)}>
-              {t("correctionForm.back")}
-            </Button>
-            <Button
-              variant="primary"
-              size="md"
-              loading={submitting}
-              disabled={payload === null}
-              onClick={() => void handleSubmit()}
-            >
-              {t("correctionForm.submit")}
-            </Button>
-          </Stack>
-        </Stack>
+          <section className="flex flex-col gap-2">
+            <h2 className="px-4 text-callout font-normal text-ink-2">
+              {t("correctionForm.summaryTitle")}
+            </h2>
+            <div className="flex flex-col gap-1 rounded-group bg-fill px-4 py-3.5 text-body">
+              <p>
+                {t("correctionForm.summaryKind", {
+                  value: t(KIND_LABEL_KEY[state.kind ?? "add"]),
+                })}
+              </p>
+              <p className="text-ink-2">
+                {state.reason.trim()
+                  ? t("correctionForm.summaryReason", { value: state.reason.trim() })
+                  : t("correctionForm.summaryNoReason")}
+              </p>
+            </div>
+          </section>
+        </div>
       ) : null}
-    </Stack>
+
+      <div className="mt-auto flex flex-col gap-3 pt-4">
+        {error ? (
+          <Alert tone="error" onDismiss={() => setError(null)}>
+            {error}
+          </Alert>
+        ) : null}
+        {state.step === 3 ? (
+          <Button
+            size="lg"
+            loading={submitting}
+            disabled={payload === null}
+            onClick={() => void handleSubmit()}
+          >
+            {t("correctionForm.submit")}
+          </Button>
+        ) : (
+          <Button
+            size="lg"
+            disabled={!canAdvance(state, targets)}
+            onClick={() => setState((current) => goNext(current, targets))}
+          >
+            {t("correctionForm.next")}
+          </Button>
+        )}
+        {state.step > 1 ? (
+          <Button variant="plain" wide onClick={() => setState(goBack)}>
+            {t("correctionForm.back")}
+          </Button>
+        ) : null}
+      </div>
+    </div>
   );
 }

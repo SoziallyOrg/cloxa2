@@ -145,7 +145,7 @@ export function ExportForm({ sites, quickPicks, action }: ExportFormProps) {
       </fieldset>
 
       <div>
-        <Button type="submit" variant="primary" size="lg" loading={submitting}>
+        <Button type="submit" variant="primary" size="md" loading={submitting}>
           {t("exports.submit")}
         </Button>
       </div>

@@ -22,9 +22,12 @@ test("employee logs in with an email code, cannot enter /manage, and logs out", 
   await page.goto("/manage");
   await expect(page).toHaveURL(/\/app$/);
 
-  // Logout lives in the header's "Menu" disclosure.
-  await page.locator("summary", { hasText: "Menu" }).click();
-  await page.getByRole("button", { name: "Afmelden", exact: true }).click();
+  // Logout lives in the account sheet, opened from the name in the header.
+  await page.getByRole("button", { name: "Jan J.", exact: true }).click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Afmelden", exact: true })
+    .click();
   await expect(page).toHaveURL(/\/login$/);
 
   const cookies = await page.context().cookies();

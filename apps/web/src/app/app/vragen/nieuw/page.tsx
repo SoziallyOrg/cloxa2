@@ -7,9 +7,7 @@ import {
 } from "@cloxa/domain";
 import { t } from "@cloxa/i18n";
 
-import { AppShell } from "@/components/employee/AppShell";
 import { CorrectionForm } from "@/components/employee/CorrectionForm";
-import { Heading } from "@/components/ui/Heading";
 import type { CorrectionTargetOption } from "@/lib/corrections/form";
 import { requireEmployeeArea } from "@/lib/auth/context";
 import { nowMs } from "@/lib/clock/now";
@@ -57,10 +55,10 @@ export default async function NewCorrectionPage({
 
   if (siteId === null) {
     return (
-      <AppShell active="questions">
-        <Heading level={1}>{t("correctionForm.step1Title")}</Heading>
-        <p>{t("sitePicker.none")}</p>
-      </AppShell>
+      <div className="flex flex-col gap-4 pt-6 md:pt-0">
+        <h1 className="text-title">{t("correctionForm.step1Title")}</h1>
+        <p className="text-body text-ink-2">{t("sitePicker.none")}</p>
+      </div>
     );
   }
 
@@ -101,14 +99,13 @@ export default async function NewCorrectionPage({
     }));
 
   return (
-    <AppShell active="questions">
-      <Heading level={1}>{t("correctionForm.step1Title")}</Heading>
+    <div className="flex flex-1 flex-col pt-6 md:pt-0">
       <CorrectionForm
         siteId={siteId}
         targets={targets}
         defaultDate={defaultDate}
         submitAction={submitCorrectionAction}
       />
-    </AppShell>
+    </div>
   );
 }

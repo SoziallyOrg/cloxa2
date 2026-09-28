@@ -14,6 +14,8 @@
  *   journey-e2e@demo.test (site 1; reserved for manager-journey.spec.ts)
  *   owner-e2e@demo.test (owner, site 1; reserved for e2e specs needing owner
  *     rights, so eigenaar@demo.test's session is never disturbed)
+ *   screens-e2e@demo.test (site 1; reserved for `pnpm screens`, with a few weeks
+ *     of made-up history: one corrected shift, one offline shift, three questions)
  * Codes arrive in the local Mailpit: http://127.0.0.1:54324
  *
  * Refuses to run unless both the Supabase API and the database are on
@@ -54,6 +56,7 @@ const SEED_OWNER = { email: "seed-owner@demo.test", name: "Seed Owner (intern)" 
 // offboarding): also never a human's account, so its factors can be reset
 // freely. Given a membership and employee row directly, like SEED_OWNER.
 const OWNER_E2E = { email: "owner-e2e@demo.test", name: "Owen Testeigenaar" };
+const SCREENS = { email: "screens-e2e@demo.test", name: "Sanne Peeters" };
 const MEMBERS: readonly {
   email: string;
   name: string;
@@ -115,6 +118,13 @@ const MEMBERS: readonly {
   {
     email: "journey-e2e@demo.test",
     name: "Jef Journeytest",
+    role: "employee",
+    sites: ["main"],
+  },
+  // Dedicated to `pnpm screens` (design screenshots): gets realistic history.
+  {
+    email: SCREENS.email,
+    name: SCREENS.name,
     role: "employee",
     sites: ["main"],
   },
@@ -445,6 +455,14 @@ async function main(): Promise<void> {
     }
   }
 
+  await seedScreensHistory({
+    dbUrl,
+    orgId,
+    siteId: siteIds.main,
+    userId: await ensureUser(SCREENS.email),
+    deciderId: ownerId,
+  });
+
   console.log(
     `Demo organization ready: 2 sites, ${MEMBERS.length + 1} accounts (${created} newly linked).`,
   );
@@ -452,6 +470,210 @@ async function main(): Promise<void> {
     "Log in at /login with an address listed in apps/web/scripts/dev-seed.ts.",
   );
   console.log("Codes arrive in Mailpit: http://127.0.0.1:54324");
+}
+
+// Screens history ------------------------------------------------------------------------
+
+const DAY_KEY = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Europe/Brussels",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+const WEEKDAY = new Intl.DateTimeFormat("en-US", {
+  timeZone: "Europe/Brussels",
+  weekday: "short",
+});
+const HOUR_MINUTE = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "Europe/Brussels",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
+
+/** A Brussels wall-clock time (minutes after midnight) on a Brussels day, DST included. */
+function brussels(dayKey: string, minutes: number): Date {
+  const [y = 0, m = 1, d = 1] = dayKey.split("-").map(Number);
+  const naive = Date.UTC(y, m - 1, d, 0, minutes);
+  for (const offsetHours of [2, 1]) {
+    const guess = new Date(naive - offsetHours * 3_600_000);
+    const [hh = "0", mm = "0"] = HOUR_MINUTE.format(guess).split(":");
+    if (Number(hh) * 60 + Number(mm) === minutes % 1440) return guess;
+  }
+  return new Date(naive - 3_600_000);
+}
+
+type SeedEventType = "clock_in" | "clock_out" | "break_start" | "break_end";
+
+/**
+ * Made-up history for the screens account: weekday shifts over the last three
+ * weeks, one of them corrected and one clocked offline, plus three questions.
+ * Idempotent: a day that already has events is left alone.
+ *
+ * Live clock events always get occurred_at = server time (the append trigger),
+ * so past history can't be made through the app. This local-only seed appends
+ * them with triggers off (session_replication_role) and does by hand exactly
+ * what the append trigger does (chain lock, hash, chain head), except that it
+ * keeps occurred_at. The hash chain stays valid.
+ */
+async function seedScreensHistory(input: {
+  dbUrl: string;
+  orgId: string;
+  siteId: string;
+  userId: string;
+  deciderId: string;
+}): Promise<void> {
+  const { dbUrl, orgId, siteId, userId, deciderId } = input;
+  const sql = postgres(dbUrl, { max: 1, onnotice: () => undefined });
+  try {
+    const [invitation] = await sql<{ employee_id: string }[]>`
+      select employee_id from public.invitations
+      where organization_id = ${orgId} and email = ${SCREENS.email}
+      order by created_at desc limit 1`;
+    if (!invitation) throw new Error("screens-e2e has no invitation");
+    const employeeId = invitation.employee_id;
+
+    // A schedule every day, so the clock shows its progress track on any day.
+    const [schedule] = await sql`
+      select 1 from public.schedules
+      where organization_id = ${orgId} and employee_id = ${employeeId} limit 1`;
+    if (!schedule) {
+      const block = [{ start: "08:00", end: "16:30" }];
+      const pattern = Object.fromEntries(
+        ["mon", "tue", "wed", "thu", "fri", "sat", "sun"].map((day) => [day, block]),
+      );
+      await sql`
+        insert into public.schedules
+          (organization_id, employee_id, version, valid_from, pattern, created_by, notified_at)
+        values (${orgId}, ${employeeId}, 1, ${"2026-01-01"}, ${sql.json(pattern)},
+          ${deciderId}, now())`;
+    }
+
+    const existing = await sql<{ occurred_at: Date }[]>`
+      select occurred_at from public.clock_events
+      where organization_id = ${orgId} and employee_id = ${employeeId}`;
+    const busyDays = new Set(existing.map((row) => DAY_KEY.format(row.occurred_at)));
+
+    const now = Date.now();
+    const days: string[] = [];
+    for (let back = 1; back <= 21; back += 1) {
+      const probe = new Date(now - back * 86_400_000);
+      if (["Sat", "Sun"].includes(WEEKDAY.format(probe))) continue;
+      days.push(DAY_KEY.format(probe));
+    }
+
+    const toCorrect: { id: string; at: Date }[] = [];
+    await sql.begin(async (tx) => {
+      await tx`set local session_replication_role = replica`;
+      for (const [index, day] of days.entries()) {
+        if (busyDays.has(day)) continue;
+        const jitter = (index * 7) % 11;
+        const offline = index === 1;
+        const events: { type: SeedEventType; at: Date }[] = [
+          { type: "clock_in", at: brussels(day, 8 * 60 - 4 + jitter) },
+          { type: "break_start", at: brussels(day, 12 * 60 + jitter) },
+          { type: "break_end", at: brussels(day, 12 * 60 + 30 + jitter) },
+          { type: "clock_out", at: brussels(day, 16 * 60 + 25 + ((jitter * 3) % 13)) },
+        ];
+        for (const event of events) {
+          const [head] = await tx<{ prev: Buffer }[]>`
+            select private.chain_lock_head(${orgId}::uuid, 'clock_events') as prev`;
+          const [row] = await tx<{ id: string }[]>`
+            insert into public.clock_events (
+              organization_id, site_id, employee_id, type, occurred_at,
+              client_captured_at, source, actor_user_id, idempotency_key, offline,
+              prev_hash, hash)
+            values (
+              ${orgId}, ${siteId}, ${employeeId}, ${event.type}, ${event.at},
+              ${offline ? event.at : null}, 'app', ${userId}, gen_random_uuid(), ${offline},
+              ${head!.prev}, decode(md5(random()::text) || md5(random()::text), 'hex'))
+            returning id`;
+          const [hashed] = await tx<{ hash: Buffer }[]>`
+            update public.clock_events as event
+            set hash = private.chain_hash(event.prev_hash, private.clock_event_canonical(event))
+            where event.id = ${row!.id}
+            returning event.hash`;
+          await tx`
+            select private.chain_set_head(
+              ${orgId}::uuid, 'clock_events', ${row!.id}::uuid, ${hashed!.hash})`;
+          if (index === 3 && event.type === "clock_out") {
+            toCorrect.push({ id: row!.id, at: event.at });
+          }
+        }
+      }
+    });
+
+    const [anyRequest] = await sql`
+      select 1 from public.correction_requests
+      where organization_id = ${orgId} and employee_id = ${employeeId} limit 1`;
+    if (anyRequest) return;
+
+    const decidedAt = new Date(now - 2 * 86_400_000);
+    const target = toCorrect[0];
+    if (target) {
+      const corrected = new Date(target.at.getTime() + 45 * 60_000);
+      const proposed = {
+        events: [{ target_event_id: target.id, occurred_at: corrected.toISOString() }],
+      };
+      const [request] = await sql<{ id: string }[]>`
+        insert into public.correction_requests (
+          organization_id, employee_id, requested_by, kind, target_event_ids,
+          proposed, reason, status, decided_by, decided_at, created_at)
+        values (
+          ${orgId}, ${employeeId}, ${userId}, 'adjust', ${sql.array([target.id])}::uuid[],
+          ${sql.json(proposed)}, 'Ik ben later gestopt: de levering kwam laat.',
+          'approved', ${deciderId}, ${decidedAt},
+          ${new Date(decidedAt.getTime() - 3_600_000)})
+        returning id`;
+      // A correction keeps its occurred_at through the normal append trigger.
+      await sql`
+        insert into public.clock_events (
+          organization_id, site_id, employee_id, type, occurred_at, source,
+          supersedes_event_id, correction_id, actor_user_id, idempotency_key,
+          prev_hash, hash)
+        values (
+          ${orgId}, ${siteId}, ${employeeId}, 'clock_out', ${corrected}, 'correction',
+          ${target.id}, ${request!.id}, ${deciderId}, gen_random_uuid(),
+          decode(md5(random()::text) || md5(random()::text), 'hex'), decode(md5(random()::text) || md5(random()::text), 'hex'))`;
+    }
+
+    const rejected = {
+      events: [
+        {
+          type: "clock_in",
+          occurred_at: brussels(days[6] ?? days[0]!, 7 * 60 + 30).toISOString(),
+          site_id: siteId,
+        },
+      ],
+    };
+    await sql`
+      insert into public.correction_requests (
+        organization_id, employee_id, requested_by, kind, proposed, reason, status,
+        decided_by, decided_at, decision_note, created_at)
+      values (
+        ${orgId}, ${employeeId}, ${userId}, 'add', ${sql.json(rejected)},
+        'Ik begon vroeger voor de inventaris.', 'rejected', ${deciderId}, ${decidedAt},
+        'Die dag begon je om 08:00, zoals gepland.',
+        ${new Date(decidedAt.getTime() - 7_200_000)})`;
+
+    const pending = {
+      events: [
+        {
+          type: "break_start",
+          occurred_at: brussels(days[0]!, 12 * 60).toISOString(),
+          site_id: siteId,
+        },
+      ],
+    };
+    await sql`
+      insert into public.correction_requests (
+        organization_id, employee_id, requested_by, kind, proposed, reason)
+      values (
+        ${orgId}, ${employeeId}, ${userId}, 'add', ${sql.json(pending)},
+        'Ik vergat mijn pauze te klokken.')`;
+  } finally {
+    await sql.end();
+  }
 }
 
 main().catch((error: unknown) => {

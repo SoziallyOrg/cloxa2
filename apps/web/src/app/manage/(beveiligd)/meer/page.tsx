@@ -31,7 +31,7 @@ export default async function ManageMeerPage() {
           <li>
             <Link
               href={"/manage/meer/exports" as Route}
-              className="focus-ring text-lg font-semibold text-primary underline"
+              className="focus-ring text-lg font-semibold text-ink underline"
             >
               {t("exports.moreLink")}
             </Link>
@@ -41,7 +41,7 @@ export default async function ManageMeerPage() {
             <li>
               <Link
                 href={"/manage/meer/kiosks" as Route}
-                className="focus-ring text-lg font-semibold text-primary underline"
+                className="focus-ring text-lg font-semibold text-ink underline"
               >
                 {t("manageKiosks.moreLink")}
               </Link>
@@ -52,7 +52,7 @@ export default async function ManageMeerPage() {
             <li>
               <Link
                 href={"/manage/meer/audit" as Route}
-                className="focus-ring text-lg font-semibold text-primary underline"
+                className="focus-ring text-lg font-semibold text-ink underline"
               >
                 {t("audit.moreLink")}
               </Link>
@@ -63,7 +63,7 @@ export default async function ManageMeerPage() {
             <li>
               <Link
                 href={"/manage/meer/instellingen" as Route}
-                className="focus-ring text-lg font-semibold text-primary underline"
+                className="focus-ring text-lg font-semibold text-ink underline"
               >
                 {t("manageMore.settings")}
               </Link>
@@ -72,7 +72,7 @@ export default async function ManageMeerPage() {
           <li>
             <Link
               href={"/manage/beveiliging/instellen" as Route}
-              className="focus-ring text-lg font-semibold text-primary underline"
+              className="focus-ring text-lg font-semibold text-ink underline"
             >
               {t("manageMore.security")}
             </Link>
@@ -81,7 +81,7 @@ export default async function ManageMeerPage() {
         {context.employeeId !== null ? (
           <Link
             href={"/app" as Route}
-            className="focus-ring inline-flex min-h-touch-target w-fit items-center rounded-md border-2 border-primary px-6 text-lg font-semibold text-primary"
+            className="focus-ring inline-flex min-h-touch-target w-fit items-center rounded-md border-2 border-ink px-6 text-lg font-semibold text-ink"
           >
             {t("manageNav.switchToEmployee")}
           </Link>

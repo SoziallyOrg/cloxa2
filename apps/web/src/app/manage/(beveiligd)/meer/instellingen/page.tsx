@@ -45,7 +45,7 @@ export default async function ManageSettingsPage() {
       <div className="flex max-w-xl flex-col gap-6">
         <Link
           href={"/manage/meer" as Route}
-          className="focus-ring self-start font-semibold text-primary underline"
+          className="focus-ring self-start font-semibold text-ink underline"
         >
           {t("common.back")}
         </Link>

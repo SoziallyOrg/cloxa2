@@ -1,18 +1,32 @@
 import { t } from "@cloxa/i18n";
 
+import { cx } from "../ui/cx";
+
 export interface OfflineBannerProps {
   /** Clock actions are kept on the device and sent later (ADR 006). */
   queueing: boolean;
 }
 
-/** Shown whenever the client detects it has no connection. */
+/**
+ * Shown whenever the client detects it has no connection. Calm when clocking
+ * still works (kept on the device); orange when it doesn't.
+ */
 export function OfflineBanner({ queueing }: OfflineBannerProps) {
   return (
-    <p
+    <div
       role="status"
-      className="rounded-md bg-status-off-bg px-4 py-3 text-center font-semibold text-status-off"
+      className="flex items-start gap-3 rounded-group bg-fill px-4 py-3.5"
     >
-      {t(queueing ? "offline.banner" : "offline.bannerUnsupported")}
-    </p>
+      <span
+        aria-hidden="true"
+        className={cx(
+          "mt-1.5 size-3 shrink-0 rounded-full ring-[3px]",
+          queueing ? "bg-ink-3 ring-ink-3/20" : "bg-attention ring-attention/20",
+        )}
+      />
+      <p className="text-callout text-ink">
+        {t(queueing ? "offline.banner" : "offline.bannerUnsupported")}
+      </p>
+    </div>
   );
 }

@@ -8,11 +8,7 @@ export interface CardProps {
   className?: string;
 }
 
-/** Flat surface, generous padding, a hairline border — no shadows or gradients. */
+/** A quiet block on `fill`: no border, no shadow. */
 export function Card({ children, className }: CardProps) {
-  return (
-    <div className={cx("rounded-lg border border-border bg-surface p-6", className)}>
-      {children}
-    </div>
-  );
+  return <div className={cx("rounded-group bg-fill p-6", className)}>{children}</div>;
 }

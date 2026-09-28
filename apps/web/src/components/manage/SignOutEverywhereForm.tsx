@@ -26,7 +26,7 @@ export function SignOutEverywhereForm({
       }}
     >
       <input type="hidden" name="employeeId" value={employeeId} />
-      <Button type="submit" variant="danger" size="md">
+      <Button type="submit" variant="destructive" size="md">
         {t("manageTeam.signOutEverywhere")}
       </Button>
     </form>

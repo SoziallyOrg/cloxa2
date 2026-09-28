@@ -23,7 +23,7 @@ const button = (page: Page, name: string) =>
 async function ensureOff(page: Page): Promise<void> {
   const start = button(page, "Start werk");
   const stop = button(page, "Stop werk");
-  const endBreak = button(page, "Pauze stoppen");
+  const endBreak = button(page, "Stop pauze");
   await expect(start.or(stop).or(endBreak)).toBeVisible();
   if (await endBreak.isVisible()) {
     await endBreak.click();
@@ -62,55 +62,51 @@ test("employee clocks a shift with a break, sees it in Mijn uren and asks for a 
 
   await page.goto("/app");
   await ensureOff(page);
-  await expect(page.getByText("Je bent niet aan het werk")).toBeVisible();
+  await expect(page.getByText("Niet aan het werk", { exact: true })).toBeVisible();
 
   // Clock in: the confirmation, then the working state from the server.
   await button(page, "Start werk").click();
   await expect(page.getByRole("status")).toContainText("Gestart om", SETTLED);
-  const since = page.getByText(/^Je bent aan het werk sinds/);
+  await expect(page.getByText("Aan het werk", { exact: true })).toBeVisible(SETTLED);
+  const since = page.getByText(/^Gestart om \d{1,2}[:.]\d{2} · geen pauze$/);
   await expect(since).toBeVisible(SETTLED);
   const startedAt = TIME.exec(await since.innerText())![0];
 
-  await button(page, "Pauze starten").click();
-  await expect(page.getByText(/^Je bent met pauze sinds/)).toBeVisible(SETTLED);
-  await button(page, "Pauze stoppen").click();
+  await button(page, "Pauze").click();
+  await expect(page.getByText("Met pauze", { exact: true })).toBeVisible(SETTLED);
+  await expect(page.getByText(/ · pauze sinds \d{1,2}[:.]\d{2}$/)).toBeVisible();
+  await button(page, "Stop pauze").click();
   await expect(button(page, "Stop werk")).toBeVisible(SETTLED);
   await button(page, "Stop werk").click();
   await expect(button(page, "Start werk")).toBeVisible(SETTLED);
   await expect(page.getByRole("main").getByRole("alert")).toHaveCount(0);
 
-  // Today's newest shift is closed and starts when the status said it did.
-  const today = page
-    .locator("section", { has: page.getByRole("heading", { name: "Vandaag" }) })
-    .getByRole("listitem")
-    .last();
-  const range = RANGE.exec(await today.innerText());
-  expect(range?.[1]).toBe(startedAt);
-  const shiftRange = range![0];
-
-  // Mijn uren: newest first, with the same shift and a week total.
-  await page.getByRole("link", { name: "Mijn uren" }).click();
+  // Mijn uren: newest first, with a week total; the newest shift is the one
+  // just made, closed, and starts when the clock said it did.
+  await page.getByRole("link", { name: "Uren", exact: true }).click();
   await expect(page).toHaveURL(/\/app\/uren$/);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Mijn uren");
-  await expect(page.getByText(/^Deze week gewerkt: .+ \(indicatief\)$/)).toBeVisible();
+  await expect(page.getByText("Deze week gewerkt", { exact: true })).toBeVisible();
+  await expect(page.getByText("indicatief", { exact: true })).toBeVisible();
   const newest = page.getByRole("main").getByRole("listitem").first();
-  await expect(newest).toContainText(shiftRange);
+  const range = RANGE.exec(await newest.innerText());
+  expect(range?.[1]).toBe(startedAt);
+
+  // The day's detail opens in a sheet, with "Klopt er iets niet?".
+  await newest.getByRole("button").click();
+  const detail = page.getByRole("dialog");
+  await expect(detail).toContainText(range![0]);
 
   // Correction, in three steps: the clock-out "does not belong here".
-  await newest.getByRole("link", { name: "Klopt er iets niet?" }).click();
+  await detail.getByRole("link", { name: "Klopt er iets niet?" }).click();
   await expect(page).toHaveURL(/\/app\/vragen\/nieuw\?datum=\d{4}-\d{2}-\d{2}$/);
   await expect(page.getByText("Stap 1 van 3")).toBeVisible();
   await button(page, "Deze registratie hoort er niet bij").click();
   await button(page, "Volgende").click();
 
   await expect(page.getByText("Stap 2 van 3")).toBeVisible();
-  const target = page.getByLabel("Kies de registratie");
   // Targets are in time order; the last clock-out is the one just made.
-  const clockOut = await target
-    .locator("option", { hasText: `Gestopt met werken - ${range![2]}` })
-    .last()
-    .getAttribute("value");
-  await target.selectOption(clockOut!);
+  await button(page, `Gestopt met werken - ${range![2]}`).last().click();
   await button(page, "Volgende").click();
 
   await expect(page.getByText("Stap 3 van 3")).toBeVisible();
@@ -120,7 +116,7 @@ test("employee clocks a shift with a break, sees it in Mijn uren and asks for a 
   await expect(page.getByRole("status")).toHaveText("Je melding is verstuurd.");
 
   // Vragen: the request is pending; withdrawing it keeps the next run clean.
-  await page.getByRole("link", { name: "Vragen" }).click();
+  await page.getByRole("link", { name: "Vragen", exact: true }).click();
   await expect(page).toHaveURL(/\/app\/vragen$/);
   const request = page
     .getByRole("main")

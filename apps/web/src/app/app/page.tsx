@@ -10,6 +10,7 @@ import {
 import { myStatus, scheduleFor } from "@cloxa/db";
 import { formatBrusselsTime, t } from "@cloxa/i18n";
 
+import type { PlannedDay } from "@/components/clock/clock-face";
 import { EmployeeHomeContainer } from "@/components/employee/EmployeeHomeContainer";
 import { SitePicker } from "@/components/clock/SitePicker";
 import { requireEmployeeArea } from "@/lib/auth/context";
@@ -26,15 +27,6 @@ export default async function EmployeeAppPage() {
   const context = await requireEmployeeArea();
   const supabase = await createClient();
   const now = nowMs();
-
-  const { data: employee, error: employeeError } = await supabase
-    .from("employees")
-    .select("display_name")
-    .eq("id", context.employeeId)
-    .single();
-  if (employeeError) throw new Error(`employee_unavailable:${employeeError.code}`);
-  const firstName =
-    employee.display_name.trim().split(/\s+/)[0] ?? employee.display_name;
 
   const { data: assignments, error: assignmentsError } = await supabase
     .from("site_assignments")
@@ -58,9 +50,9 @@ export default async function EmployeeAppPage() {
 
   if (sites.length === 0) {
     return (
-      <main className="mx-auto flex min-h-screen max-w-lg flex-col justify-center gap-4 p-6">
-        <p className="text-lg">{t("sitePicker.none")}</p>
-      </main>
+      <div className="flex flex-1 flex-col justify-center">
+        <p className="text-body text-ink-2">{t("sitePicker.none")}</p>
+      </div>
     );
   }
 
@@ -123,26 +115,32 @@ export default async function EmployeeAppPage() {
     from: todayKey,
     to: todayKey,
   });
-  const plannedToday =
+  const planned: PlannedDay | null =
     scheduleToday.length === 0
       ? null
-      : scheduleToday
-          .map(
-            (row) =>
-              `${formatBrusselsTime(new Date(row.start_at))}–${formatBrusselsTime(new Date(row.end_at))}`,
-          )
-          .join(", ");
+      : {
+          start: Math.min(...scheduleToday.map((row) => Date.parse(row.start_at))),
+          end: Math.max(...scheduleToday.map((row) => Date.parse(row.end_at))),
+          netMs: scheduleToday.reduce(
+            (sum, row) => sum + Date.parse(row.end_at) - Date.parse(row.start_at),
+            0,
+          ),
+          range: scheduleToday
+            .map(
+              (row) =>
+                `${formatBrusselsTime(new Date(row.start_at))}–${formatBrusselsTime(new Date(row.end_at))}`,
+            )
+            .join(", "),
+        };
 
   return (
     <EmployeeHomeContainer
       employeeId={context.employeeId}
-      firstName={firstName}
       initialShiftState={initialShiftState}
       initialSince={initialSince}
       initialNow={now}
       todayShifts={todayShifts}
-      plannedToday={plannedToday}
-      activeNav="clock"
+      planned={planned}
       siteId={siteId}
     />
   );

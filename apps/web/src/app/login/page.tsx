@@ -22,14 +22,17 @@ export default async function LoginPage({
   const linkFailed = params["fout"] === "link";
 
   return (
-    <AuthShell title={t("login.title")}>
+    <AuthShell
+      title={t("login.title")}
+      intro={
+        linkFailed ? (
+          <p role="alert" className="text-body font-medium text-danger">
+            {t("login.linkInvalid")}
+          </p>
+        ) : null
+      }
+    >
       <ClearShellCache />
-      {linkFailed ? (
-        <p role="alert" className="text-lg font-semibold text-status-error">
-          {t("login.linkInvalid")}
-        </p>
-      ) : null}
-      <p className="text-lg">{t("login.intro")}</p>
       <LoginForm next={next} turnstileSiteKey={turnstileSiteKey()} />
     </AuthShell>
   );

@@ -3,7 +3,7 @@ import { t } from "@cloxa/i18n";
 import { Button } from "../ui/Button";
 import { Field } from "../ui/Field";
 import { Stack } from "../ui/Stack";
-import { StatusBadge, type StatusTone } from "../ui/StatusBadge";
+import { StatusLine, type StatusTone } from "../ui/StatusLine";
 import { TextInput } from "../ui/TextInput";
 
 export interface RequestCardChange {
@@ -47,14 +47,14 @@ export function RequestCard({
   rejectAction,
 }: RequestCardProps) {
   return (
-    <li className="flex flex-col gap-4 rounded-lg border border-border p-4">
+    <li className="flex flex-col gap-4 rounded-lg border border-line p-4">
       <Stack row gap="sm" className="flex-wrap justify-between">
         <div className="flex flex-col">
           <span className="text-lg font-semibold">{employeeName}</span>
-          <span className="text-ink/70">{dateLabel}</span>
+          <span className="text-ink-2">{dateLabel}</span>
         </div>
         {decision ? (
-          <StatusBadge tone={decision.tone} label={decision.statusLabel} />
+          <StatusLine size="sm" tone={decision.tone} label={decision.statusLabel} />
         ) : null}
       </Stack>
 
@@ -62,7 +62,7 @@ export function RequestCard({
 
       <ul className="flex flex-col gap-1">
         {changes.map((change, index) => (
-          <li key={index} className="text-ink/70">
+          <li key={index} className="text-ink-2">
             {change.typeLabel}:{" "}
             {change.beforeLabel ? (
               <span>
@@ -78,7 +78,7 @@ export function RequestCard({
       </ul>
 
       {resultingShiftLabel ? (
-        <p className="text-ink/70">
+        <p className="text-ink-2">
           {t("manageVragen.resultingShiftLabel", { value: resultingShiftLabel })}
         </p>
       ) : null}
@@ -86,12 +86,12 @@ export function RequestCard({
       {reason ? (
         <div>
           <p className="text-base font-semibold">{t("manageVragen.reasonLabel")}</p>
-          <p className="text-ink/70">{reason}</p>
+          <p className="text-ink-2">{reason}</p>
         </div>
       ) : null}
 
       {decision?.note ? (
-        <p className="text-ink/70">
+        <p className="text-ink-2">
           {t("manageVragen.decidedNote", { note: decision.note })}
         </p>
       ) : null}
@@ -114,7 +114,7 @@ export function RequestCard({
                 maxLength={280}
               />
             </Field>
-            <Button type="submit" variant="danger" size="md">
+            <Button type="submit" variant="destructive" size="md">
               {t("manageVragen.reject")}
             </Button>
           </form>

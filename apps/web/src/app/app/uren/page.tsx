@@ -10,15 +10,16 @@ import {
   type ClockEventSource,
   type ClockEventType,
 } from "@cloxa/domain";
-import { t } from "@cloxa/i18n";
+import { formatBrusselsDate, t } from "@cloxa/i18n";
 
-import { AppShell } from "@/components/employee/AppShell";
-import { ScheduleBlocksList } from "@/components/employee/ScheduleBlocksList";
 import { formatDurationMs } from "@/components/clock/format";
-import { ShiftList } from "@/components/clock/ShiftList";
-import { SelfExportLink } from "@/components/exports/SelfExportLink";
+import { formatShiftRow } from "@/components/clock/shift-row";
 import { weekTotalMs } from "@/components/clock/week-total";
-import { Heading } from "@/components/ui/Heading";
+import { HoursList, type HoursRow } from "@/components/employee/HoursList";
+import { ScheduleBlocksList } from "@/components/employee/ScheduleBlocksList";
+import { SelfExportLink } from "@/components/exports/SelfExportLink";
+import { buttonClassName } from "@/components/ui/Button";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { requireEmployeeArea } from "@/lib/auth/context";
 import { nowMs } from "@/lib/clock/now";
 import { nextWeekRange, thisWeekRange } from "@/lib/schedule/week-range";
@@ -86,42 +87,69 @@ export default async function HoursPage({
   const thisWeekRows = scheduleRows.filter((row) => row.day <= thisWeek.to);
   const nextWeekRows = scheduleRows.filter((row) => row.day >= nextWeek.from);
 
+  const rows: HoursRow[] = shifts.map((shift, index) => {
+    const row = formatShiftRow(shift);
+    return {
+      key: `${shift.start}-${index}`,
+      date: row.date,
+      longDate: formatBrusselsDate(new Date(shift.start)),
+      range: row.range,
+      pause: row.pause,
+      net: row.net,
+      edited: row.edited,
+      offline: row.offline,
+      offlineSkew: row.offlineSkew,
+      correctionHref: `/app/vragen/nieuw?datum=${brusselsDayKey(shift.start)}`,
+    };
+  });
+
   return (
-    <AppShell active="hours">
-      <Heading level={1}>{t("hours.heading")}</Heading>
-      <SelfExportLink />
+    <div className="flex flex-col gap-10 pt-6 md:pt-0">
+      <h1 className="text-title">{t("hours.heading")}</h1>
+
       {weekTotal !== null ? (
-        <p className="text-lg font-semibold">
-          {t("hours.weekTotal", { value: formatDurationMs(weekTotal) })}
-        </p>
+        <section className="-mt-4 flex flex-col gap-1">
+          <p className="text-callout text-ink-2">{t("hours.weekLabel")}</p>
+          <p className="text-number">{formatDurationMs(weekTotal)}</p>
+          <p className="text-callout text-ink-2">{t("hours.indicative")}</p>
+        </section>
       ) : null}
 
-      <section className="flex flex-col gap-3">
-        <Heading level={2}>{t("schedule.myScheduleHeading")}</Heading>
-        <div className="flex flex-col gap-2" data-testid="schedule-this-week">
-          <Heading level={3}>{t("schedule.myScheduleThisWeek")}</Heading>
-          <ScheduleBlocksList rows={thisWeekRows} />
-        </div>
-        <div className="flex flex-col gap-2" data-testid="schedule-next-week">
-          <Heading level={3}>{t("schedule.myScheduleNextWeek")}</Heading>
-          <ScheduleBlocksList rows={nextWeekRows} />
-        </div>
-      </section>
-
-      <ShiftList
-        shifts={shifts}
-        correctionHref={(shift) =>
-          `/app/vragen/nieuw?datum=${brusselsDayKey(shift.start)}`
-        }
-      />
-      <p>
+      <div className="flex flex-col gap-3">
+        {rows.length === 0 ? (
+          <EmptyState title={t("shifts.emptyTitle")} body={t("shifts.emptyBody")} />
+        ) : (
+          <HoursList
+            heading={voorRaw ? t("hours.olderHeading") : t("hours.recentHeading")}
+            rows={rows}
+          />
+        )}
         <Link
           href={olderHref as Route}
-          className="focus-ring font-semibold text-primary underline"
+          className={`${buttonClassName("plain", "md")} self-start`}
         >
           {t("hours.olderLink")}
         </Link>
-      </p>
-    </AppShell>
+      </div>
+
+      <section className="flex flex-col gap-4">
+        <h2 className="text-headline">{t("schedule.myScheduleHeading")}</h2>
+        <ScheduleBlocksList
+          heading={t("schedule.myScheduleThisWeek")}
+          rows={thisWeekRows}
+          testId="schedule-this-week"
+        />
+        <ScheduleBlocksList
+          heading={t("schedule.myScheduleNextWeek")}
+          rows={nextWeekRows}
+          testId="schedule-next-week"
+        />
+      </section>
+
+      <section className="flex flex-col gap-4">
+        <h2 className="text-headline">{t("hours.downloadHeading")}</h2>
+        <SelfExportLink />
+      </section>
+    </div>
   );
 }

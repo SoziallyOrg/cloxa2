@@ -47,7 +47,7 @@ export default async function KioskPage() {
       <Message title={t("kiosk.unpairedTitle")} body={t("kiosk.unpairedBody")}>
         <Link
           href={"/kiosk/koppelen" as Route}
-          className={buttonClassName("primary", "xl")}
+          className={buttonClassName("primary", "lg")}
         >
           {t("kiosk.unpairedAction")}
         </Link>
@@ -65,7 +65,7 @@ export default async function KioskPage() {
       return (
         <Message title={t("kiosk.revokedTitle")} body={t("kiosk.revokedBody")}>
           <form action={forgetKioskAction}>
-            <Button type="submit" size="xl">
+            <Button type="submit" size="lg">
               {t("kiosk.revokedAction")}
             </Button>
           </form>

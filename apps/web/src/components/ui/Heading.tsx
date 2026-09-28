@@ -11,12 +11,12 @@ export interface HeadingProps {
 }
 
 const LEVEL_CLASSES: Record<HeadingLevel, string> = {
-  1: "text-2xl font-bold",
-  2: "text-xl font-semibold",
-  3: "text-lg font-semibold",
+  1: "text-title",
+  2: "text-headline",
+  3: "text-body font-semibold",
 };
 
-/** Semantic heading with a fixed, calm type scale — no ad hoc font sizes. */
+/** Semantic heading on the type scale: title, headline, then body semibold. */
 export function Heading({ level = 1, children, className }: HeadingProps) {
   const Tag = `h${level}` as const;
 

@@ -81,12 +81,12 @@ export default async function ManageExportsPage() {
       <div className="flex flex-col gap-8">
         <div className="flex flex-col gap-2">
           <Heading level={1}>{t("exports.heading")}</Heading>
-          <p className="text-lg text-ink/70">{t("exports.intro")}</p>
-          <p className="text-lg text-ink/70">{t("exports.indicative")}</p>
-          <p className="text-lg text-ink/70">{t("exports.csvUnsigned")}</p>
+          <p className="text-lg text-ink-2">{t("exports.intro")}</p>
+          <p className="text-lg text-ink-2">{t("exports.indicative")}</p>
+          <p className="text-lg text-ink-2">{t("exports.csvUnsigned")}</p>
         </div>
 
-        <section className="max-w-xl rounded-lg border border-border p-4">
+        <section className="max-w-xl rounded-lg border border-line p-4">
           <ExportForm
             sites={sites}
             quickPicks={periodQuickPicks(nowMs())}
@@ -97,7 +97,7 @@ export default async function ManageExportsPage() {
         <section className="flex flex-col gap-4">
           <Heading level={2}>{t("exports.listHeading")}</Heading>
           {exportRows.length === 0 ? (
-            <p className="text-ink/70">{t("exports.empty")}</p>
+            <p className="text-ink-2">{t("exports.empty")}</p>
           ) : (
             <ul className="flex flex-col gap-3">
               {exportRows.map((row) => {
@@ -105,7 +105,7 @@ export default async function ManageExportsPage() {
                 return (
                   <li
                     key={row.id}
-                    className="flex flex-col gap-3 rounded-lg border border-border p-4"
+                    className="flex flex-col gap-3 rounded-lg border border-line p-4"
                   >
                     <div className="flex flex-col gap-1">
                       <p className="text-lg font-semibold">
@@ -114,21 +114,21 @@ export default async function ManageExportsPage() {
                           to: dateLabel(row.period_to),
                         })}
                       </p>
-                      <p className="text-ink/70">
+                      <p className="text-ink-2">
                         {sitesLabel(row.site_ids)} ·{" "}
                         {t("exports.rows", { count: row.row_count })}
                       </p>
-                      <p className="text-ink/70">
+                      <p className="text-ink-2">
                         {t("exports.createdBy", {
                           name: creatorLabel(row.created_by),
                           date: `${formatBrusselsDate(createdAt)} ${formatBrusselsTime(createdAt)}`,
                         })}
                       </p>
-                      <p className="font-mono text-ink/70">
+                      <p className="font-mono text-ink-2">
                         {t("exports.hash", { hash: shortHash(row.content_sha256) })}
                       </p>
                       {row.signing_key_id === DEV_UNSIGNED_KEY_ID ? (
-                        <p className="text-ink/70">{t("exports.devUnsigned")}</p>
+                        <p className="text-ink-2">{t("exports.devUnsigned")}</p>
                       ) : null}
                     </div>
                     <div className="flex flex-wrap gap-3">
@@ -141,7 +141,7 @@ export default async function ManageExportsPage() {
                       </a>
                       <a
                         href={`/manage/meer/exports/${row.id}/json`}
-                        className={buttonClassName("quiet", "md")}
+                        className={buttonClassName("plain", "md")}
                       >
                         {t("exports.downloadJson")}
                       </a>

@@ -1,12 +1,23 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { connection } from "next/server";
 
 import { t } from "@cloxa/i18n";
+import { colors } from "@cloxa/ui-tokens";
 
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: t("common.appName"),
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: colors.light.paper },
+    { media: "(prefers-color-scheme: dark)", color: colors.dark.paper },
+  ],
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {

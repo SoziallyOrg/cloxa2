@@ -22,7 +22,7 @@ export function SiteFilter({ sites, selectedSiteId }: SiteFilterProps) {
     <label className="flex items-center gap-3 text-lg font-semibold">
       {t("manage.siteFilterLabel")}
       <select
-        className="focus-ring min-h-touch-target rounded-md border-2 border-border bg-surface px-4 text-lg text-ink"
+        className="focus-ring min-h-touch-target rounded-md border-2 border-line bg-paper px-4 text-lg text-ink"
         value={selectedSiteId ?? ""}
         onChange={(event) => {
           const value = event.target.value;

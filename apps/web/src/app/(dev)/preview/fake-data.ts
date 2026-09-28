@@ -113,7 +113,7 @@ export const FAKE_TODAY_BOARD_PEOPLE: readonly TodayBoardPerson[] = [
   {
     id: "4",
     name: "Driss Peeters",
-    tone: "error",
+    tone: "danger",
     statusLabel: "Vergeten uit te klokken",
     sinceLabel: "sinds gisteren 16:30",
   },

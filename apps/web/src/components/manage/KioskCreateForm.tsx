@@ -76,7 +76,7 @@ export function KioskCreateForm({ sites, pairUrl, action }: KioskCreateFormProps
           <select
             value={siteId}
             onChange={(event) => setSiteId(event.target.value)}
-            className="focus-ring min-h-touch-target rounded-md border-2 border-border bg-surface px-4 text-lg text-ink"
+            className="focus-ring min-h-touch-target rounded-md border-2 border-line bg-paper px-4 text-lg text-ink"
           >
             {sites.map((site) => (
               <option key={site.id} value={site.id}>
@@ -98,7 +98,7 @@ export function KioskCreateForm({ sites, pairUrl, action }: KioskCreateFormProps
           />
         </Field>
         <div>
-          <Button type="submit" size="lg" loading={submitting}>
+          <Button type="submit" size="md" loading={submitting}>
             {t("manageKiosks.create")}
           </Button>
         </div>

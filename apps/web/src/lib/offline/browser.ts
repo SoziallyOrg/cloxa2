@@ -3,6 +3,8 @@
  * worker registration and the shell cache cleanup. Call from effects only.
  */
 
+import { indexedDbQueueStorage, pendingFor } from "./queue";
+
 /** Must match `CACHE` in `public/sw.js`. */
 export const SHELL_CACHE = "cloxa-shell-v1";
 
@@ -37,5 +39,19 @@ export async function clearShellCache(): Promise<void> {
     await caches.delete(SHELL_CACHE);
   } catch {
     // Nothing cached, or storage blocked: nothing to clear.
+  }
+}
+
+/**
+ * How many clock actions of this employee are still queued on this device,
+ * for the sign-out warning on screens that don't run the queue themselves.
+ */
+export async function queuedCountFor(employeeId: string): Promise<number> {
+  if (!supportsOfflineQueue()) return 0;
+  try {
+    const storage = indexedDbQueueStorage();
+    return storage ? pendingFor(await storage.list(), employeeId).length : 0;
+  } catch {
+    return 0;
   }
 }

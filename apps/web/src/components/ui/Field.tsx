@@ -19,7 +19,7 @@ export interface FieldProps {
 /**
  * Label always visible above the input (never placeholder-only), with hint
  * and error text linked via `aria-describedby` so screen readers announce
- * them.
+ * them. Errors sit right under the field that caused them.
  */
 export function Field({
   id,
@@ -37,12 +37,10 @@ export function Field({
 
   return (
     <div className="flex flex-col gap-2">
-      <label htmlFor={id} className="text-lg font-semibold">
+      <label htmlFor={id} className="text-body font-semibold">
         {label}
         {optional ? (
-          <span className="ml-2 text-base font-normal text-ink/70">
-            ({t("ui.optional")})
-          </span>
+          <span className="ml-2 font-normal text-ink-2">({t("ui.optional")})</span>
         ) : null}
       </label>
       {cloneElement(children, {
@@ -51,16 +49,12 @@ export function Field({
         "aria-invalid": error ? true : undefined,
       })}
       {hint ? (
-        <p id={hintId} className="text-base text-ink/70">
+        <p id={hintId} className="text-callout text-ink-2">
           {hint}
         </p>
       ) : null}
       {error ? (
-        <p
-          id={errorId}
-          role="alert"
-          className="text-base font-semibold text-status-error"
-        >
+        <p id={errorId} role="alert" className="text-callout font-semibold text-danger">
           {error}
         </p>
       ) : null}

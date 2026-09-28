@@ -8,8 +8,11 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: "Cloxa",
     display: "standalone",
     start_url: "/",
-    theme_color: colors.primary,
-    background_color: colors.paper,
-    icons: [],
+    theme_color: colors.light.paper,
+    background_color: colors.dark.paper,
+    icons: [
+      { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { src: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
   };
 }

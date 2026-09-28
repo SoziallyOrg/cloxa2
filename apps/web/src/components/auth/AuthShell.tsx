@@ -1,33 +1,26 @@
 import type { ReactNode } from "react";
 
-import { t } from "@cloxa/i18n";
-
-import { Card } from "@/components/ui/Card";
-import { Heading } from "@/components/ui/Heading";
-import { Stack } from "@/components/ui/Stack";
+import { Logo } from "@/components/brand/Logo";
 
 export interface AuthShellProps {
   title: string;
+  /** One short line under the title, if the screen needs it. */
+  intro?: ReactNode;
   children: ReactNode;
 }
 
-/** Calm, centred single-column frame for login, MFA and access screens. */
-export function AuthShell({ title, children }: AuthShellProps) {
+/** Centred and narrow: the logotype, a title, then one field and one button. */
+export function AuthShell({ title, intro, children }: AuthShellProps) {
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-lg flex-col justify-center gap-8 p-4 sm:p-8">
-      {/* Plain <img>: next/image adds an inline style attribute that the nonce CSP blocks. */}
-      <img
-        src="/branding/cloxa-compact.svg"
-        alt={t("common.appName")}
-        width={140}
-        height={42}
-      />
-      <Card>
-        <Stack gap="lg">
-          <Heading level={1}>{title}</Heading>
-          {children}
-        </Stack>
-      </Card>
+    <main className="flex min-h-dvh flex-col items-center px-gutter py-12 md:justify-center md:py-16">
+      <div className="flex w-full max-w-sm flex-1 flex-col gap-10 md:flex-none">
+        <Logo size="lg" />
+        <div className="flex flex-col gap-3">
+          <h1 className="text-title">{title}</h1>
+          {intro}
+        </div>
+        {children}
+      </div>
     </main>
   );
 }

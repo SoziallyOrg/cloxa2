@@ -2,12 +2,10 @@ import Link from "next/link";
 
 import { formatBrusselsDate, t } from "@cloxa/i18n";
 
-import { AppShell } from "@/components/employee/AppShell";
 import { Button, buttonClassName } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { Heading } from "@/components/ui/Heading";
-import { Stack } from "@/components/ui/Stack";
-import { StatusBadge, type StatusTone } from "@/components/ui/StatusBadge";
+import { GroupedList, ListRow } from "@/components/ui/GroupedList";
+import { StatusLine, type StatusTone } from "@/components/ui/StatusLine";
 import { requireEmployeeArea } from "@/lib/auth/context";
 import { createClient } from "@/lib/supabase/server";
 
@@ -23,9 +21,15 @@ const STATUS_LABEL_KEY = {
 const STATUS_TONE: Record<keyof typeof STATUS_LABEL_KEY, StatusTone> = {
   pending: "break",
   approved: "working",
-  rejected: "error",
+  rejected: "danger",
   withdrawn: "off",
 };
+
+const KIND_LABEL_KEY = {
+  add: "correctionForm.kindAdd",
+  adjust: "correctionForm.kindAdjust",
+  remove: "correctionForm.kindRemove",
+} as const;
 
 function statusKey(status: string): keyof typeof STATUS_LABEL_KEY {
   return status in STATUS_LABEL_KEY
@@ -45,55 +49,65 @@ export default async function QuestionsPage() {
   if (error) throw new Error(`correction_requests_unavailable:${error.code}`);
 
   return (
-    <AppShell active="questions">
-      <div className="flex items-center justify-between gap-3">
-        <Heading level={1}>{t("questions.heading")}</Heading>
-        <Link href="/app/vragen/nieuw" className={buttonClassName("primary", "md")}>
-          {t("questions.newRequest")}
-        </Link>
-      </div>
+    <div className="flex flex-1 flex-col gap-8 pt-6 md:pt-0">
+      <h1 className="text-title">{t("questions.heading")}</h1>
 
       {requests.length === 0 ? (
         <EmptyState title={t("questions.empty")} body={t("questions.emptyBody")} />
       ) : (
-        <ul className="flex flex-col gap-3">
+        <GroupedList>
           {requests.map((request) => {
             const key = statusKey(request.status);
+            const kind =
+              request.kind in KIND_LABEL_KEY
+                ? KIND_LABEL_KEY[request.kind as keyof typeof KIND_LABEL_KEY]
+                : null;
             return (
-              <li
+              <ListRow
                 key={request.id}
-                className="flex flex-col gap-3 rounded-lg border border-border p-4"
-              >
-                <Stack row gap="sm" className="justify-between">
-                  <span className="font-semibold">
-                    {formatBrusselsDate(new Date(request.created_at))}
+                title={
+                  kind ? t(kind) : formatBrusselsDate(new Date(request.created_at))
+                }
+                detail={
+                  <span className="flex flex-col gap-1">
+                    <span>{formatBrusselsDate(new Date(request.created_at))}</span>
+                    {request.reason ? (
+                      <span className="text-ink">{request.reason}</span>
+                    ) : null}
+                    {request.decision_note ? (
+                      <span>
+                        {t("questions.managerNote", { note: request.decision_note })}
+                      </span>
+                    ) : null}
                   </span>
-                  <StatusBadge
+                }
+                value={
+                  <StatusLine
                     tone={STATUS_TONE[key]}
                     label={t(STATUS_LABEL_KEY[key])}
+                    size="sm"
                   />
-                </Stack>
-                {request.reason ? (
-                  <p className="text-ink/70">{request.reason}</p>
-                ) : null}
-                {request.decision_note ? (
-                  <p className="text-ink/70">
-                    {t("questions.managerNote", { note: request.decision_note })}
-                  </p>
-                ) : null}
+                }
+              >
                 {request.status === "pending" ? (
-                  <form action={withdrawCorrectionAction}>
+                  <form action={withdrawCorrectionAction} className="-ml-3">
                     <input type="hidden" name="id" value={request.id} />
-                    <Button type="submit" variant="quiet" size="md">
+                    <Button type="submit" variant="plain">
                       {t("questions.withdraw")}
                     </Button>
                   </form>
                 ) : null}
-              </li>
+              </ListRow>
             );
           })}
-        </ul>
+        </GroupedList>
       )}
-    </AppShell>
+
+      <div className="sticky bottom-[calc(var(--spacing-tab-bar)+env(safe-area-inset-bottom)+1rem)] mt-auto bg-paper pt-2 md:bottom-8">
+        <Link href="/app/vragen/nieuw" className={buttonClassName("primary", "lg")}>
+          {t("questions.newRequest")}
+        </Link>
+      </div>
+    </div>
   );
 }

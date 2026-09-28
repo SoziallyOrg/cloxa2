@@ -49,7 +49,15 @@ export default defineConfig({
     trace: "retain-on-failure",
     extraHTTPHeaders: { "x-real-ip": clientIp },
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  projects: [
+    { name: "chromium", use: { ...devices["Desktop Chrome"] } },
+    // Design-review screenshots (`pnpm screens`), never part of `pnpm e2e`.
+    {
+      name: "screens",
+      testMatch: /screens[\/].*\.screens\.ts$/,
+      use: { ...devices["Desktop Chrome"] },
+    },
+  ],
   webServer: {
     // A production build (`next build && next start`): exercises the real CSP
     // and Secure cookies, and does not clash with a `next dev` that may already

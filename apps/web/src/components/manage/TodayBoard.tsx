@@ -4,7 +4,7 @@ import type { Route } from "next";
 import { t } from "@cloxa/i18n";
 
 import { EmptyState } from "../ui/EmptyState";
-import { StatusBadge, type StatusTone } from "../ui/StatusBadge";
+import { StatusLine, type StatusTone } from "../ui/StatusLine";
 
 export interface TodayBoardCounters {
   readonly working: number;
@@ -39,7 +39,7 @@ export interface TodayBoardProps {
 
 function OfflineBadge() {
   return (
-    <span className="rounded-md bg-status-off-bg px-2 py-1 text-base font-semibold text-status-off">
+    <span className="rounded-md bg-fill px-2 py-1 text-base font-semibold text-ink-2">
       {t("offline.shiftBadge")}
     </span>
   );
@@ -47,9 +47,9 @@ function OfflineBadge() {
 
 function Counter({ label, value }: { label: string; value: number }) {
   return (
-    <div className="flex flex-col gap-1 rounded-lg border border-border bg-surface p-4">
+    <div className="flex flex-col gap-1 rounded-lg border border-line bg-paper p-4">
       <span className="text-3xl font-bold">{value}</span>
-      <span className="text-base text-ink/70">{label}</span>
+      <span className="text-base text-ink-2">{label}</span>
     </div>
   );
 }
@@ -68,13 +68,13 @@ export function TodayBoard({ counters, people, attention }: TodayBoardProps) {
       <section className="flex flex-col gap-3">
         <h2 className="text-xl font-semibold">{t("manage.attentionHeading")}</h2>
         {attention.length === 0 ? (
-          <p className="text-lg text-ink/70">{t("manage.noAttention")}</p>
+          <p className="text-lg text-ink-2">{t("manage.noAttention")}</p>
         ) : (
           <ul className="flex flex-col gap-2">
             {attention.map((item) => (
               <li
                 key={item.id}
-                className="flex flex-col gap-3 rounded-md bg-status-break-bg p-4 text-status-break sm:flex-row sm:items-center sm:justify-between"
+                className="flex flex-col gap-3 rounded-md bg-break/10 p-4 text-break sm:flex-row sm:items-center sm:justify-between"
               >
                 <div className="flex flex-col gap-1">
                   <span className="font-semibold">{item.name}</span>
@@ -82,7 +82,7 @@ export function TodayBoard({ counters, people, attention }: TodayBoardProps) {
                 </div>
                 <Link
                   href={item.href as Route}
-                  className="focus-ring inline-flex min-h-touch-target items-center justify-center rounded-md border-2 border-status-break px-6 text-lg font-semibold text-status-break"
+                  className="focus-ring inline-flex min-h-touch-target items-center justify-center rounded-md border-2 border-break px-6 text-lg font-semibold text-break"
                 >
                   {t("manage.viewAction")}
                 </Link>
@@ -103,7 +103,7 @@ export function TodayBoard({ counters, people, attention }: TodayBoardProps) {
             {/* Table on desktop. */}
             <table className="hidden w-full text-left md:table">
               <thead>
-                <tr className="border-b border-border text-ink/70">
+                <tr className="border-b border-line text-ink-2">
                   <th className="py-2 font-semibold">{t("manage.nameColumn")}</th>
                   <th className="py-2 font-semibold">{t("manage.statusColumn")}</th>
                   <th className="py-2 font-semibold">{t("manage.timesColumn")}</th>
@@ -111,12 +111,16 @@ export function TodayBoard({ counters, people, attention }: TodayBoardProps) {
               </thead>
               <tbody>
                 {people.map((person) => (
-                  <tr key={person.id} className="border-b border-border">
+                  <tr key={person.id} className="border-b border-line">
                     <td className="py-3 font-semibold">{person.name}</td>
                     <td className="py-3">
-                      <StatusBadge tone={person.tone} label={person.statusLabel} />
+                      <StatusLine
+                        size="sm"
+                        tone={person.tone}
+                        label={person.statusLabel}
+                      />
                     </td>
-                    <td className="py-3 text-ink/70">
+                    <td className="py-3 text-ink-2">
                       {person.sinceLabel}
                       {person.offline ? (
                         <>
@@ -135,12 +139,12 @@ export function TodayBoard({ counters, people, attention }: TodayBoardProps) {
               {people.map((person) => (
                 <li
                   key={person.id}
-                  className="flex flex-col gap-2 rounded-lg border border-border p-4"
+                  className="flex flex-col gap-2 rounded-lg border border-line p-4"
                 >
                   <span className="font-semibold">{person.name}</span>
-                  <StatusBadge tone={person.tone} label={person.statusLabel} />
+                  <StatusLine size="sm" tone={person.tone} label={person.statusLabel} />
                   {person.sinceLabel ? (
-                    <span className="text-ink/70">{person.sinceLabel}</span>
+                    <span className="text-ink-2">{person.sinceLabel}</span>
                   ) : null}
                   {person.offline ? (
                     <span>

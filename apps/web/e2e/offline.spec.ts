@@ -19,7 +19,7 @@ const button = (page: Page, name: string) =>
 async function ensureOff(page: Page): Promise<void> {
   const start = button(page, "Start werk");
   const stop = button(page, "Stop werk");
-  const endBreak = button(page, "Pauze stoppen");
+  const endBreak = button(page, "Stop pauze");
   await expect(start.or(stop).or(endBreak)).toBeVisible();
   if (await endBreak.isVisible()) {
     await endBreak.click();
@@ -40,7 +40,7 @@ test("a clock-in made offline is kept, synced when back online and marked offlin
   await loginWithEmailCode(page, EMPLOYEE);
   await expect(page).toHaveURL(/\/app$/);
   await ensureOff(page);
-  await expect(page.getByText("Je bent niet aan het werk")).toBeVisible();
+  await expect(page.getByText("Niet aan het werk", { exact: true })).toBeVisible();
 
   // Offline: the button still works and the action waits on the device.
   await context.setOffline(true);
@@ -50,17 +50,18 @@ test("a clock-in made offline is kept, synced when back online and marked offlin
     page.getByRole("status").filter({ hasText: "Gestart om" }),
   ).toContainText("Bewaard op je toestel, wordt verstuurd zodra je verbinding hebt.");
   await expect(page.getByText("Nog niet verstuurd")).toBeVisible();
-  await expect(page.getByText(/^Je bent aan het werk sinds/)).toBeVisible(SETTLED);
+  await expect(page.getByText("Aan het werk", { exact: true })).toBeVisible(SETTLED);
+  await expect(page.getByText(/^Gestart om \d{1,2}[:.]\d{2} · /)).toBeVisible();
 
   // Back online: the queue syncs by itself and the badge goes away.
   await context.setOffline(false);
   await expect(page.getByText("Nog niet verstuurd")).toHaveCount(0, SETTLED);
   await page.reload();
-  await expect(page.getByText(/^Je bent aan het werk sinds/)).toBeVisible();
+  await expect(page.getByText("Aan het werk", { exact: true })).toBeVisible();
   await expect(button(page, "Stop werk")).toBeVisible();
 
   // Mijn uren: the open shift carries the offline badge.
-  await page.getByRole("link", { name: "Mijn uren" }).click();
+  await page.getByRole("link", { name: "Uren", exact: true }).click();
   await expect(page).toHaveURL(/\/app\/uren$/);
   const newest = page.getByRole("main").getByRole("listitem").first();
   await expect(newest).toContainText("nog bezig");
@@ -70,5 +71,5 @@ test("a clock-in made offline is kept, synced when back online and marked offlin
   await page.getByRole("link", { name: "Klok" }).click();
   await expect(page).toHaveURL(/\/app$/);
   await ensureOff(page);
-  await expect(page.getByText("Je bent niet aan het werk")).toBeVisible();
+  await expect(page.getByText("Niet aan het werk", { exact: true })).toBeVisible();
 });

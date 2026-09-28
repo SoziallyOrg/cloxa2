@@ -161,12 +161,12 @@ export default async function ManageEmployeeDetailPage({
       <div className="flex flex-col gap-8">
         <Link
           href={"/manage/team" as Route}
-          className="focus-ring self-start font-semibold text-primary underline"
+          className="focus-ring self-start font-semibold text-ink underline"
         >
           {t("manageEmployee.backLink")}
         </Link>
         <Heading level={1}>{employee.display_name}</Heading>
-        <p className="text-ink/70">
+        <p className="text-ink-2">
           {employee.employee_code ?? t("manageEmployee.noCode")}
         </p>
 
@@ -227,18 +227,18 @@ export default async function ManageEmployeeDetailPage({
         <section className="flex flex-col gap-3">
           <Heading level={2}>{t("manageEmployee.correctionsHeading")}</Heading>
           {correctionRows.length === 0 ? (
-            <p className="text-ink/70">{t("manageEmployee.noCorrections")}</p>
+            <p className="text-ink-2">{t("manageEmployee.noCorrections")}</p>
           ) : (
             <ul className="flex flex-col gap-2">
               {correctionRows.map((row) => (
-                <li key={row.id} className="rounded-lg border border-border p-4">
+                <li key={row.id} className="rounded-lg border border-line p-4">
                   <p className="font-semibold">
                     {formatBrusselsDate(new Date(row.created_at))} ·{" "}
                     {t(STATUS_LABEL_KEY[row.status] ?? "questions.statusPending")}
                   </p>
-                  {row.reason ? <p className="text-ink/70">{row.reason}</p> : null}
+                  {row.reason ? <p className="text-ink-2">{row.reason}</p> : null}
                   {row.decision_note ? (
-                    <p className="text-ink/70">
+                    <p className="text-ink-2">
                       {t("questions.managerNote", { note: row.decision_note })}
                     </p>
                   ) : null}
@@ -271,13 +271,13 @@ export default async function ManageEmployeeDetailPage({
             {t("manageEmployee.scheduleEditLink")}
           </Link>
           {scheduleRows.length === 0 ? (
-            <p className="text-ink/70">{t("manageEmployee.noSchedule")}</p>
+            <p className="text-ink-2">{t("manageEmployee.noSchedule")}</p>
           ) : (
             <ul className="flex flex-col gap-1">
               {scheduleRows.map((row, index) => {
                 const range = `${formatBrusselsTime(new Date(row.start_at))}–${formatBrusselsTime(new Date(row.end_at))}`;
                 return (
-                  <li key={index} className="text-ink/70">
+                  <li key={index} className="text-ink-2">
                     {t("manageEmployee.scheduleRow", {
                       date: formatBrusselsDate(new Date(row.start_at)),
                       range,
@@ -291,7 +291,7 @@ export default async function ManageEmployeeDetailPage({
 
         <section className="flex flex-col gap-3">
           <Heading level={2}>{t("kiosk.pinSettingsHeading")}</Heading>
-          <p className="text-ink/70">
+          <p className="text-ink-2">
             {pinRow
               ? t("kiosk.managerPinSetAt", {
                   date: formatBrusselsDate(new Date(pinRow.set_at)),

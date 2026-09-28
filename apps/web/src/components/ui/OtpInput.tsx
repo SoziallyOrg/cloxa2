@@ -8,9 +8,9 @@ export type OtpInputProps = Omit<
 >;
 
 /**
- * A single input for a one-time code, not six separate boxes: split boxes
- * break paste and confuse screen readers. Large monospaced digits with
- * letter spacing keep it readable for shared-tablet and low-vision use.
+ * One large input for a one-time code, not six separate boxes: split boxes
+ * break paste and confuse screen readers. Big tabular digits with letter
+ * spacing keep it readable.
  */
 export function OtpInput(props: OtpInputProps) {
   return (
@@ -21,9 +21,8 @@ export function OtpInput(props: OtpInputProps) {
       autoComplete="one-time-code"
       pattern="[0-9]*"
       className={cx(
-        "focus-ring min-h-touch-target w-full rounded-md border-2 border-border bg-surface px-4",
-        "font-mono text-otp tracking-[0.4em] text-ink",
-        "aria-invalid:border-status-error",
+        "focus-ring h-18 w-full rounded-control border-0 bg-fill pr-2 pl-[calc(0.5rem+0.35em)] text-center text-number font-medium tracking-[0.35em] text-ink tabular-nums",
+        "aria-invalid:ring-2 aria-invalid:ring-danger",
       )}
     />
   );

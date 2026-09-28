@@ -10,7 +10,7 @@ import {
 /**
  * Schedule journey: a manager sets today's block for an employee's weekly
  * schedule (`rpc_set_schedule`), valid from today, and the employee sees it
- * both on `/app` ("Vandaag gepland") and on `/app/uren` ("Mijn rooster").
+ * both on `/app` ("Gepland") and on `/app/uren` ("Mijn rooster").
  * Reuses the manager TOTP enrolment pattern from `manager-journey.spec.ts`,
  * with separate browser contexts per actor. Idempotent: schedule versions
  * append, so running this again just appends a newer version with the same
@@ -94,7 +94,7 @@ test("manager sets today's schedule block, employee sees it", async ({ browser }
   const employeeErrors = collectConsoleErrors(employeePage);
   await loginWithEmailCode(employeePage, EMPLOYEE);
   await expect(employeePage).toHaveURL(/\/app$/);
-  await expect(employeePage.getByText("Vandaag gepland: 08:00–16:00")).toBeVisible();
+  await expect(employeePage.getByText("Gepland 08:00–16:00")).toBeVisible();
 
   await employeePage.goto("/app/uren");
   await expect(

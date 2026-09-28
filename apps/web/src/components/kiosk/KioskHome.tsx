@@ -91,7 +91,7 @@ export function KioskHome({
         <h1 className="text-2xl font-bold">{t("kiosk.chooseEmployee")}</h1>
 
         {employees.length > SEARCH_THRESHOLD ? (
-          <label className="flex items-center gap-3 rounded-md border-2 border-border bg-surface px-4 py-3">
+          <label className="flex items-center gap-3 rounded-md border-2 border-line bg-paper px-4 py-3">
             <IconSearch />
             <input
               type="search"
@@ -117,11 +117,11 @@ export function KioskHome({
                 setPin("");
                 onSelect(employee);
               }}
-              className="focus-ring flex min-h-kiosk-tile w-full min-w-0 flex-col items-center justify-center gap-2 rounded-lg border border-border bg-surface p-3"
+              className="focus-ring flex min-h-kiosk-tile w-full min-w-0 flex-col items-center justify-center gap-2 rounded-lg border border-line bg-paper p-3"
             >
               <span
                 aria-hidden="true"
-                className="flex size-12 shrink-0 items-center justify-center rounded-full bg-primary text-lg font-bold text-primary-contrast"
+                className="flex size-12 shrink-0 items-center justify-center rounded-full bg-ink text-lg font-bold text-paper"
               >
                 {employee.initials ?? initialsOf(employee.name)}
               </span>
@@ -140,7 +140,7 @@ export function KioskHome({
       <div className="mx-auto flex w-full max-w-md flex-col items-center gap-6 p-6">
         <h1 className="text-2xl font-bold">{selected.name}</h1>
         <p className="text-center text-lg">{t("kiosk.noPin")}</p>
-        <Button variant="secondary" size="lg" onClick={back}>
+        <Button variant="secondary" size="md" onClick={back}>
           {t("kiosk.pinBack")}
         </Button>
       </div>
@@ -161,8 +161,8 @@ export function KioskHome({
           <span
             key={index}
             className={cx(
-              "size-4 rounded-full border-2 border-primary",
-              index < pin.length ? "bg-primary" : "bg-transparent",
+              "size-4 rounded-full border-2 border-ink",
+              index < pin.length ? "bg-ink" : "bg-transparent",
             )}
           />
         ))}
@@ -178,19 +178,19 @@ export function KioskHome({
             type="button"
             disabled={busy}
             onClick={() => pressDigit(digit)}
-            className="focus-ring size-pin-key rounded-lg border border-border bg-surface text-2xl font-bold"
+            className="focus-ring size-pin-key rounded-lg border border-line bg-paper text-2xl font-bold"
           >
             {digit}
           </button>
         ))}
-        <Button variant="quiet" size="md" disabled={busy} onClick={() => setPin("")}>
+        <Button variant="plain" size="md" disabled={busy} onClick={() => setPin("")}>
           {t("kiosk.pinClear")}
         </Button>
         <button
           type="button"
           disabled={busy}
           onClick={() => pressDigit(ZERO_DIGIT)}
-          className="focus-ring size-pin-key rounded-lg border border-border bg-surface text-2xl font-bold"
+          className="focus-ring size-pin-key rounded-lg border border-line bg-paper text-2xl font-bold"
         >
           {ZERO_DIGIT}
         </button>
@@ -205,7 +205,7 @@ export function KioskHome({
         </Button>
       </div>
 
-      <Button variant="quiet" size="md" onClick={back}>
+      <Button variant="plain" size="md" onClick={back}>
         {t("kiosk.pinBack")}
       </Button>
     </div>

@@ -13,8 +13,10 @@ export default async function NoAccessPage() {
   if (destination !== "/geen-toegang") redirect(destination);
 
   return (
-    <AuthShell title={t("access.noAccessTitle")}>
-      <p className="text-lg">{t("access.noAccessBody")}</p>
+    <AuthShell
+      title={t("access.noAccessTitle")}
+      intro={<p className="text-body text-ink-2">{t("access.noAccessBody")}</p>}
+    >
       <SessionActions />
     </AuthShell>
   );

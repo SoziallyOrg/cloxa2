@@ -1,16 +1,29 @@
 @import "tailwindcss";
 @import "@cloxa/ui-tokens/tokens.css";
 
+:root {
+  /* Native controls (date/time pickers, scrollbars) follow the OS scheme. */
+  color-scheme: light dark;
+}
+
 body {
   background-color: var(--color-paper);
   color: var(--color-ink);
-  font-family:
-    system-ui,
-    -apple-system,
-    "Segoe UI",
-    Roboto,
-    Helvetica,
-    Arial,
-    sans-serif;
-  font-size: var(--text-base);
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  line-height: 1.45;
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
 }

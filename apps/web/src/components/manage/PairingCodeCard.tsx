@@ -20,7 +20,7 @@ export function PairingCodeCard({
   return (
     <div
       role="status"
-      className="flex flex-col gap-3 rounded-lg border-2 border-primary bg-surface p-6"
+      className="flex flex-col gap-3 rounded-lg border-2 border-ink bg-paper p-6"
     >
       <p className="text-lg font-semibold">
         {t("manageKiosks.codeHeading", { name: deviceName })}
@@ -32,7 +32,7 @@ export function PairingCodeCard({
         {code}
       </p>
       <p className="text-lg">{t("manageKiosks.codeInstruction", { url: pairUrl })}</p>
-      <p className="text-base text-ink/70">
+      <p className="text-base text-ink-2">
         {t("manageKiosks.codeExpires", { time: expiresAt })}
       </p>
     </div>

@@ -140,7 +140,7 @@ export function OrgSettingsForm({ initial, action }: OrgSettingsFormProps) {
           />
           {t("orgSettings.offlineLabel")}
         </label>
-        <p id="settings-offline-hint" className="text-ink/70">
+        <p id="settings-offline-hint" className="text-ink-2">
           {t("orgSettings.offlineHint")}
         </p>
       </div>

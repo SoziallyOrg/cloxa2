@@ -6,7 +6,7 @@ import { formatBrusselsTime, t } from "@cloxa/i18n";
 import type { ShiftState } from "@cloxa/domain";
 
 import { Button } from "../ui/Button";
-import { Stack } from "../ui/Stack";
+import { cx } from "../ui/cx";
 import { IconCheck } from "../ui/icons";
 
 export type ActionKind = "startWork" | "stopWork" | "startBreak" | "stopBreak";
@@ -21,7 +21,15 @@ const SUCCESS_KEY: Record<
   stopBreak: "breakStoppedAt",
 };
 
-const SUCCESS_DISPLAY_MS = 2500;
+/** The check takes the colour of the state the person is in now. */
+const SUCCESS_TONE: Record<ActionKind, string> = {
+  startWork: "bg-working/12 text-working",
+  stopBreak: "bg-working/12 text-working",
+  startBreak: "bg-break/12 text-break",
+  stopWork: "bg-fill text-ink",
+};
+
+const SUCCESS_DISPLAY_MS = 2000;
 
 /** `true` on success; `"queued"` when kept on the device to send later (offline);
  * `false` leaves the button idle without celebrating (the caller is expected to
@@ -35,7 +43,7 @@ export interface ClockActionsProps {
   onStopWork: ClockActionCallback;
   onStartBreak: ClockActionCallback;
   onStopBreak: ClockActionCallback;
-  /** Disables every button, e.g. while offline. Buttons stay full-contrast. */
+  /** Disables every button, e.g. while offline. */
   disabled?: boolean;
   /**
    * Renders the success confirmation immediately, as if `action` had just
@@ -52,9 +60,10 @@ interface Success {
 }
 
 /**
- * The clock action(s) for the current state, plus pending and success
- * feedback. Callbacks only — no data fetching, so this stays reusable
- * across the employee app and the kiosk.
+ * The clock action(s) for the current state (the primary action plus
+ * Pauze), and the full-screen confirmation after a press: a big check, the
+ * time, a short vibration, gone after 2 seconds. Callbacks only — no data
+ * fetching, so this stays reusable across the employee app and the kiosk.
  */
 export function ClockActions({
   state,
@@ -69,11 +78,11 @@ export function ClockActions({
   const [success, setSuccess] = useState<Success | null>(previewSuccess ?? null);
 
   useEffect(() => {
-    if (success === null) return;
+    if (success === null || previewSuccess) return;
 
     const timer = window.setTimeout(() => setSuccess(null), SUCCESS_DISPLAY_MS);
     return () => window.clearTimeout(timer);
-  }, [success]);
+  }, [success, previewSuccess]);
 
   async function run(action: ActionKind, callback: ClockActionCallback) {
     setPending(action);
@@ -93,13 +102,27 @@ export function ClockActions({
 
   if (success !== null) {
     return (
-      <div role="status" className="flex flex-col items-center gap-3 py-4 text-center">
-        <IconCheck className="size-16 text-status-working" />
-        <p className="text-xl font-semibold">
+      <div
+        role="status"
+        className={cx(
+          "inset-0 z-50 flex flex-col items-center justify-center gap-6 bg-paper px-gutter text-center motion-safe:animate-fade-in",
+          previewSuccess ? "relative min-h-96 rounded-group" : "fixed",
+        )}
+      >
+        <span
+          aria-hidden="true"
+          className={cx(
+            "flex size-32 items-center justify-center rounded-full motion-safe:animate-pop-in",
+            SUCCESS_TONE[success.action],
+          )}
+        >
+          <IconCheck className="size-16" strokeWidth={2.25} />
+        </span>
+        <p className="text-title">
           {t(`actions.${SUCCESS_KEY[success.action]}`, { time: success.time })}
         </p>
         {success.queued ? (
-          <p className="text-lg">{t("offline.savedOnDevice")}</p>
+          <p className="max-w-xs text-body text-ink-2">{t("offline.savedOnDevice")}</p>
         ) : null}
       </div>
     );
@@ -108,8 +131,7 @@ export function ClockActions({
   if (state === "off") {
     return (
       <Button
-        size="xl"
-        variant="primary"
+        size="lg"
         loading={pending === "startWork"}
         disabled={disabled}
         onClick={() => void run("startWork", onStartWork)}
@@ -121,10 +143,9 @@ export function ClockActions({
 
   if (state === "working") {
     return (
-      <Stack gap="md">
+      <div className="flex flex-col gap-3">
         <Button
-          size="xl"
-          variant="primary"
+          size="lg"
           loading={pending === "stopWork"}
           disabled={disabled}
           onClick={() => void run("stopWork", onStopWork)}
@@ -132,22 +153,21 @@ export function ClockActions({
           {t("actions.stopWork")}
         </Button>
         <Button
-          size="lg"
           variant="secondary"
+          wide
           loading={pending === "startBreak"}
           disabled={disabled}
           onClick={() => void run("startBreak", onStartBreak)}
         >
           {t("actions.startBreak")}
         </Button>
-      </Stack>
+      </div>
     );
   }
 
   return (
     <Button
-      size="xl"
-      variant="primary"
+      size="lg"
       loading={pending === "stopBreak"}
       disabled={disabled}
       onClick={() => void run("stopBreak", onStopBreak)}

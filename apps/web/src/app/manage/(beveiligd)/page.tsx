@@ -18,7 +18,7 @@ import {
   type TodayBoardAttentionItem,
   type TodayBoardPerson,
 } from "@/components/manage/TodayBoard";
-import type { StatusTone } from "@/components/ui/StatusBadge";
+import type { StatusTone } from "@/components/ui/StatusLine";
 import { Heading } from "@/components/ui/Heading";
 import { requireManager } from "@/lib/auth/context";
 import { nowMs } from "@/lib/clock/now";

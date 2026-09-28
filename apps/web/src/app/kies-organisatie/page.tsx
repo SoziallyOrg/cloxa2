@@ -4,8 +4,7 @@ import { t } from "@cloxa/i18n";
 
 import { AuthShell } from "@/components/auth/AuthShell";
 import { SessionActions } from "@/components/auth/SessionActions";
-import { Button } from "@/components/ui/Button";
-import { Stack } from "@/components/ui/Stack";
+import { GroupedList, ListButtonRow } from "@/components/ui/GroupedList";
 import { chooseOrganization } from "@/lib/auth/actions/session";
 import { requireSignedIn } from "@/lib/auth/context";
 
@@ -15,24 +14,36 @@ export default async function ChooseOrganizationPage() {
   if (memberships.length < 2) redirect("/start");
 
   return (
-    <AuthShell title={t("chooseOrg.title")}>
-      <p className="text-lg">{t("chooseOrg.intro")}</p>
-      <Stack as="ul" gap="md">
+    <AuthShell
+      title={t("chooseOrg.title")}
+      intro={<p className="text-body text-ink-2">{t("chooseOrg.intro")}</p>}
+    >
+      {/* One form per organization; the rows submit them via `form=` (a form can't sit in a list). */}
+      {memberships.map((membership) => (
+        <form
+          key={membership.id}
+          id={`org-${membership.id}`}
+          action={chooseOrganization}
+          hidden
+        >
+          <input
+            type="hidden"
+            name="organizationId"
+            value={membership.organizationId}
+          />
+        </form>
+      ))}
+      <GroupedList>
         {memberships.map((membership) => (
-          <li key={membership.id}>
-            <form action={chooseOrganization}>
-              <input
-                type="hidden"
-                name="organizationId"
-                value={membership.organizationId}
-              />
-              <Button type="submit" variant="secondary" size="lg">
-                {membership.organizationName}
-              </Button>
-            </form>
-          </li>
+          <ListButtonRow
+            key={membership.id}
+            type="submit"
+            form={`org-${membership.id}`}
+            title={membership.organizationName}
+            chevron
+          />
         ))}
-      </Stack>
+      </GroupedList>
       <SessionActions />
     </AuthShell>
   );

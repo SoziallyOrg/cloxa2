@@ -2,10 +2,10 @@
  * Pure formatting helpers for the clock UI, extracted so they're unit
  * testable without a DOM (root vitest config runs in a `node` environment).
  */
-import { formatBrusselsTime, t } from "@cloxa/i18n";
+import { t } from "@cloxa/i18n";
 
 import type { ShiftState } from "@cloxa/domain";
-import type { StatusTone } from "../ui/StatusBadge";
+import type { StatusTone } from "../ui/StatusLine";
 
 /**
  * "3 u 12 min", "8 u" (no zero minutes) or "30 min" (no zero hours), floored
@@ -44,20 +44,4 @@ export function statusWord(state: ShiftState): string {
   if (state === "working") return t("status.workingLabel");
   if (state === "on_break") return t("status.breakLabel");
   return t("status.offLabel");
-}
-
-/**
- * The big status sentence: "Je bent aan het werk sinds 08:02", etc.
- * `since` is required whenever `state` isn't "off".
- */
-export function statusHeadline(state: ShiftState, since: number | null): string {
-  if (state === "working" && since !== null) {
-    return t("status.workingSince", { time: formatBrusselsTime(new Date(since)) });
-  }
-
-  if (state === "on_break" && since !== null) {
-    return t("status.breakSince", { time: formatBrusselsTime(new Date(since)) });
-  }
-
-  return t("status.off");
 }

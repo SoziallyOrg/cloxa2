@@ -1,12 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  formatDurationMs,
-  formatElapsed,
-  statusHeadline,
-  statusTone,
-  statusWord,
-} from "./format";
+import { formatDurationMs, formatElapsed, statusTone, statusWord } from "./format";
 
 describe("formatElapsed", () => {
   it("formats hours and minutes", () => {
@@ -61,21 +55,5 @@ describe("statusWord", () => {
     expect(statusWord("working")).toBe("Aan het werk");
     expect(statusWord("on_break")).toBe("Met pauze");
     expect(statusWord("off")).toBe("Niet aan het werk");
-  });
-});
-
-describe("statusHeadline", () => {
-  it("describes working state with the start time", () => {
-    const since = Date.UTC(2026, 8, 28, 6, 2, 0);
-    expect(statusHeadline("working", since)).toBe("Je bent aan het werk sinds 08:02");
-  });
-
-  it("describes on_break state with the break start time", () => {
-    const since = Date.UTC(2026, 8, 28, 10, 1, 0);
-    expect(statusHeadline("on_break", since)).toBe("Je bent met pauze sinds 12:01");
-  });
-
-  it("describes off state without needing a time", () => {
-    expect(statusHeadline("off", null)).toBe("Je bent niet aan het werk");
   });
 });

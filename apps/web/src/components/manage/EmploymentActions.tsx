@@ -68,7 +68,7 @@ export function OffboardForm({ employeeName, lines, action }: OffboardFormProps)
           ref={panelRef}
           tabIndex={-1}
           aria-label={t("manageEmployee.offboardConfirmTitle", { name: employeeName })}
-          className="focus-ring flex flex-col gap-4 rounded-lg border-2 border-status-error p-4"
+          className="focus-ring flex flex-col gap-4 rounded-lg border-2 border-danger p-4"
         >
           <Heading level={3}>
             {t("manageEmployee.offboardConfirmTitle", { name: employeeName })}
@@ -82,7 +82,7 @@ export function OffboardForm({ employeeName, lines, action }: OffboardFormProps)
           <div className="flex flex-wrap gap-3">
             <Button
               type="button"
-              variant="danger"
+              variant="destructive"
               size="md"
               loading={submitting}
               onClick={() => void confirm()}
@@ -91,7 +91,7 @@ export function OffboardForm({ employeeName, lines, action }: OffboardFormProps)
             </Button>
             <Button
               type="button"
-              variant="quiet"
+              variant="plain"
               size="md"
               disabled={submitting}
               onClick={() => setConfirming(false)}
@@ -104,7 +104,7 @@ export function OffboardForm({ employeeName, lines, action }: OffboardFormProps)
         <div ref={startRef}>
           <Button
             type="button"
-            variant="danger"
+            variant="destructive"
             size="md"
             onClick={() => setConfirming(true)}
           >

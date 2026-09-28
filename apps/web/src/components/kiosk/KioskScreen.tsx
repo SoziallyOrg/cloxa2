@@ -156,7 +156,7 @@ export function KioskScreen({ employees }: KioskScreenProps) {
         role="status"
         className="mx-auto flex min-h-screen w-full max-w-lg flex-col items-center justify-center gap-6 p-6 text-center"
       >
-        <IconCheck className="size-24 text-status-working" />
+        <IconCheck className="size-24 text-working" />
         <p className="text-3xl font-bold">
           {t(DONE_KEY[phase.clockType], {
             time: phase.time,
@@ -165,7 +165,7 @@ export function KioskScreen({ employees }: KioskScreenProps) {
         </p>
         <Button
           variant="secondary"
-          size="lg"
+          size="md"
           onClick={() => dispatch({ type: "back" })}
         >
           {t("kiosk.doneBack")}
@@ -189,7 +189,7 @@ export function KioskScreen({ employees }: KioskScreenProps) {
           onStartBreak={() => clock("break_start")}
           onStopBreak={() => clock("break_end")}
         />
-        <Button variant="quiet" size="lg" onClick={() => dispatch({ type: "back" })}>
+        <Button variant="plain" size="md" onClick={() => dispatch({ type: "back" })}>
           {t("kiosk.pinBack")}
         </Button>
       </div>

@@ -180,7 +180,7 @@ export function ScheduleEditor({
           >
             {t("schedule.templateEmpty")}
           </Button>
-          <Button type="button" variant="quiet" size="md" onClick={copyMonday}>
+          <Button type="button" variant="plain" size="md" onClick={copyMonday}>
             {t("schedule.copyMondayToWorkdays")}
           </Button>
         </div>
@@ -193,7 +193,7 @@ export function ScheduleEditor({
             <div
               key={day}
               data-testid={`schedule-day-${day}`}
-              className="flex flex-col gap-3 rounded-lg border border-border p-4"
+              className="flex flex-col gap-3 rounded-lg border border-line p-4"
             >
               <Heading level={3}>
                 {t(`schedule.dayHeading.${day}` as CatalogKey)}
@@ -232,7 +232,7 @@ export function ScheduleEditor({
                         </Field>
                         <Button
                           type="button"
-                          variant="quiet"
+                          variant="plain"
                           size="md"
                           onClick={() => removeBlock(day, index)}
                           aria-label={t("schedule.removeBlock")}
@@ -246,7 +246,7 @@ export function ScheduleEditor({
               )}
 
               {dayError ? (
-                <p role="alert" className="text-base font-semibold text-status-error">
+                <p role="alert" className="text-base font-semibold text-danger">
                   {t(DAY_ERROR_KEY[dayError])}
                 </p>
               ) : null}
@@ -254,7 +254,7 @@ export function ScheduleEditor({
               <div>
                 <Button
                   type="button"
-                  variant="quiet"
+                  variant="plain"
                   size="md"
                   onClick={() => addBlock(day)}
                   disabled={form[day].length >= MAX_BLOCKS_PER_DAY}
@@ -282,7 +282,7 @@ export function ScheduleEditor({
         </Field>
       </section>
 
-      <section className="flex flex-col gap-2 rounded-lg border border-border p-4">
+      <section className="flex flex-col gap-2 rounded-lg border border-line p-4">
         <Heading level={2}>{t("schedule.summaryHeading")}</Heading>
         <p className="text-lg font-semibold">
           {t("schedule.summaryHours", { hours: formatWeeklyHours(totalMinutes) })}

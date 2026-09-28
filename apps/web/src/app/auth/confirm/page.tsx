@@ -25,8 +25,10 @@ export default async function ConfirmLinkPage({
   if (!tokenHash || !type) redirect("/login?fout=link");
 
   return (
-    <AuthShell title={t("auth.confirm.title")}>
-      <p className="text-lg">{t("auth.confirm.intro")}</p>
+    <AuthShell
+      title={t("auth.confirm.title")}
+      intro={<p className="text-body text-ink-2">{t("auth.confirm.intro")}</p>}
+    >
       <ConfirmLinkForm
         tokenHash={tokenHash}
         type={type}

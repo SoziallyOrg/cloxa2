@@ -24,11 +24,11 @@ export function MfaEnrolment() {
       <form action={start}>
         <Stack gap="md">
           {state.error ? (
-            <p role="alert" className="text-lg font-semibold text-status-error">
+            <p role="alert" className="text-lg font-semibold text-danger">
               {state.error}
             </p>
           ) : null}
-          <Button type="submit" size="xl" loading={pending}>
+          <Button type="submit" size="lg" loading={pending}>
             {t("mfa.setupStart")}
           </Button>
         </Stack>
@@ -41,7 +41,7 @@ export function MfaEnrolment() {
   return (
     <Stack gap="lg">
       <p className="text-lg">{t("mfa.scanStep")}</p>
-      <div className="self-start rounded-md border border-border bg-white p-3">
+      <div className="self-start rounded-md border border-line bg-white p-3">
         {/* A data: URI from Supabase; next/image would add a CSP-blocked inline style. */}
         <img src={qrCode} alt={t("mfa.qrAlt")} width={200} height={200} />
       </div>

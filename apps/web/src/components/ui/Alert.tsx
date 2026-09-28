@@ -15,15 +15,15 @@ export interface AlertProps {
 }
 
 const TONE_CLASSES: Record<AlertTone, string> = {
-  info: "bg-status-off-bg text-ink border-border",
-  success: "bg-status-working-bg text-status-working border-status-working",
-  error: "bg-status-error-bg text-status-error border-status-error",
+  info: "text-ink",
+  success: "font-medium text-working",
+  error: "font-medium text-danger",
 };
 
 /**
- * Announces itself to assistive tech immediately (`role="status"` for info
- * and success, `role="alert"` for errors) and moves focus to itself so it
- * isn't missed on a long page.
+ * An inline note, placed next to what caused it. Announces itself
+ * (`role="status"` for info and success, `role="alert"` for errors) and
+ * takes focus so it isn't missed on a long page.
  */
 export function Alert({ tone, children, onDismiss }: AlertProps) {
   const ref = useRef<HTMLDivElement>(null);
@@ -38,17 +38,17 @@ export function Alert({ tone, children, onDismiss }: AlertProps) {
       tabIndex={-1}
       role={tone === "error" ? "alert" : "status"}
       className={cx(
-        "focus-ring flex items-start justify-between gap-4 rounded-md border-2 p-4 text-lg",
+        "focus-ring flex items-start justify-between gap-4 rounded-control bg-fill py-3 pr-2 pl-4 text-body",
         TONE_CLASSES[tone],
       )}
     >
-      <p>{children}</p>
+      <p className="py-1">{children}</p>
       {onDismiss ? (
         <button
           type="button"
           onClick={onDismiss}
           aria-label={t("ui.dismiss")}
-          className="focus-ring shrink-0 text-lg font-semibold underline"
+          className="focus-ring min-h-touch-target shrink-0 rounded-control px-3 text-callout font-normal text-ink-2 hover:text-ink"
         >
           {t("common.close")}
         </button>

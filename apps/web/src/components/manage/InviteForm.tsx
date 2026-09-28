@@ -151,7 +151,7 @@ export function InviteForm({
       <Field id="invite-statute" label={t("manageTeam.statuteLabel")}>
         <select
           id="invite-statute"
-          className="focus-ring min-h-touch-target rounded-md border-2 border-border bg-surface px-4 text-lg text-ink"
+          className="focus-ring min-h-touch-target rounded-md border-2 border-line bg-paper px-4 text-lg text-ink"
           value={statute}
           onChange={(event) => setStatute(event.target.value)}
         >
@@ -167,7 +167,7 @@ export function InviteForm({
         <Field id="invite-role" label={t("manageTeam.roleLabel")}>
           <select
             id="invite-role"
-            className="focus-ring min-h-touch-target rounded-md border-2 border-border bg-surface px-4 text-lg text-ink"
+            className="focus-ring min-h-touch-target rounded-md border-2 border-line bg-paper px-4 text-lg text-ink"
             value={role}
             onChange={(event) => setRole(event.target.value)}
           >

@@ -5,25 +5,25 @@ import { notFound } from "next/navigation";
 
 import { t } from "@cloxa/i18n";
 
-import { Alert } from "@/components/ui/Alert";
-import { BottomNav, type BottomNavItem } from "@/components/ui/BottomNav";
-import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
-import { EmptyState } from "@/components/ui/EmptyState";
-import { Field } from "@/components/ui/Field";
-import { Heading } from "@/components/ui/Heading";
-import { OtpInput } from "@/components/ui/OtpInput";
-import { Stack } from "@/components/ui/Stack";
-import { StatusBadge, type StatusTone } from "@/components/ui/StatusBadge";
-import { TextInput } from "@/components/ui/TextInput";
-import { IconChat, IconClock, IconList } from "@/components/ui/icons";
+import { Logo } from "@/components/brand/Logo";
 import { ClockActions } from "@/components/clock/ClockActions";
-import { ClockStatus } from "@/components/clock/ClockStatus";
 import { OfflineBanner } from "@/components/clock/OfflineBanner";
 import { ShiftList } from "@/components/clock/ShiftList";
 import { EmployeeHome } from "@/components/employee/EmployeeHome";
 import { KioskHome, type KioskEmployee } from "@/components/kiosk/KioskHome";
 import { TodayBoard } from "@/components/manage/TodayBoard";
+import { Alert } from "@/components/ui/Alert";
+import { Button } from "@/components/ui/Button";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { Field } from "@/components/ui/Field";
+import { GroupedList, ListButtonRow, ListRow } from "@/components/ui/GroupedList";
+import { OtpInput } from "@/components/ui/OtpInput";
+import { ProgressTrack } from "@/components/ui/ProgressTrack";
+import { Sheet } from "@/components/ui/Sheet";
+import { StatusLine, type StatusTone } from "@/components/ui/StatusLine";
+import { TabBar, type NavItem } from "@/components/ui/TabBar";
+import { TextInput } from "@/components/ui/TextInput";
+import { Timer } from "@/components/ui/Timer";
 
 import {
   FAKE_KIOSK_EMPLOYEES,
@@ -35,36 +35,24 @@ import {
   FAKE_TODAY_SHIFTS,
 } from "./fake-data";
 
-const STATUS_TONES: readonly StatusTone[] = ["working", "break", "off", "error"];
+const STATUS: readonly { tone: StatusTone; label: Parameters<typeof t>[0] }[] = [
+  { tone: "working", label: "status.workingLabel" },
+  { tone: "break", label: "status.breakLabel" },
+  { tone: "attention", label: "offline.notSent" },
+  { tone: "danger", label: "status.errorLabel" },
+  { tone: "off", label: "status.offLabel" },
+];
 const NOOP = () => true;
 const PIN_NOOP = () => {};
 
-const NAV_ITEMS: readonly BottomNavItem[] = [
-  {
-    key: "clock",
-    label: t("bottomNav.clock"),
-    href: "#",
-    icon: <IconClock />,
-    current: true,
-  },
-  {
-    key: "hours",
-    label: t("bottomNav.hours"),
-    href: "#",
-    icon: <IconList />,
-    current: false,
-  },
-  {
-    key: "questions",
-    label: t("bottomNav.questions"),
-    href: "#",
-    icon: <IconChat />,
-    current: false,
-  },
+const NAV_ITEMS: readonly NavItem[] = [
+  { key: "clock", label: t("bottomNav.clock"), href: "#", current: true },
+  { key: "hours", label: t("bottomNav.hours"), href: "#", current: false },
+  { key: "questions", label: t("bottomNav.questions"), href: "#", current: false },
 ];
 
 /**
- * Every component and layout, in every state, with fake data — so the
+ * Every primitive and layout, in every state, with fake data — so the
  * product owner can judge the look before real data is wired up. 404s in
  * production: this route only exists for local/dev review.
  */
@@ -76,98 +64,116 @@ export default function PreviewPage() {
   return <PreviewContent />;
 }
 
+function Demo({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="flex flex-col gap-4">
+      <h3 className="text-callout text-ink-2">{title}</h3>
+      {children}
+    </section>
+  );
+}
+
 function PreviewContent() {
   const [dismissed, setDismissed] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const [kioskSelected, setKioskSelected] = useState<KioskEmployee | null>(null);
+  const since = FAKE_NOW - 3 * 3_600_000 - 24 * 60_000;
 
   return (
-    <div className="mx-auto flex max-w-5xl flex-col gap-16 p-6 pb-32">
-      <div className="-mx-6 bg-status-break-bg px-6 py-3 text-center font-semibold text-status-break">
+    <div className="mx-auto flex max-w-3xl flex-col gap-16 px-gutter py-10 md:px-gutter-desktop">
+      <p className="rounded-control bg-break/10 px-4 py-3 text-center text-callout font-semibold text-break">
         {t("preview.fakeDataLabel")}
+      </p>
+
+      <div className="flex flex-col gap-6">
+        <Logo size="lg" />
+        <h1 className="text-title">{t("preview.heading")}</h1>
       </div>
 
-      <Heading level={1}>{t("preview.heading")}</Heading>
+      <section className="flex flex-col gap-12">
+        <h2 className="text-headline">{t("preview.sectionPrimitives")}</h2>
 
-      <section className="flex flex-col gap-10">
-        <Heading level={2}>{t("preview.sectionPrimitives")}</Heading>
-
-        <Stack gap="lg">
-          <Heading level={3}>{t("preview.demoButtonsHeading")}</Heading>
-          <Stack row gap="md" className="flex-wrap">
-            <Button variant="primary" onClick={NOOP}>
-              {t("actions.startWork")}
-            </Button>
+        <Demo title={t("preview.demoButtonsHeading")}>
+          <div className="flex flex-wrap gap-3">
+            <Button onClick={NOOP}>{t("actions.startWork")}</Button>
             <Button variant="secondary" onClick={NOOP}>
               {t("actions.startBreak")}
             </Button>
-            <Button variant="danger" onClick={NOOP}>
+            <Button variant="destructive" onClick={NOOP}>
               {t("actions.stopWork")}
             </Button>
-            <Button variant="quiet" onClick={NOOP}>
+            <Button variant="plain" onClick={NOOP}>
               {t("common.back")}
             </Button>
-            <Button variant="primary" loading onClick={NOOP}>
+            <Button loading onClick={NOOP}>
               {t("actions.startWork")}
             </Button>
-            <Button variant="primary" disabled onClick={NOOP}>
+            <Button disabled onClick={NOOP}>
               {t("actions.startWork")}
             </Button>
-          </Stack>
-          <Button variant="primary" size="xl" onClick={NOOP}>
-            {t("actions.startWork")}
+          </div>
+          <Button size="lg" onClick={NOOP}>
+            {t("actions.stopWork")}
           </Button>
-        </Stack>
+        </Demo>
 
-        <Stack gap="md">
-          <Heading level={3}>{t("preview.demoCardHeading")}</Heading>
-          <Card>
-            <Stack gap="sm">
-              <Heading level={3}>{t("employeeHome.todayHeading")}</Heading>
-              <p>{t("preview.demoAlertInfo")}</p>
-            </Stack>
-          </Card>
-        </Stack>
+        <Demo title={t("preview.demoListHeading")}>
+          <GroupedList heading={t("hours.recentHeading")} footer={t("myData.intro")}>
+            <ListRow title="ma 28 sep" detail="08:02–16:31" value="7 u 59 min" />
+            <ListButtonRow
+              title={t("kiosk.menuLink")}
+              value={t("kiosk.pinStateSet")}
+              chevron
+            />
+            <ListButtonRow title={t("session.logout")} tone="danger" />
+          </GroupedList>
+        </Demo>
 
-        <Stack gap="md">
-          <Heading level={3}>{t("preview.demoFieldHeading")}</Heading>
+        <Demo title={t("preview.demoTimerHeading")}>
+          <div className="flex flex-wrap gap-6">
+            {STATUS.map((status) => (
+              <StatusLine
+                key={status.tone}
+                tone={status.tone}
+                label={t(status.label)}
+              />
+            ))}
+          </div>
+          <Timer valueMs={(3 * 60 + 24) * 60_000} spoken="3 u 24 min" />
+          <ProgressTrack
+            value={3.4}
+            max={8.5}
+            label={t("clock.progressLabel")}
+            startLabel="08:00"
+            endLabel={t("clock.plannedUntil", { time: "16:30" })}
+          />
+        </Demo>
+
+        <Demo title={t("preview.demoFieldHeading")}>
           <Field
             id="preview-email"
             label={t("preview.demoEmailLabel")}
             hint={t("preview.demoEmailHint")}
           >
-            <TextInput type="email" defaultValue="" />
+            <TextInput type="email" />
           </Field>
           <Field
             id="preview-email-error"
             label={t("preview.demoEmailLabel")}
             error={t("preview.demoEmailError")}
           >
-            <TextInput type="email" defaultValue="niet-geldig" />
+            <TextInput type="email" defaultValue="jan@" />
           </Field>
-        </Stack>
-
-        <Stack gap="md">
-          <Heading level={3}>{t("preview.demoOtpHeading")}</Heading>
-          <Field id="preview-otp" label={t("kiosk.pinTitle")} hint={t("kiosk.pinHint")}>
-            <OtpInput maxLength={6} defaultValue="" />
+          <Field
+            id="preview-otp"
+            label={t("loginCode.label")}
+            hint={t("loginCode.hint")}
+          >
+            <OtpInput maxLength={6} defaultValue="123456" />
           </Field>
-        </Stack>
+        </Demo>
 
-        <Stack gap="md">
-          <Heading level={3}>{t("preview.demoStatusHeading")}</Heading>
-          <Stack row gap="md" className="flex-wrap">
-            {STATUS_TONES.map((tone) => (
-              <StatusBadge
-                key={tone}
-                tone={tone}
-                label={t(`status.${statusLabelKey(tone)}`)}
-              />
-            ))}
-          </Stack>
-        </Stack>
-
-        <Stack gap="md">
-          <Heading level={3}>{t("preview.demoAlertHeading")}</Heading>
+        <Demo title={t("preview.demoAlertHeading")}>
           <Alert tone="info">{t("preview.demoAlertInfo")}</Alert>
           <Alert tone="success">{t("preview.demoAlertSuccess")}</Alert>
           {!dismissed ? (
@@ -175,93 +181,79 @@ function PreviewContent() {
               {t("preview.demoAlertError")}
             </Alert>
           ) : null}
-        </Stack>
+          <OfflineBanner queueing />
+          <OfflineBanner queueing={false} />
+        </Demo>
 
-        <Stack gap="md">
-          <Heading level={3}>{t("preview.demoEmptyHeading")}</Heading>
+        <Demo title={t("preview.demoEmptyHeading")}>
           <EmptyState
             title={t("preview.demoEmptyTitle")}
             body={t("preview.demoEmptyBody")}
           />
-        </Stack>
+        </Demo>
 
-        <Stack gap="md">
-          <Heading level={3}>{t("preview.demoNavHeading")}</Heading>
-          <div className="relative h-32 overflow-hidden rounded-lg border border-border [contain:layout]">
-            <BottomNav items={NAV_ITEMS} />
+        <Demo title={t("preview.demoSheetHeading")}>
+          <div>
+            <Button variant="secondary" onClick={() => setSheetOpen(true)}>
+              {t("preview.demoSheetOpen")}
+            </Button>
           </div>
-        </Stack>
+          <Sheet
+            open={sheetOpen}
+            onClose={() => setSheetOpen(false)}
+            title={t("session.logout")}
+            description={t("preview.demoSheetBody")}
+          >
+            <div className="flex flex-col gap-3">
+              <Button variant="destructive" wide onClick={() => setSheetOpen(false)}>
+                {t("offline.signOutAnyway")}
+              </Button>
+              <Button variant="secondary" wide onClick={() => setSheetOpen(false)}>
+                {t("offline.signOutCancel")}
+              </Button>
+            </div>
+          </Sheet>
+        </Demo>
+
+        <Demo title={t("preview.demoNavHeading")}>
+          <div className="overflow-hidden rounded-group border border-line">
+            <TabBar items={NAV_ITEMS} label={t("bottomNav.label")} />
+          </div>
+        </Demo>
       </section>
 
-      <section className="flex flex-col gap-10">
-        <Heading level={2}>{t("preview.sectionClock")}</Heading>
-
-        <Stack gap="lg">
-          <Heading level={3}>{t("preview.demoClockStatusHeading")}</Heading>
-          <ClockStatus state="off" since={null} now={FAKE_NOW} />
-          <ClockStatus
-            state="working"
-            since={FAKE_NOW - 3 * 3_600_000 - 12 * 60_000}
-            now={FAKE_NOW}
-          />
-          <ClockStatus state="on_break" since={FAKE_NOW - 13 * 60_000} now={FAKE_NOW} />
-        </Stack>
-
-        <Stack gap="lg">
-          <Heading level={3}>{t("preview.demoClockActionsHeading")}</Heading>
+      <section className="flex flex-col gap-12">
+        <h2 className="text-headline">{t("preview.sectionClock")}</h2>
+        <Demo title={t("preview.demoConfirmHeading")}>
           <ClockActions
             state="off"
             onStartWork={NOOP}
             onStopWork={NOOP}
             onStartBreak={NOOP}
             onStopBreak={NOOP}
-          />
-          <ClockActions
-            state="working"
-            onStartWork={NOOP}
-            onStopWork={NOOP}
-            onStartBreak={NOOP}
-            onStopBreak={NOOP}
-          />
-          <ClockActions
-            state="on_break"
-            onStartWork={NOOP}
-            onStopWork={NOOP}
-            onStartBreak={NOOP}
-            onStopBreak={NOOP}
-          />
-          <ClockActions
-            state="working"
-            onStartWork={NOOP}
-            onStopWork={NOOP}
-            onStartBreak={NOOP}
-            onStopBreak={NOOP}
             previewSuccess={{ action: "startWork", time: "08:02" }}
           />
-        </Stack>
-
-        <Stack gap="md">
-          <Heading level={3}>{t("preview.demoShiftListHeading")}</Heading>
-          <ShiftList shifts={FAKE_PAST_SHIFTS} />
+        </Demo>
+        <Demo title={t("preview.demoShiftListHeading")}>
+          <ShiftList shifts={FAKE_PAST_SHIFTS} showOfflineSkew />
           <ShiftList shifts={[]} />
-        </Stack>
-
-        <Stack gap="md">
-          <Heading level={3}>{t("preview.demoOfflineHeading")}</Heading>
-          <OfflineBanner queueing />
-        </Stack>
+        </Demo>
       </section>
 
       <section className="flex flex-col gap-4">
-        <Heading level={2}>{t("preview.sectionEmployeeHome")}</Heading>
-        <div className="relative mx-auto h-[720px] w-[380px] overflow-y-auto rounded-3xl border-4 border-ink [contain:layout]">
+        <h2 className="text-headline">{t("preview.sectionEmployeeHome")}</h2>
+        <div className="mx-auto flex h-[760px] w-[390px] flex-col overflow-y-auto rounded-[44px] border-8 border-ink px-gutter py-6">
           <EmployeeHome
-            firstName="Amina"
             shiftState="working"
-            since={FAKE_NOW - 3 * 3_600_000 - 12 * 60_000}
+            since={since}
             now={FAKE_NOW}
             todayShifts={FAKE_TODAY_SHIFTS}
-            activeNav="clock"
+            planned={{
+              start: since - 2 * 60_000,
+              end: since + 8.5 * 3_600_000,
+              netMs: 8.5 * 3_600_000,
+              range: "08:00–16:30",
+            }}
             onStartWork={NOOP}
             onStopWork={NOOP}
             onStartBreak={NOOP}
@@ -271,8 +263,8 @@ function PreviewContent() {
       </section>
 
       <section className="flex flex-col gap-4">
-        <Heading level={2}>{t("preview.sectionKiosk")}</Heading>
-        <div className="rounded-lg border border-border p-4">
+        <h2 className="text-headline">{t("preview.sectionKiosk")}</h2>
+        <div className="rounded-group border border-line p-4">
           <KioskHome
             employees={FAKE_KIOSK_EMPLOYEES}
             selected={kioskSelected}
@@ -283,27 +275,13 @@ function PreviewContent() {
       </section>
 
       <section className="flex flex-col gap-6">
-        <Heading level={2}>{t("preview.sectionManage")}</Heading>
+        <h2 className="text-headline">{t("preview.sectionManage")}</h2>
         <TodayBoard
           counters={FAKE_TODAY_BOARD_COUNTERS}
           people={FAKE_TODAY_BOARD_PEOPLE}
           attention={FAKE_TODAY_BOARD_ATTENTION}
         />
-        <TodayBoard
-          counters={{ working: 0, onBreak: 0, notStarted: 0, deviations: 0 }}
-          people={[]}
-          attention={[]}
-        />
       </section>
     </div>
   );
-}
-
-function statusLabelKey(
-  tone: StatusTone,
-): "workingLabel" | "breakLabel" | "offLabel" | "errorLabel" {
-  if (tone === "working") return "workingLabel";
-  if (tone === "break") return "breakLabel";
-  if (tone === "off") return "offLabel";
-  return "errorLabel";
 }

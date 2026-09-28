@@ -77,7 +77,7 @@ export function KioskDeviceActions({
           }}
         >
           <input type="hidden" name="deviceId" value={deviceId} />
-          <Button type="submit" variant="danger" size="md">
+          <Button type="submit" variant="destructive" size="md">
             {t("manageKiosks.revoke")}
           </Button>
         </form>

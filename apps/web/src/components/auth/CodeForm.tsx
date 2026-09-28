@@ -44,7 +44,7 @@ export function CodeForm({
         >
           <OtpInput name="code" maxLength={6} required autoFocus />
         </Field>
-        <Button type="submit" size="xl" loading={pending}>
+        <Button type="submit" size="lg" loading={pending}>
           {submitLabel}
         </Button>
       </Stack>

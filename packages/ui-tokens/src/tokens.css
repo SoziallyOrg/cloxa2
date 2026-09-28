@@ -1,86 +1,129 @@
 /*
- * Tailwind 4 theme tokens. Keep in sync with `tokens.ts` — colours are
- * WCAG AA (>=4.5:1, AAA >=7:1 for body text) against `--color-paper`.
- * Dark mode follows the OS preference (`prefers-color-scheme`), no toggle.
+ * Tailwind 4 theme tokens, direction C (docs/design.md). Keep in sync with
+ * `tokens.ts`. Dark mode follows the OS preference (`prefers-color-scheme`),
+ * no toggle. Colour means status and nothing else; ink is the action.
  */
 @theme {
-  --color-ink: #15212a;
-  --color-paper: #f8f6ee;
-  --color-surface: #ffffff;
-  --color-border: #cbd2d9;
-  --color-primary: #0e4a67;
-  --color-primary-contrast: #ffffff;
+  --font-sans:
+    -apple-system, "SF Pro Text", "Segoe UI Variable Text", Roboto, system-ui,
+    sans-serif;
 
-  /* Status colours: always paired with a text label, never colour alone. */
-  --color-status-working: #15803d;
-  --color-status-working-bg: #dcfce7;
-  --color-status-break: #b45309;
-  --color-status-break-bg: #fef3c7;
-  --color-status-off: #44515c;
-  --color-status-off-bg: #e6e9ec;
-  --color-status-error: #b91c1c;
-  --color-status-error-bg: #fee2e2;
+  --color-ink: #0a0a0a;
+  --color-ink-2: #5c5c5c;
+  /* Tertiary: only for 18px+ or non-essential text (3.5:1). */
+  --color-ink-3: #8a8a8a;
+  --color-paper: #ffffff;
+  --color-fill: #f5f5f7;
+  --color-line: #e8e8ea;
 
-  --color-success: #15803d;
-  --color-warning: #b45309;
+  /* Status: always paired with a word, never colour alone. */
+  --color-working: #15803d;
+  --color-break: #b45309;
+  --color-attention: #c2410c;
   --color-danger: #b91c1c;
 
-  /* Type scale: 18px base, up to ~40px for the status sentence. */
-  --text-base: 18px;
-  --text-lg: 20px;
-  --text-xl: 24px;
-  --text-2xl: 28px;
-  --text-status: 36px;
-  --text-status--line-height: 1.2;
-  --text-otp: 32px;
+  /* Type scale. `text-base`/`text-sm` follow body and callout for older screens. */
+  --text-display: 88px;
+  --text-display--line-height: 1;
+  --text-display--font-weight: 300;
+  --text-display--letter-spacing: -0.035em;
+  --text-title: 32px;
+  --text-title--line-height: 1.15;
+  --text-title--font-weight: 600;
+  --text-title--letter-spacing: -0.015em;
+  --text-headline: 22px;
+  --text-headline--line-height: 1.25;
+  --text-headline--font-weight: 600;
+  --text-headline--letter-spacing: -0.01em;
+  --text-body: 17px;
+  --text-body--line-height: 1.45;
+  --text-callout: 15px;
+  --text-callout--line-height: 1.4;
+  --text-number: 34px;
+  --text-number--line-height: 1.1;
+  --text-number--font-weight: 500;
+  --text-number--letter-spacing: -0.02em;
+  --text-base: 17px;
+  --text-base--line-height: 1.45;
+  --text-sm: 15px;
+  --text-sm--line-height: 1.4;
 
-  /* Spacing (in addition to Tailwind's default scale). */
-  --spacing-touch-target: 48px;
-  --spacing-button-lg: 56px;
-  --spacing-primary-action: 72px;
-  --spacing-bottom-nav: 64px;
-  --spacing-kiosk-tile: 96px;
-  --spacing-pin-key: 80px;
-
-  /* Radius. */
-  --radius-sm: 6px;
-  --radius-md: 10px;
+  /* Radius: 14px controls, 16px grouped lists. */
+  --radius-control: 14px;
+  --radius-group: 16px;
+  --radius-sheet: 22px;
+  --radius-md: 14px;
   --radius-lg: 16px;
 
-  /* Focus ring: at least 3px, always visible, never colour-only. */
-  --focus-ring-width: 3px;
-  --focus-ring-color: #0e4a67;
+  /* Sizes on the 4px grid. */
+  --spacing-touch-target: 48px;
+  --spacing-control: 52px;
+  --spacing-row: 56px;
+  --spacing-primary-action: 72px;
+  --spacing-tab-bar: 64px;
+  --spacing-gutter: 24px;
+  --spacing-gutter-desktop: 40px;
+  --spacing-section: 32px;
+  --spacing-kiosk-tile: 120px;
+  --spacing-pin-key: 88px;
+
+  --animate-sheet-in: sheet-in 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  --animate-fade-in: fade-in 180ms ease-out;
+  --animate-pop-in: pop-in 320ms cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  @keyframes sheet-in {
+    from {
+      transform: translateY(24px);
+      opacity: 0;
+    }
+    to {
+      transform: none;
+      opacity: 1;
+    }
+  }
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes pop-in {
+    from {
+      transform: scale(0.85);
+      opacity: 0;
+    }
+    to {
+      transform: none;
+      opacity: 1;
+    }
+  }
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --color-ink: #f2f4f6;
-    --color-paper: #10171d;
-    --color-surface: #1a252d;
-    --color-border: #3a4750;
-    --color-primary: #4f9ec9;
-    --color-primary-contrast: #0a1a22;
+    --color-ink: #f5f5f5;
+    --color-ink-2: #a3a3a3;
+    --color-ink-3: #737373;
+    --color-paper: #000000;
+    --color-fill: #1c1c1e;
+    --color-line: #2c2c2e;
 
-    --color-status-working: #4ade80;
-    --color-status-working-bg: #14432a;
-    --color-status-break: #fbbf24;
-    --color-status-break-bg: #4a3506;
-    --color-status-off: #b7c1c8;
-    --color-status-off-bg: #2a343b;
-    --color-status-error: #f87171;
-    --color-status-error-bg: #4a1414;
-
-    --focus-ring-color: #7cc1e8;
+    --color-working: #4ade80;
+    --color-break: #fbbf24;
+    --color-attention: #fb923c;
+    --color-danger: #f87171;
   }
 }
 
-/* Not part of @theme (no utility needed): a shared, always-visible focus
-   style applied via a class, never inline styles (CSP forbids those). */
+/* A shared, always-visible focus style applied via a class, never inline
+   styles (the CSP forbids those): 3px ink outline, 2px offset. */
 .focus-ring {
   outline: none;
 }
 
 .focus-ring:focus-visible {
-  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline: 3px solid var(--color-ink);
   outline-offset: 2px;
 }

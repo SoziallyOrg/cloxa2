@@ -30,7 +30,7 @@ const button = (page: Page, name: string) =>
 async function ensureOff(page: Page): Promise<void> {
   const start = button(page, "Start werk");
   const stop = button(page, "Stop werk");
-  const endBreak = button(page, "Pauze stoppen");
+  const endBreak = button(page, "Stop pauze");
   await expect(start.or(stop).or(endBreak)).toBeVisible();
   if (await endBreak.isVisible()) {
     await endBreak.click();
@@ -113,7 +113,7 @@ test("manager approves a correction and invites a new team member", async ({
   await button(page, "Volgende").click();
 
   await expect(page.getByText("Stap 2 van 3")).toBeVisible();
-  await page.getByLabel("Wat gebeurde er?").selectOption("clock_in");
+  await button(page, "Gestart met werken").click();
   await page.getByLabel("Tijdstip").fill(missedClockIn);
   await button(page, "Volgende").click();
 

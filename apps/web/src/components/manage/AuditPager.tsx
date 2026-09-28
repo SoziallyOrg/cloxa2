@@ -29,7 +29,7 @@ export function AuditPager({ hasPrevious, nextHref }: AuditPagerProps) {
       {nextHref ? (
         <a
           href={nextHref}
-          className="focus-ring inline-flex min-h-touch-target items-center rounded-md border-2 border-primary px-6 text-lg font-semibold text-primary"
+          className="focus-ring inline-flex min-h-touch-target items-center rounded-md border-2 border-ink px-6 text-lg font-semibold text-ink"
         >
           {t("audit.nextPage")}
         </a>

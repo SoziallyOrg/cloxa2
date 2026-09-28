@@ -53,7 +53,7 @@ export function AuditVerifyButton({ isOwner, action }: AuditVerifyButtonProps) {
 
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-ink/70">{t("audit.verifyIntro")}</p>
+      <p className="text-ink-2">{t("audit.verifyIntro")}</p>
       <Button
         variant="secondary"
         size="md"
@@ -63,7 +63,7 @@ export function AuditVerifyButton({ isOwner, action }: AuditVerifyButtonProps) {
       >
         {t("audit.verifyButton")}
       </Button>
-      {!isOwner ? <p className="text-ink/70">{t("audit.verifyOwnerOnly")}</p> : null}
+      {!isOwner ? <p className="text-ink-2">{t("audit.verifyOwnerOnly")}</p> : null}
       {outcome?.kind === "success" ? (
         <Alert tone="success">
           {t("audit.verifySuccess", { time: outcome.checkedAt })}

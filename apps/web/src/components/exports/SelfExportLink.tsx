@@ -5,6 +5,7 @@ import { recentMonths } from "@/lib/exports/brussels";
 
 import { buttonClassName } from "../ui/Button";
 import { Field } from "../ui/Field";
+import { inputClassName } from "../ui/TextInput";
 
 const MONTHS_SHOWN = 12;
 
@@ -27,17 +28,9 @@ export function SelfExportLink() {
   const months = recentMonths(nowMs(), MONTHS_SHOWN);
 
   return (
-    <form
-      action="/app/uren/export"
-      method="get"
-      className="flex flex-wrap items-end gap-3"
-    >
+    <form action="/app/uren/export" method="get" className="flex flex-col gap-4">
       <Field id="self-export-month" label={t("exports.selfMonthLabel")}>
-        <select
-          name="maand"
-          defaultValue={months[0]}
-          className="focus-ring min-h-touch-target rounded-md border-2 border-border bg-surface px-4 text-lg text-ink"
-        >
+        <select name="maand" defaultValue={months[0]} className={inputClassName}>
           {months.map((month) => (
             <option key={month} value={month}>
               {monthLabel(month)}
@@ -45,7 +38,7 @@ export function SelfExportLink() {
           ))}
         </select>
       </Field>
-      <button type="submit" className={buttonClassName("secondary", "md")}>
+      <button type="submit" className={buttonClassName("secondary", "md", true)}>
         {t("exports.selfDownload")}
       </button>
     </form>

@@ -63,7 +63,7 @@ async function ensureOff(tablet: Page): Promise<void> {
     await expect(
       tablet.getByRole("heading", { name: `Hallo ${FIRST_NAME}` }),
     ).toBeVisible();
-    const next = ["Pauze stoppen", "Stop werk"];
+    const next = ["Stop pauze", "Stop werk"];
     const open: string[] = [];
     for (const name of next) {
       if (await button(tablet, name).isVisible()) open.push(name);

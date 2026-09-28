@@ -200,7 +200,7 @@ export default async function ManageAuditPage({
       <Stack gap="lg">
         <div className="flex flex-col gap-2">
           <Heading level={1}>{t("audit.heading")}</Heading>
-          <p className="text-lg text-ink/70">{t("audit.intro")}</p>
+          <p className="text-lg text-ink-2">{t("audit.intro")}</p>
         </div>
 
         <Card>
@@ -228,7 +228,7 @@ export default async function ManageAuditPage({
               <select
                 name="category"
                 defaultValue={filters.category ?? ""}
-                className="focus-ring min-h-touch-target rounded-md border-2 border-border bg-surface px-4 text-lg text-ink"
+                className="focus-ring min-h-touch-target rounded-md border-2 border-line bg-paper px-4 text-lg text-ink"
               >
                 <option value="">{t("audit.filterCategoryAll")}</option>
                 {AUDIT_CATEGORIES.map((category) => {
@@ -252,13 +252,13 @@ export default async function ManageAuditPage({
             </label>
             <button
               type="submit"
-              className="focus-ring inline-flex min-h-touch-target items-center rounded-md bg-primary px-6 text-lg font-semibold text-primary-contrast"
+              className="focus-ring inline-flex min-h-touch-target items-center rounded-md bg-ink px-6 text-lg font-semibold text-paper"
             >
               {t("audit.filterApply")}
             </button>
             <a
               href="/manage/meer/audit"
-              className="focus-ring inline-flex min-h-touch-target items-center px-2 text-lg font-semibold text-primary underline"
+              className="focus-ring inline-flex min-h-touch-target items-center px-2 text-lg font-semibold text-ink underline"
             >
               {t("audit.filterClear")}
             </a>
@@ -295,13 +295,13 @@ export default async function ManageAuditPage({
                 <li key={row.id}>
                   <Card>
                     <Stack gap="sm">
-                      <p className="text-ink/70">
+                      <p className="text-ink-2">
                         {formatBrusselsDate(at)} {formatBrusselsTime(at)} · {actorText}
                       </p>
                       <p className="text-lg font-semibold">
                         {t(describeAction(row.action))}
                       </p>
-                      <p className="text-ink/70">
+                      <p className="text-ink-2">
                         {t("audit.entityLabel", {
                           entity: `${entityKey ? t(entityKey) : row.entity} ${shortId(row.entity_id)}`,
                         })}

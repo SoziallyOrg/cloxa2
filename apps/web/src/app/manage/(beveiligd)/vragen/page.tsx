@@ -11,7 +11,7 @@ import { RequestCard, type RequestCardChange } from "@/components/manage/Request
 import { Alert } from "@/components/ui/Alert";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Heading } from "@/components/ui/Heading";
-import type { StatusTone } from "@/components/ui/StatusBadge";
+import type { StatusTone } from "@/components/ui/StatusLine";
 import { requireManager } from "@/lib/auth/context";
 import {
   buildCorrectionDiff,
@@ -36,7 +36,7 @@ const EVENT_TYPE_LABEL_KEY: Record<string, CatalogKey> = {
 
 const DECISION_TONE: Record<string, StatusTone> = {
   approved: "working",
-  rejected: "error",
+  rejected: "danger",
 };
 
 interface CorrectionRow {
@@ -192,13 +192,13 @@ export default async function ManageVragenPage({
         <div className="flex gap-3">
           <a
             href="/manage/vragen"
-            className={`text-lg font-semibold ${tab === "pending" ? "text-primary underline" : "text-ink/70"}`}
+            className={`text-lg font-semibold ${tab === "pending" ? "text-ink underline" : "text-ink-2"}`}
           >
             {t("manageVragen.tabPending")}
           </a>
           <a
             href="/manage/vragen?tab=decided"
-            className={`text-lg font-semibold ${tab === "decided" ? "text-primary underline" : "text-ink/70"}`}
+            className={`text-lg font-semibold ${tab === "decided" ? "text-ink underline" : "text-ink-2"}`}
           >
             {t("manageVragen.tabDecided")}
           </a>

@@ -35,7 +35,7 @@ export function ConfirmLinkForm({
         <input type="hidden" name="type" value={type} />
         {next ? <input type="hidden" name="next" value={next} /> : null}
         {state.error ? (
-          <p role="alert" className="text-lg font-semibold text-status-error">
+          <p role="alert" className="text-lg font-semibold text-danger">
             {state.error}
           </p>
         ) : null}
@@ -46,7 +46,7 @@ export function ConfirmLinkForm({
             resetSignal={state}
           />
         ) : null}
-        <Button type="submit" size="xl" loading={pending}>
+        <Button type="submit" size="lg" loading={pending}>
           {t("auth.confirm.submit")}
         </Button>
       </Stack>

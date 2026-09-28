@@ -4,7 +4,6 @@ import { t } from "@cloxa/i18n";
 
 import { AuthShell } from "@/components/auth/AuthShell";
 import { CodeForm } from "@/components/auth/CodeForm";
-import { Stack } from "@/components/ui/Stack";
 import { verifyCode } from "@/lib/auth/actions/login";
 
 /**
@@ -13,13 +12,14 @@ import { verifyCode } from "@/lib/auth/actions/login";
  */
 export default function LoginCodePage() {
   return (
-    <AuthShell title={t("loginCode.title")}>
-      <p
-        role="status"
-        className="rounded-md border-2 border-border bg-status-off-bg p-4 text-lg"
-      >
-        {t("loginCode.sent")}
-      </p>
+    <AuthShell
+      title={t("loginCode.title")}
+      intro={
+        <p role="status" className="text-body text-ink-2">
+          {t("loginCode.sent")}
+        </p>
+      }
+    >
       <CodeForm
         id="login-code"
         label={t("loginCode.label")}
@@ -27,15 +27,15 @@ export default function LoginCodePage() {
         submitLabel={t("loginCode.submit")}
         action={verifyCode}
       />
-      <Stack gap="sm">
-        <p className="text-base text-ink/70">{t("loginCode.noMail")}</p>
+      <div className="flex flex-col items-center gap-1 text-center">
+        <p className="text-callout text-ink-2">{t("loginCode.noMail")}</p>
         <Link
           href="/login"
-          className="focus-ring self-start text-lg font-semibold underline"
+          className="focus-ring inline-flex min-h-touch-target items-center rounded-control px-3 text-body font-semibold underline-offset-4 hover:underline"
         >
           {t("loginCode.restart")}
         </Link>
-      </Stack>
+      </div>
     </AuthShell>
   );
 }

@@ -83,7 +83,7 @@ export default async function ManageEmployeeSchedulePage({
       <div className="flex flex-col gap-8">
         <Link
           href={`/manage/medewerker/${employee.id}` as Route}
-          className="focus-ring self-start font-semibold text-primary underline"
+          className="focus-ring self-start font-semibold text-ink underline"
         >
           {t("schedule.backLink")}
         </Link>
@@ -100,7 +100,7 @@ export default async function ManageEmployeeSchedulePage({
         <section className="flex flex-col gap-3">
           <Heading level={2}>{t("schedule.historyHeading")}</Heading>
           {versionRows.length === 0 ? (
-            <p className="text-ink/70">{t("schedule.noHistory")}</p>
+            <p className="text-ink-2">{t("schedule.noHistory")}</p>
           ) : (
             <ul className="flex flex-col gap-2">
               {versionRows.map((row) => {
@@ -109,12 +109,12 @@ export default async function ManageEmployeeSchedulePage({
                 );
                 const creatorName = creatorNames.get(row.created_by);
                 return (
-                  <li key={row.id} className="rounded-lg border border-border p-4">
+                  <li key={row.id} className="rounded-lg border border-line p-4">
                     <p className="font-semibold">
                       {t("schedule.historyRow", { date: row.valid_from, hours })}
                     </p>
                     {creatorName ? (
-                      <p className="text-ink/70">
+                      <p className="text-ink-2">
                         {t("schedule.historyCreatedBy", { name: creatorName })}
                       </p>
                     ) : null}

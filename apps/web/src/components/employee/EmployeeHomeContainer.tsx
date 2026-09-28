@@ -1,8 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
-import Link from "next/link";
-import type { Route } from "next";
 
 import type { ClockInput } from "@cloxa/db";
 import type { Shift, ShiftState } from "@cloxa/domain";
@@ -15,24 +13,22 @@ import { displayedState, type QueueEntry, type SyncReport } from "@/lib/offline/
 import { useOfflineQueue } from "@/lib/offline/use-offline-queue";
 
 import { Alert } from "../ui/Alert";
-import { Stack } from "../ui/Stack";
-import { StatusBadge } from "../ui/StatusBadge";
+import { StatusLine } from "../ui/StatusLine";
 import { OfflineBanner } from "../clock/OfflineBanner";
 import type { ClockActionResult } from "../clock/ClockActions";
-import { SessionActions } from "../auth/SessionActions";
-import { EmployeeHome, type EmployeeHomeNav } from "./EmployeeHome";
+import type { PlannedDay } from "../clock/clock-face";
+import { EmployeeHome } from "./EmployeeHome";
 
 export interface EmployeeHomeContainerProps {
   /** The signed-in employee: queued actions are kept per employee. */
   employeeId: string;
-  firstName: string;
   initialShiftState: ShiftState;
   initialSince: number | null;
   /** The server's "now" when it rendered, so the first client render matches it. */
   initialNow: number;
   todayShifts: readonly Shift[];
-  plannedToday?: string | null;
-  activeNav: EmployeeHomeNav;
+  /** Today's schedule, or `null` when nothing is planned. */
+  planned?: PlannedDay | null;
   /** The employee's site to clock at, once chosen (`SitePicker` handles `null`). */
   siteId: string;
 }
@@ -68,13 +64,11 @@ const sendQueued = (entry: QueueEntry) =>
  */
 export function EmployeeHomeContainer({
   employeeId,
-  firstName,
   initialShiftState,
   initialSince,
   initialNow,
   todayShifts,
-  plannedToday = null,
-  activeNav,
+  planned = null,
   siteId,
 }: EmployeeHomeContainerProps) {
   const [now, setNow] = useState(initialNow);
@@ -163,55 +157,47 @@ export function EmployeeHomeContainer({
 
   return (
     <EmployeeHome
-      firstName={firstName}
       shiftState={displayed.state}
       since={displayed.since}
       // A refresh brings a newer server "now"; never show time before it.
       now={Math.max(now, initialNow)}
       todayShifts={todayShifts}
-      plannedToday={plannedToday}
-      activeNav={activeNav}
+      pending={queue.pending}
+      planned={planned}
       actionsDisabled={!online && !queue.supported}
       onStartWork={() => run("clock_in")}
       onStopWork={() => run("clock_out")}
       onStartBreak={() => run("break_start")}
       onStopBreak={() => run("break_end")}
-      menu={
-        <Stack gap="md">
-          <Link
-            href={"/app/instellingen" as Route}
-            className="focus-ring text-lg font-semibold text-primary underline"
-          >
-            {t("kiosk.menuLink")}
-          </Link>
-          <SessionActions everywhere pendingCount={queue.pending.length} />
-        </Stack>
-      }
       notice={
-        <>
-          {!online ? <OfflineBanner queueing={queue.supported} /> : null}
-          {queue.pending.length > 0 ? (
-            <div>
-              <StatusBadge tone="break" label={t("offline.notSent")} />
-            </div>
-          ) : null}
-          {messages.map((message, index) => (
-            <Alert
-              key={`${message.key}-${index}`}
-              tone={message.tone}
-              onDismiss={() =>
-                setMessages((current) => current.filter((_, i) => i !== index))
-              }
-            >
-              {t(message.key, message.values)}
-            </Alert>
-          ))}
-          {error ? (
-            <Alert tone="error" onDismiss={() => setError(null)}>
-              {error}
-            </Alert>
-          ) : null}
-        </>
+        !online || queue.pending.length > 0 || messages.length > 0 ? (
+          <>
+            {!online ? <OfflineBanner queueing={queue.supported} /> : null}
+            {queue.pending.length > 0 ? (
+              <div>
+                <StatusLine tone="attention" label={t("offline.notSent")} size="sm" />
+              </div>
+            ) : null}
+            {messages.map((message, index) => (
+              <Alert
+                key={`${message.key}-${index}`}
+                tone={message.tone}
+                onDismiss={() =>
+                  setMessages((current) => current.filter((_, i) => i !== index))
+                }
+              >
+                {t(message.key, message.values)}
+              </Alert>
+            ))}
+          </>
+        ) : null
+      }
+      error={
+        error ? (
+          <Alert tone="error" onDismiss={() => setError(null)}>
+            {error}
+          </Alert>
+        ) : null
       }
     />
   );
