@@ -21,6 +21,8 @@ const ON_BREAK = "screens-pauze@demo.test";
 const OFF = "screens-uit@demo.test";
 const ACTION = "screens-actie@demo.test";
 const EMPTY = "screens-leeg@demo.test";
+const NO_ACCESS = "screens-geen@demo.test";
+const TWO_ORGS = "screens-twee@demo.test";
 const REASON = "Ik ben later gestopt: de levering kwam laat.";
 
 const OUT = resolve(process.cwd(), "output/screens");
@@ -279,6 +281,23 @@ test("a fresh start: no hours, no questions, nothing planned", async ({ page }) 
   await page.goto("/app/vragen");
   await expect(page.getByText("Nog geen vragen")).toBeVisible();
   await capture(page, "leeg-vragen");
+});
+
+test("the email link, choosing an organization, and no access", async ({ page }) => {
+  test.setTimeout(180_000);
+  // The GET half of a login link only shows a button: nothing is used up.
+  await page.goto("/auth/confirm?token_hash=screensvoorbeeld0123&type=email");
+  await expect(button(page, "Inloggen")).toBeVisible(SETTLED);
+  await capture(page, "login-link");
+
+  await loginWithEmailCode(page, TWO_ORGS);
+  await expect(page).toHaveURL(/\/kies-organisatie$/, SETTLED);
+  await capture(page, "kies-organisatie");
+
+  await page.context().clearCookies();
+  await loginWithEmailCode(page, NO_ACCESS);
+  await expect(page).toHaveURL(/\/geen-toegang$/, SETTLED);
+  await capture(page, "geen-toegang");
 });
 
 test("the clock on a break", async ({ page }) => {

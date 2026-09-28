@@ -14,6 +14,8 @@
  *   journey-e2e@demo.test (site 1; reserved for manager-journey.spec.ts)
  *   owner-e2e@demo.test (owner, site 1; reserved for e2e specs needing owner
  *     rights, so eigenaar@demo.test's session is never disturbed)
+ *   screens-geen@demo.test (no membership) and screens-twee@demo.test (two
+ *     organizations): the access screens in `pnpm screens`
  *   screens-e2e@, screens-pauze@, screens-uit@, screens-actie@,
  *     screens-leeg@demo.test (site 1; reserved for `pnpm screens`: made-up
  *     history and a realistic "today", reset on every run; screens-leeg@ has
@@ -59,6 +61,12 @@ const SEED_OWNER = { email: "seed-owner@demo.test", name: "Seed Owner (intern)" 
 // offboarding): also never a human's account, so its factors can be reset
 // freely. Given a membership and employee row directly, like SEED_OWNER.
 const OWNER_E2E = { email: "owner-e2e@demo.test", name: "Owen Testeigenaar" };
+// `pnpm screens` of the two access screens: signed in without any membership
+// (geen-toegang), and working for two organizations (kies-organisatie). The
+// second organization is fictional too, with a long name (truncation).
+const SCREENS_NO_ACCESS = "screens-geen@demo.test";
+const SCREENS_TWO_ORGS = { email: "screens-twee@demo.test", name: "Ines Wouters" };
+const SECOND_ORG_NAME = "Brasserie Het Groene Pleintje aan de Oude Vismarkt (fictief)";
 // `pnpm screens` (design screenshots). The screenshots show the first three,
 // which a run never clocks with; live clock actions (the confirmation) use the
 // last one. `today` is what each shows today; see settleScreensToday.
@@ -370,6 +378,8 @@ async function main(): Promise<void> {
   // MFA of a human demo account (eigenaar@demo.test's factor is left alone).
   const seedOwnerId = await ensureUser(SEED_OWNER.email);
   const ownerE2eId = await ensureUser(OWNER_E2E.email);
+  await ensureUser(SCREENS_NO_ACCESS);
+  const twoOrgsId = await ensureUser(SCREENS_TWO_ORGS.email);
   {
     const sql = postgres(dbUrl, { max: 1, onnotice: () => undefined });
     try {
@@ -393,6 +403,36 @@ async function main(): Promise<void> {
           insert into public.site_assignments (organization_id, site_id, employee_id)
           values (${orgId}, ${siteIds.main}, ${ownerEmployee.id})
           on conflict (organization_id, site_id, employee_id) do nothing`;
+      }
+
+      // screens-twee@: an employee here, and the owner of a second organization.
+      const [twoOrgsMembership] = await sql<{ id: string }[]>`
+        insert into public.memberships (organization_id, user_id, role, status)
+        values (${orgId}, ${twoOrgsId}, 'employee', 'active')
+        on conflict (organization_id, user_id) do update set status = 'active'
+        returning id`;
+      const [twoOrgsEmployee] = await sql<{ id: string }[]>`
+        insert into public.employees (organization_id, user_id, display_name)
+        values (${orgId}, ${twoOrgsId}, ${SCREENS_TWO_ORGS.name})
+        on conflict (organization_id, user_id) do update set display_name = excluded.display_name
+        returning id`;
+      if (twoOrgsMembership && twoOrgsEmployee) {
+        await sql`
+          insert into public.site_assignments (organization_id, site_id, employee_id)
+          values (${orgId}, ${siteIds.main}, ${twoOrgsEmployee.id})
+          on conflict (organization_id, site_id, employee_id) do nothing`;
+      }
+      const [secondOrg] = await sql`
+        select 1 from public.memberships m
+        join public.organizations o on o.id = m.organization_id
+        where m.user_id = ${twoOrgsId} and o.name = ${SECOND_ORG_NAME} limit 1`;
+      if (!secondOrg) {
+        const { error } = await admin.rpc("rpc_admin_create_organization", {
+          p_name: SECOND_ORG_NAME,
+          p_owner_user_id: twoOrgsId,
+          p_owner_display_name: SCREENS_TWO_ORGS.name,
+        });
+        if (error) fail("rpc_admin_create_organization", error);
       }
     } finally {
       await sql.end();
