@@ -17,6 +17,8 @@ const PAGES = [
   },
   // Signed out, /app goes to the login page.
   { path: "/app", lands: /\/login$/ },
+  // Every UI primitive, with the self-hosted font (CLOXA_PREVIEW=1 in e2e).
+  { path: "/preview", lands: /\/preview$/ },
 ] as const;
 
 for (const { path, lands } of PAGES) {

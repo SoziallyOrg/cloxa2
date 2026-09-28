@@ -12,11 +12,18 @@ body {
   font-family: var(--font-sans);
   font-size: var(--text-body);
   line-height: 1.45;
-  font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   -webkit-tap-highlight-color: transparent;
   text-size-adjust: 100%;
+}
+
+/*
+ * Numbers use tabular figures where they line up or tick. Not on the whole
+ * page: Inter's tabular feature also widens hyphens and colons in words.
+ */
+:where(time, .text-display, .text-number) {
+  font-variant-numeric: tabular-nums;
 }
 
 /*

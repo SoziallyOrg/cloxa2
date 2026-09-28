@@ -12,6 +12,8 @@ export interface NoticeProps {
   tone: NoticeTone;
   children: ReactNode;
   onDismiss?: () => void;
+  /** Takes focus when it appears (default), so it is not missed on a long page. */
+  autoFocus?: boolean;
 }
 
 const TONE_CLASSES: Record<NoticeTone, string> = {
@@ -25,12 +27,12 @@ const TONE_CLASSES: Record<NoticeTone, string> = {
  * (`role="status"` for info and success, `role="alert"` for errors) and
  * takes focus so it isn't missed on a long page.
  */
-export function Notice({ tone, children, onDismiss }: NoticeProps) {
+export function Notice({ tone, children, onDismiss, autoFocus = true }: NoticeProps) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    ref.current?.focus();
-  }, []);
+    if (autoFocus) ref.current?.focus();
+  }, [autoFocus]);
 
   return (
     <div

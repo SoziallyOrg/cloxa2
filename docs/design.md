@@ -24,32 +24,31 @@ rules. If a screen needs to break one, the rule is updated here first.
 
 ## Tokens (`packages/ui-tokens`)
 
-| Token                                        | Light                                         | Dark                  | Use                                            |
-| -------------------------------------------- | --------------------------------------------- | --------------------- | ---------------------------------------------- |
-| `ink`                                        | `#0a0a0a`                                     | `#f5f5f5`             | text, primary button                           |
-| `ink-2`                                      | `#5c5c5c`                                     | `#a3a3a3`             | secondary text (≥4.5:1)                        |
-| `ink-3`                                      | `#8a8a8a`                                     | `#737373`             | tertiary text, only for 18px+ or non-essential |
-| `paper`                                      | `#ffffff`                                     | `#000000`             | page                                           |
-| `fill`                                       | `#f5f5f7`                                     | `#1c1c1e`             | grouped backgrounds, tracks, inputs            |
-| `line`                                       | `#e8e8ea`                                     | `#2c2c2e`             | hairline dividers                              |
-| `working` / `break` / `attention` / `danger` | `#15803d` / `#b45309` / `#c2410c` / `#b91c1c` | lighter tints in dark | status                                         |
+| Token                                        | Light                                         | Dark                                          | Use                                     |
+| -------------------------------------------- | --------------------------------------------- | --------------------------------------------- | --------------------------------------- |
+| `ink`                                        | `#0a0a0a`                                     | `#f5f5f5`                                     | label, primary button                   |
+| `ink-2`                                      | `#6c6c70`                                     | `#98989f`                                     | secondary label (≥4.5:1 everywhere)     |
+| `ink-3`                                      | `#8a8a8e`                                     | `#7c7c80`                                     | tertiary, only 18px+ or non-essential   |
+| `paper` / `fill` / `line`                    | `#ffffff` / `#f5f5f7` / `#e8e8ea`             | `#000000` / `#1c1c1e` / `#2c2c2e`             | plain page, tracks and inputs, outlines |
+| `grouped` / `surface`                        | `#f2f2f7` / `#ffffff`                         | `#000000` / `#1c1c1e` (sheets: one step up)   | inset grouped page / rows               |
+| `separator` / `pressed`                      | `#c6c6c8` / `#d1d1d6`                         | `#38383a` / `#3a3a3c`                         | hairlines (0.5px) / pressed row         |
+| `working` / `break` / `attention` / `danger` | `#207936` / `#b25000` / `#c93400` / `#d70015` | `#30d158` / `#ffd60a` / `#ff9f0a` / `#ff6961` | status, plus `*-tint` for halos         |
+| `material-bar` / `-sidebar` / `-sheet`       | translucent white                             | translucent black                             | bars, sidebar, alerts (with 20px blur)  |
 
-- **Font:** the system UI stack
-  (`-apple-system, "SF Pro Text", "Segoe UI Variable Text", Roboto, system-ui, sans-serif`).
-  Numbers always use `font-variant-numeric: tabular-nums`.
-- **Type scale:**
+`packages/ui-tokens/src/tokens.test.ts` computes every text/background ratio. The iOS
+green `#248a3d` is 4.40:1 on white, so text uses `#207936`.
 
-  | Name     | Size | Weight | Use            |
-  | -------- | ---- | ------ | -------------- |
-  | display  | 88   | 300    | timer          |
-  | title    | 32   | 600    | page title     |
-  | headline | 22   | 600    | section title  |
-  | body     | 17   | 400    | text           |
-  | callout  | 15   | 400    | secondary text |
-  | number   | 34   | 500    | KPI            |
+- **Font:**
+  `-apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter Variable", system-ui, sans-serif`:
+  San Francisco on Apple devices, self-hosted Inter elsewhere. Numbers always use
+  `font-variant-numeric: tabular-nums`.
+- **Type scale:** the iOS text styles (`text-large-title`, `title-1/2/3`, `headline`,
+  `body`, `callout`, `subhead`, `footnote`, `caption`, `caption-2`), plus `display`
+  (88/300, timer) and `number` (34/500, KPI). `title` (32/600) remains only for screens
+  not yet on `NavBar`.
 
-- **Radius:** 14px for buttons and inputs, 16px for grouped lists. Pills are fully
-  round.
+- **Radius:** 14px for buttons, inputs and alerts, 10px for inset grouped lists, 7px for
+  icon tiles. Pills are fully round.
 - **Spacing:** a 4px base. Screen gutters are 24px on phones and 40px on desktop. Leave
   at least 32px between sections.
 

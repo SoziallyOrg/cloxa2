@@ -328,9 +328,15 @@ export function PreviewContent() {
         <Field id="preview-otp" label={t("loginCode.label")} hint={t("loginCode.hint")}>
           <OtpInput maxLength={6} defaultValue="123456" />
         </Field>
-        <Notice tone="info">{t("preview.noticeInfo")}</Notice>
-        <Notice tone="success">{t("preview.noticeSuccess")}</Notice>
-        <Notice tone="error">{t("preview.noticeError")}</Notice>
+        <Notice tone="info" autoFocus={false}>
+          {t("preview.noticeInfo")}
+        </Notice>
+        <Notice tone="success" autoFocus={false}>
+          {t("preview.noticeSuccess")}
+        </Notice>
+        <Notice tone="error" autoFocus={false}>
+          {t("preview.noticeError")}
+        </Notice>
       </Group>
 
       <Sheet

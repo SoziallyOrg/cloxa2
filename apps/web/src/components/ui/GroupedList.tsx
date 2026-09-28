@@ -89,10 +89,14 @@ function RowContent({
         >
           {title}
         </span>
-        {detail ? <span className="text-subhead text-ink-2">{detail}</span> : null}
+        {detail ? (
+          <span className="text-subhead text-ink-2 tabular-nums">{detail}</span>
+        ) : null}
       </span>
       {value !== undefined && value !== null ? (
-        <span className="shrink-0 text-right text-body text-ink-2">{value}</span>
+        <span className="shrink-0 text-right text-body text-ink-2 tabular-nums">
+          {value}
+        </span>
       ) : null}
       {chevron ? <Chevron /> : null}
     </span>

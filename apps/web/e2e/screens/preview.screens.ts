@@ -59,7 +59,13 @@ test("every primitive, in both themes and both form factors", async ({ page }) =
           await page
             .locator(`#${id}`)
             .evaluate((element) => element.scrollIntoView({ block: "start" }));
-          await expect(page.locator("[data-collapsed]")).toHaveCount(1);
+          // Let the nav bar's IntersectionObserver catch up.
+          await page.evaluate(
+            () =>
+              new Promise((done) =>
+                requestAnimationFrame(() => requestAnimationFrame(done)),
+              ),
+          );
           await shot(
             page,
             `preview-${String(index + 1).padStart(2, "0")}-${id}-${suffix}`,

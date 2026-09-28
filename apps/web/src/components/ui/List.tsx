@@ -231,11 +231,13 @@ function RowBody({
             {title}
           </span>
           {subtitle ? (
-            <span className="line-clamp-2 text-subhead text-ink-2">{subtitle}</span>
+            <span className="line-clamp-2 text-subhead text-ink-2 tabular-nums">
+              {subtitle}
+            </span>
           ) : null}
         </span>
         {value !== undefined && value !== null ? (
-          <span className="max-w-[45%] shrink-0 truncate text-right text-body text-ink-2">
+          <span className="max-w-[45%] shrink-0 truncate text-right text-body text-ink-2 tabular-nums">
             {value}
           </span>
         ) : null}
