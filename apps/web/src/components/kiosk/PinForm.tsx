@@ -89,9 +89,9 @@ export function PinForm({
         value={value}
         aria-describedby={error ? `${hintId} ${errorId}` : hintId}
         aria-invalid={error ? true : undefined}
-        placeholder={t("kiosk.pinHint")}
+        placeholder="••••"
         onChange={(event) => onChange(digitsOnly(event.target.value))}
-        className="focus-ring min-h-touch-target w-40 min-w-0 shrink rounded-md border-0 bg-transparent px-2 text-right text-body tracking-[0.2em] text-ink placeholder:tracking-normal placeholder:text-ink-3"
+        className="focus-ring min-h-touch-target w-28 shrink-0 rounded-md border-0 bg-transparent px-2 text-right text-body tracking-[0.2em] text-ink placeholder:tracking-normal placeholder:text-ink-3"
       />
     );
 
