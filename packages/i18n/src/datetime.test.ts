@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   brusselsLocalToInstant,
   formatBrusselsDate,
+  formatBrusselsLongDay,
   formatBrusselsTime,
 } from "./datetime";
 
@@ -64,6 +65,15 @@ describe("brusselsLocalToInstant", () => {
     // in UTC), then again as CET (01:00Z-02:00Z). The later, standard-time one wins.
     expect(brusselsLocalToInstant("2026-10-25", "02:30").toISOString()).toBe(
       "2026-10-25T01:30:00.000Z",
+    );
+  });
+});
+
+describe("formatBrusselsLongDay", () => {
+  it("names the Brussels weekday, capitalised, without the year", () => {
+    // 23:30 UTC on Sunday is already Monday in Brussels (CEST).
+    expect(formatBrusselsLongDay(new Date("2026-09-27T23:30:00Z"))).toBe(
+      "Maandag 28 september",
     );
   });
 });

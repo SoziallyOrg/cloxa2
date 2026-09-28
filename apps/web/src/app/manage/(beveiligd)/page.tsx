@@ -6,33 +6,70 @@ import {
   type ClockEvent,
   type ClockEventSource,
   type ClockEventType,
+  type Shift,
 } from "@cloxa/domain";
-import { formatBrusselsTime, t } from "@cloxa/i18n";
+import { formatBrusselsLongDay, formatBrusselsTime, t } from "@cloxa/i18n";
 
-import { brusselsWeekRange } from "@/components/clock/week-total";
+import { formatDurationMs } from "@/components/clock/format";
+import { brusselsWeekRange, workedMs } from "@/components/clock/week-total";
 import { AutoRefresh } from "@/components/manage/AutoRefresh";
-import { ManageShell } from "@/components/manage/ManageShell";
 import { SiteFilter } from "@/components/manage/SiteFilter";
 import {
-  TodayBoard,
-  type TodayBoardAttentionItem,
-  type TodayBoardPerson,
-} from "@/components/manage/TodayBoard";
-import type { StatusTone } from "@/components/ui/StatusLine";
-import { Heading } from "@/components/ui/Heading";
+  TeamTimeline,
+  type TeamTimelinePerson,
+} from "@/components/manage/TeamTimeline";
+import { NavBar } from "@/components/ui/NavBar";
+import { NumbersRow } from "@/components/ui/NumbersRow";
+import { PageTransition } from "@/components/ui/PageTransition";
+import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { requireManager } from "@/lib/auth/context";
 import { nowMs } from "@/lib/clock/now";
 import {
   buildAttention,
+  type AttentionItem,
   type OfflineEvent,
   type OpenShiftStatus,
   type ScheduledStart,
 } from "@/lib/manage/attention";
+import { nowPct, timelineRow, timelineWindow } from "@/lib/manage/timeline";
+import { previewHold } from "@/lib/preview";
 import { createClient } from "@/lib/supabase/server";
 
 // Wide enough to still catch a shift forgotten open from the previous
 // Brussels day, without loading unbounded history.
 const EVENTS_LOOKBACK_MS = 3 * 24 * 3600 * 1000;
+
+const time = (at: number) => formatBrusselsTime(new Date(at));
+
+/** The orange note for one "aandacht nodig" item, in plain words. */
+function noteFor(
+  item: AttentionItem,
+  openShift: OpenShiftStatus | undefined,
+  today: string,
+) {
+  switch (item.reason) {
+    case "forgotClockOut": {
+      const startedAt = openShift?.startedAt ?? null;
+      const when =
+        startedAt === null
+          ? ""
+          : brusselsDayKey(startedAt) === today
+            ? time(startedAt)
+            : t("manage.yesterdayAt", { time: time(startedAt) });
+      return t("manage.noteForgotClockOut", { when });
+    }
+    case "longBreak":
+      return t("manage.noteLongBreak");
+    case "notStarted":
+      return t("manage.noteNotStarted");
+    case "offlineDelayed":
+      return t("manage.noteOfflineLate");
+    case "offlineWeekly":
+      return t("manage.noteOfflineWeekly", { count: item.count ?? 0 });
+    default:
+      return null;
+  }
+}
 
 export default async function ManagePage({
   searchParams,
@@ -40,7 +77,8 @@ export default async function ManagePage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   // Layouts don't re-run on client navigation, so every page checks too.
-  const context = await requireManager();
+  await requireManager();
+  await previewHold();
   const supabase = await createClient();
   const now = nowMs();
   const todayKey = brusselsDayKey(now);
@@ -91,7 +129,6 @@ export default async function ManagePage({
     .eq("status", "pending");
   if (pendingError)
     throw new Error(`correction_requests_unavailable:${pendingError.code}`);
-  const pendingCorrectionsCount = pendingCount ?? 0;
 
   const employeeIds = visibleEmployees.map((employee) => employee.id);
   const { data: eventRows, error: eventsError } =
@@ -159,10 +196,11 @@ export default async function ManagePage({
     visibleEmployees.map((employee, index) => [employee.id, scheduleResults[index]!]),
   );
 
+  const day = timelineWindow(todayKey);
   const openShifts: OpenShiftStatus[] = [];
   const scheduledStarts: ScheduledStart[] = [];
   const clockedInEmployeeIds = new Set<string>();
-  const people: TodayBoardPerson[] = [];
+  const todayShiftsByEmployee = new Map<string, Shift[]>();
   let workingCount = 0;
   let onBreakCount = 0;
 
@@ -170,14 +208,11 @@ export default async function ManagePage({
     const shifts = deriveShifts(
       effectiveEvents(eventsByEmployee.get(employee.id) ?? []),
     );
-    const last = shifts.at(-1) ?? null;
-    const hasShiftToday = shifts.some(
-      (shift) => brusselsDayKey(shift.start) === todayKey,
-    );
-    if (hasShiftToday) clockedInEmployeeIds.add(employee.id);
+    const todays = shifts.filter((shift) => brusselsDayKey(shift.start) === todayKey);
+    todayShiftsByEmployee.set(employee.id, todays);
+    if (todays.length > 0) clockedInEmployeeIds.add(employee.id);
 
-    const scheduleToday = scheduleByEmployee.get(employee.id) ?? [];
-    const firstBlock = scheduleToday[0];
+    const firstBlock = scheduleByEmployee.get(employee.id)?.[0];
     if (firstBlock) {
       scheduledStarts.push({
         employeeId: employee.id,
@@ -186,13 +221,7 @@ export default async function ManagePage({
       });
     }
 
-    let tone: StatusTone = "off";
-    let statusLabelKey:
-      | "manage.statusWorkingLabel"
-      | "manage.statusBreakLabel"
-      | "manage.statusOffLabel" = "manage.statusOffLabel";
-    let sinceLabel: string | null = null;
-
+    const last = shifts.at(-1) ?? null;
     if (last && last.open) {
       openShifts.push({
         employeeId: employee.id,
@@ -200,36 +229,13 @@ export default async function ManagePage({
         startedAt: last.start,
         openBreakStartedAt: last.openBreak ? (last.breaks.at(-1)?.start ?? null) : null,
       });
-
-      if (last.openBreak) {
-        onBreakCount += 1;
-        tone = "break";
-        statusLabelKey = "manage.statusBreakLabel";
-        const breakStart = last.breaks.at(-1)?.start ?? last.start;
-        sinceLabel = t("manage.sinceLabel", {
-          time: formatBrusselsTime(new Date(breakStart)),
-        });
-      } else {
-        workingCount += 1;
-        tone = "working";
-        statusLabelKey = "manage.statusWorkingLabel";
-        sinceLabel = t("manage.sinceLabel", {
-          time: formatBrusselsTime(new Date(last.start)),
-        });
+      // A shift left open since an earlier day is not work today: it shows
+      // as "aandacht nodig" instead.
+      if (brusselsDayKey(last.start) === todayKey) {
+        if (last.openBreak) onBreakCount += 1;
+        else workingCount += 1;
       }
     }
-
-    people.push({
-      id: employee.id,
-      name: employee.display_name,
-      tone,
-      statusLabel: t(statusLabelKey),
-      sinceLabel,
-      offline:
-        last !== null &&
-        last.hasOffline &&
-        (last.open || brusselsDayKey(last.start) === todayKey),
-    });
   }
 
   const notStartedCount = visibleEmployees.filter(
@@ -243,63 +249,120 @@ export default async function ManagePage({
     scheduledStarts,
     clockedInEmployeeIds,
     offlineEvents,
-    pendingCorrectionsCount,
+    pendingCorrectionsCount: pendingCount ?? 0,
     now,
   });
+  // Pending requests have their own count on Aanvragen; here only people.
+  const notesByEmployee = new Map<string, string[]>();
+  for (const item of attentionItems) {
+    const note = noteFor(
+      item,
+      openShifts.find((shift) => shift.employeeId === item.employeeId),
+      todayKey,
+    );
+    if (note === null) continue;
+    const list = notesByEmployee.get(item.employeeId) ?? [];
+    list.push(note);
+    notesByEmployee.set(item.employeeId, list);
+  }
 
-  const ATTENTION_LABEL_KEY = {
-    forgotClockOut: "manage.forgotClockOut",
-    longBreak: "manage.longBreak",
-    notStarted: "manage.notStarted",
-    offlineDelayed: "offline.attentionDelayed",
-    offlineWeekly: "offline.weeklyCount",
-    pendingQuestions: "manage.pendingQuestions",
-  } as const;
+  const people: TeamTimelinePerson[] = visibleEmployees.map((employee) => {
+    const todays = todayShiftsByEmployee.get(employee.id) ?? [];
+    const blocks = scheduleByEmployee.get(employee.id) ?? [];
+    const open = todays.find((shift) => shift.open);
+    const lastToday = todays.at(-1);
 
-  const attention: TodayBoardAttentionItem[] = attentionItems.map((item) => ({
-    id: item.id,
-    name: item.employeeName,
-    reason:
-      item.reason === "pendingQuestions" || item.reason === "offlineWeekly"
-        ? t(ATTENTION_LABEL_KEY[item.reason], { count: item.count ?? 0 })
-        : t(ATTENTION_LABEL_KEY[item.reason]),
-    href:
-      item.reason === "pendingQuestions"
-        ? "/manage/vragen"
-        : `/manage/medewerker/${item.employeeId}`,
-  }));
+    let status: string;
+    let statusWord: string | null = null;
+    if (open?.openBreak) {
+      status = t("manage.statusBreakSince", {
+        time: time(open.breaks.at(-1)?.start ?? open.start),
+      });
+    } else if (open) {
+      statusWord = t("manage.statusWorkingLabel");
+      status = t("manage.sinceLabel", { time: time(open.start) });
+    } else if (lastToday?.end) {
+      status = t("manage.statusStoppedAt", { time: time(lastToday.end) });
+    } else if (blocks[0]) {
+      status = t("manage.statusStartAt", {
+        time: time(Date.parse(blocks[0].start_at)),
+      });
+    } else {
+      status = t("manage.statusFree");
+    }
 
-  const deviationEmployees = new Set(
-    attentionItems
-      .filter((item) => item.reason === "forgotClockOut" || item.reason === "longBreak")
-      .map((item) => item.employeeId),
-  );
+    const net = todays.reduce((total, shift) => total + workedMs(shift, now), 0);
+    const notes = notesByEmployee.get(employee.id) ?? [];
+
+    return {
+      id: employee.id,
+      name: employee.display_name,
+      status,
+      statusWord,
+      notes,
+      fixHref: notes.length > 0 ? `/manage/medewerker/${employee.id}` : null,
+      net: net > 0 ? formatDurationMs(net) : null,
+      track: timelineRow({
+        shifts: todays,
+        planned: blocks.map((block) => ({
+          start: Date.parse(block.start_at),
+          end: Date.parse(block.end_at),
+        })),
+        now,
+        window: day,
+      }),
+    };
+  });
+
+  const siteName = selectedSiteId
+    ? siteRows.find((site) => site.id === selectedSiteId)?.name
+    : siteRows.length === 1
+      ? siteRows[0]?.name
+      : null;
+  const subtitle = [formatBrusselsLongDay(new Date(now)), siteName]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
-    <ManageShell
-      active="today"
-      pendingQuestionsCount={pendingCorrectionsCount}
-      showSwitchToEmployee={context.employeeId !== null}
-    >
+    <PageTransition>
       <AutoRefresh />
-      <div className="flex flex-col gap-6">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <Heading level={1}>{t("manage.todayHeading")}</Heading>
-          {siteRows.length > 1 ? (
-            <SiteFilter sites={siteRows} selectedSiteId={selectedSiteId} />
-          ) : null}
-        </div>
-        <TodayBoard
-          counters={{
-            working: workingCount,
-            onBreak: onBreakCount,
-            notStarted: notStartedCount,
-            deviations: deviationEmployees.size,
-          }}
-          people={people}
-          attention={attention}
+      <PullToRefresh>
+        <NavBar
+          title={t("manage.todayHeading")}
+          subtitle={subtitle}
+          wide
+          trailing={
+            siteRows.length > 1 ? (
+              <SiteFilter sites={siteRows} selectedSiteId={selectedSiteId} />
+            ) : null
+          }
         />
-      </div>
-    </ManageShell>
+        <div className="flex flex-col gap-8 px-gutter pb-10">
+          <NumbersRow
+            label={t("manage.numbersLabel")}
+            items={[
+              {
+                key: "working",
+                label: t("manage.counterWorking"),
+                value: workingCount,
+              },
+              { key: "break", label: t("manage.counterBreak"), value: onBreakCount },
+              {
+                key: "notStarted",
+                label: t("manage.counterNotStarted"),
+                value: notStartedCount,
+              },
+              {
+                key: "attention",
+                label: t("manage.counterAttention"),
+                value: notesByEmployee.size,
+                attention: true,
+              },
+            ]}
+          />
+          <TeamTimeline people={people} nowPct={nowPct(now, day)} />
+        </div>
+      </PullToRefresh>
+    </PageTransition>
   );
 }

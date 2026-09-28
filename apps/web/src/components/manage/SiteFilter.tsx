@@ -1,8 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { ChevronDown } from "lucide-react";
 
 import { t } from "@cloxa/i18n";
+
+import { ActionSheet } from "../ui/ActionSheet";
 
 export interface SiteFilterOption {
   readonly id: string;
@@ -14,28 +18,49 @@ export interface SiteFilterProps {
   selectedSiteId: string | null;
 }
 
-/** Only rendered by the caller when there is more than one visible site. */
+/**
+ * A quiet trailing bar button with the current site; the choice is an
+ * action sheet. Only rendered when there is more than one visible site.
+ */
 export function SiteFilter({ sites, selectedSiteId }: SiteFilterProps) {
   const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const current =
+    sites.find((site) => site.id === selectedSiteId)?.name ?? t("manage.siteFilterAll");
 
   return (
-    <label className="flex items-center gap-3 text-lg font-semibold">
-      {t("manage.siteFilterLabel")}
-      <select
-        className="focus-ring min-h-touch-target rounded-md border-2 border-line bg-paper px-4 text-lg text-ink"
-        value={selectedSiteId ?? ""}
-        onChange={(event) => {
-          const value = event.target.value;
-          router.push(value ? `/manage?site=${value}` : "/manage");
-        }}
+    <>
+      <button
+        type="button"
+        aria-haspopup="dialog"
+        onClick={() => setOpen(true)}
+        className="focus-ring inline-flex h-bar-button max-w-[45vw] min-w-bar-button pressable items-center gap-1 rounded-control px-2 text-body text-ink md:max-w-xs"
       >
-        <option value="">{t("manage.siteFilterAll")}</option>
-        {sites.map((site) => (
-          <option key={site.id} value={site.id}>
-            {site.name}
-          </option>
-        ))}
-      </select>
-    </label>
+        <span className="sr-only">{t("manage.siteFilterLabel")}: </span>
+        <span className="truncate">{current}</span>
+        <ChevronDown
+          aria-hidden="true"
+          className="size-4 shrink-0"
+          strokeWidth={2.25}
+        />
+      </button>
+      <ActionSheet
+        open={open}
+        onClose={() => setOpen(false)}
+        title={t("manage.siteFilterTitle")}
+        actions={[
+          {
+            key: "all",
+            label: t("manage.siteFilterAll"),
+            onSelect: () => router.replace("/manage"),
+          },
+          ...sites.map((site) => ({
+            key: site.id,
+            label: site.name,
+            onSelect: () => router.replace(`/manage?site=${site.id}`),
+          })),
+        ]}
+      />
+    </>
   );
 }

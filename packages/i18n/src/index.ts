@@ -2,6 +2,7 @@ export { catalog, type Catalog } from "./catalog";
 export {
   brusselsLocalToInstant,
   formatBrusselsDate,
+  formatBrusselsLongDay,
   formatBrusselsShortDate,
   formatBrusselsTime,
 } from "./datetime";

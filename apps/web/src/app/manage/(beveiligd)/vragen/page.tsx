@@ -1,22 +1,35 @@
-import type { ClockEvent, ClockEventSource, ClockEventType } from "@cloxa/domain";
+import { CircleCheck, Inbox } from "lucide-react";
+
 import {
-  formatBrusselsDate,
+  brusselsDayKey,
+  type ClockEvent,
+  type ClockEventSource,
+  type ClockEventType,
+  type Shift,
+} from "@cloxa/domain";
+import {
+  formatBrusselsLongDay,
   formatBrusselsTime,
   t,
   type CatalogKey,
 } from "@cloxa/i18n";
 
-import { ManageShell } from "@/components/manage/ManageShell";
 import { RequestCard, type RequestCardChange } from "@/components/manage/RequestCard";
-import { Notice } from "@/components/ui/Notice";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { Heading } from "@/components/ui/Heading";
+import { NavBar } from "@/components/ui/NavBar";
+import { Notice } from "@/components/ui/Notice";
+import { PageTransition } from "@/components/ui/PageTransition";
+import { PullToRefresh } from "@/components/ui/PullToRefresh";
+import { SegmentNav } from "@/components/ui/SegmentNav";
 import type { StatusTone } from "@/components/ui/StatusLine";
 import { requireManager } from "@/lib/auth/context";
+import { nowMs } from "@/lib/clock/now";
 import {
   buildCorrectionDiff,
   type CorrectionRequestLike,
 } from "@/lib/manage/correction-diff";
+import { timelineRow, timelineWindow } from "@/lib/manage/timeline";
+import { previewHold } from "@/lib/preview";
 import { createClient } from "@/lib/supabase/server";
 
 import { approveCorrectionAction, rejectCorrectionAction } from "./actions";
@@ -80,7 +93,9 @@ export default async function ManageVragenPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   await requireManager();
+  await previewHold();
   const supabase = await createClient();
+  const now = nowMs();
   const params = await searchParams;
   const tabRaw = Array.isArray(params.tab) ? params.tab[0] : params.tab;
   const tab = tabRaw === "decided" ? "decided" : "pending";
@@ -107,16 +122,6 @@ export default async function ManageVragenPage({
     throw new Error(`correction_requests_unavailable:${requestsError.code}`);
   }
   const requests = requestRows as CorrectionRow[];
-
-  const { data: pendingCountRow, error: pendingCountError } = await supabase
-    .from("correction_requests")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "pending");
-  if (pendingCountError) {
-    throw new Error(`correction_requests_unavailable:${pendingCountError.code}`);
-  }
-  const pendingCount =
-    (pendingCountRow as unknown as { count?: number } | null)?.count ?? 0;
 
   const employeeIds = [...new Set(requests.map((request) => request.employee_id))];
   const { data: employeeRows, error: employeesError } =
@@ -183,100 +188,120 @@ export default async function ManageVragenPage({
       ? (errorRaw as CatalogKey)
       : null;
 
+  /** The shifts touching the request's day, drawn on that day's 06–22h. */
+  function dayTrack(shifts: readonly Shift[], dayKey: string) {
+    const day = timelineWindow(dayKey);
+    return timelineRow({
+      shifts: shifts.filter(
+        (shift) => shift.start < day.end && (shift.end ?? now) > day.start,
+      ),
+      planned: [],
+      now,
+      window: day,
+    });
+  }
+
+  const tabs = [
+    { value: "pending", label: t("manageVragen.tabOpen"), href: "/manage/vragen" },
+    {
+      value: "decided",
+      label: t("manageVragen.tabDecided"),
+      href: "/manage/vragen?tab=decided",
+    },
+  ] as const;
+
   return (
-    <ManageShell active="questions" pendingQuestionsCount={pendingCount}>
-      <div className="flex flex-col gap-6">
-        <Heading level={1}>{t("manageVragen.heading")}</Heading>
-        {errorKey ? <Notice tone="error">{t(errorKey)}</Notice> : null}
-
-        <div className="flex gap-3">
-          <a
-            href="/manage/vragen"
-            className={`text-lg font-semibold ${tab === "pending" ? "text-ink underline" : "text-ink-2"}`}
-          >
-            {t("manageVragen.tabPending")}
-          </a>
-          <a
-            href="/manage/vragen?tab=decided"
-            className={`text-lg font-semibold ${tab === "decided" ? "text-ink underline" : "text-ink-2"}`}
-          >
-            {t("manageVragen.tabDecided")}
-          </a>
-        </div>
-
-        {diffs.length === 0 ? (
-          <EmptyState
-            title={
-              tab === "pending"
-                ? t("manageVragen.empty")
-                : t("manageVragen.emptyDecided")
-            }
-            body={
-              tab === "pending"
-                ? t("manageVragen.emptyBody")
-                : t("manageVragen.emptyDecidedBody")
-            }
+    <PageTransition>
+      <PullToRefresh>
+        <NavBar title={t("manageVragen.heading")} />
+        <div className="flex flex-col gap-6 px-gutter pb-10">
+          <SegmentNav
+            key={tab}
+            label={t("manageVragen.tabsLabel")}
+            options={tabs}
+            value={tab}
           />
-        ) : (
-          <ul className="flex flex-col gap-4">
-            {diffs.map(({ request, diff, anchorMs }) => {
-              const changes: RequestCardChange[] = diff.changes.map((change) => ({
-                typeLabel: t(
-                  EVENT_TYPE_LABEL_KEY[change.type] ?? "manageVragen.kindAdd",
-                ),
-                beforeLabel: change.beforeIso
-                  ? formatBrusselsTime(new Date(change.beforeIso))
-                  : null,
-                afterLabel: change.afterIso
-                  ? formatBrusselsTime(new Date(change.afterIso))
-                  : null,
-              }));
-              const resultingShift = diff.afterShifts.find(
-                (shift) =>
-                  Math.abs(shift.start - anchorMs) < 24 * 3600 * 1000 ||
-                  (shift.end !== null &&
-                    Math.abs(shift.end - anchorMs) < 24 * 3600 * 1000),
-              );
-              const resultingShiftLabel = resultingShift
-                ? `${formatBrusselsTime(new Date(resultingShift.start))}–${resultingShift.end ? formatBrusselsTime(new Date(resultingShift.end)) : t("shifts.openEnd")}`
-                : null;
+          {errorKey ? <Notice tone="error">{t(errorKey)}</Notice> : null}
 
-              return (
-                <RequestCard
-                  key={request.id}
-                  id={request.id}
-                  employeeName={employeeNames.get(request.employee_id) ?? "?"}
-                  dateLabel={formatBrusselsDate(new Date(anchorMs))}
-                  kindLabel={
-                    // Queued offline and did not fit: say so, not "vergeten".
-                    request.offline
-                      ? t("offline.requestLabel")
-                      : t(KIND_LABEL_KEY[request.kind] ?? "manageVragen.kindAdd")
-                  }
-                  changes={changes}
-                  resultingShiftLabel={resultingShiftLabel}
-                  reason={request.reason}
-                  {...(tab === "pending"
-                    ? {
-                        approveAction: approveCorrectionAction,
-                        rejectAction: rejectCorrectionAction,
-                      }
-                    : {
-                        decision: {
-                          tone: DECISION_TONE[request.status] ?? "off",
-                          statusLabel:
-                            request.status === "approved"
-                              ? t("manageVragen.decisionApproved")
-                              : t("manageVragen.decisionRejected"),
-                          note: request.decision_note,
-                        },
-                      })}
-                />
-              );
-            })}
-          </ul>
-        )}
-      </div>
-    </ManageShell>
+          {diffs.length === 0 ? (
+            tab === "pending" ? (
+              <EmptyState
+                icon={CircleCheck}
+                title={t("manageVragen.emptyOpenTitle")}
+                body={t("manageVragen.emptyOpenBody")}
+              />
+            ) : (
+              <EmptyState
+                icon={Inbox}
+                title={t("manageVragen.emptyDecided")}
+                body={t("manageVragen.emptyDecidedBody")}
+              />
+            )
+          ) : (
+            <ul aria-live="polite" className="flex flex-col gap-6">
+              {diffs.map(({ request, diff, anchorMs }) => {
+                const dayKey = brusselsDayKey(anchorMs);
+                const changes: RequestCardChange[] = diff.changes.map((change) => ({
+                  typeLabel: t(
+                    EVENT_TYPE_LABEL_KEY[change.type] ?? "manageVragen.kindAdd",
+                  ),
+                  beforeLabel: change.beforeIso
+                    ? formatBrusselsTime(new Date(change.beforeIso))
+                    : null,
+                  afterLabel: change.afterIso
+                    ? formatBrusselsTime(new Date(change.afterIso))
+                    : null,
+                }));
+                const resultingShift = diff.afterShifts.find(
+                  (shift) =>
+                    Math.abs(shift.start - anchorMs) < 24 * 3600 * 1000 ||
+                    (shift.end !== null &&
+                      Math.abs(shift.end - anchorMs) < 24 * 3600 * 1000),
+                );
+                const resultingShiftLabel = resultingShift
+                  ? `${formatBrusselsTime(new Date(resultingShift.start))}–${resultingShift.end ? formatBrusselsTime(new Date(resultingShift.end)) : t("shifts.openEnd")}`
+                  : null;
+
+                return (
+                  <RequestCard
+                    key={request.id}
+                    id={request.id}
+                    employeeName={employeeNames.get(request.employee_id) ?? "?"}
+                    dayLabel={formatBrusselsLongDay(new Date(anchorMs))}
+                    kindLabel={
+                      // Queued offline and did not fit: say so, not "vergeten".
+                      request.offline
+                        ? t("offline.requestLabel")
+                        : t(KIND_LABEL_KEY[request.kind] ?? "manageVragen.kindAdd")
+                    }
+                    offline={request.offline}
+                    changes={changes}
+                    resultingShiftLabel={resultingShiftLabel}
+                    before={dayTrack(diff.beforeShifts, dayKey)}
+                    after={dayTrack(diff.afterShifts, dayKey)}
+                    reason={request.reason}
+                    {...(tab === "pending"
+                      ? {
+                          approveAction: approveCorrectionAction,
+                          rejectAction: rejectCorrectionAction,
+                        }
+                      : {
+                          decision: {
+                            tone: DECISION_TONE[request.status] ?? "off",
+                            statusLabel:
+                              request.status === "approved"
+                                ? t("manageVragen.decisionApproved")
+                                : t("manageVragen.decisionRejected"),
+                            note: request.decision_note,
+                          },
+                        })}
+                  />
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      </PullToRefresh>
+    </PageTransition>
   );
 }

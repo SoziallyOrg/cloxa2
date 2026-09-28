@@ -1,6 +1,11 @@
 import type { ReactNode } from "react";
 
+import { t } from "@cloxa/i18n";
+
+import { shortDisplayName } from "@/components/employee/account-name";
+import { ManageFrame } from "@/components/manage/ManageFrame";
 import { requireManager } from "@/lib/auth/context";
+import { createClient } from "@/lib/supabase/server";
 
 /** aal2, MFA at most 12 hours old and activity in the last 30 minutes. */
 export default async function SecuredManageLayout({
@@ -8,6 +13,38 @@ export default async function SecuredManageLayout({
 }: {
   children: ReactNode;
 }) {
-  await requireManager();
-  return children;
+  const context = await requireManager();
+  const supabase = await createClient();
+  const [employeeResult, pendingResult] = await Promise.all([
+    context.employeeId
+      ? supabase
+          .from("employees")
+          .select("display_name")
+          .eq("id", context.employeeId)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+    supabase
+      .from("correction_requests")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "pending"),
+  ]);
+  // Both are niceties in the frame: a failed read shows less, never an error page.
+  const fullName =
+    employeeResult.data?.display_name ?? context.claims.email ?? t("account.open");
+  const pendingRequests = pendingResult.error ? 0 : (pendingResult.count ?? 0);
+
+  return (
+    <ManageFrame
+      account={{
+        fullName,
+        shortName: employeeResult.data
+          ? shortDisplayName(employeeResult.data.display_name)
+          : fullName,
+        canClock: context.employeeId !== null,
+      }}
+      pendingRequests={pendingRequests}
+    >
+      {children}
+    </ManageFrame>
+  );
 }
