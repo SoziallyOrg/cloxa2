@@ -16,6 +16,10 @@
  *     rights, so eigenaar@demo.test's session is never disturbed)
  *   screens-geen@demo.test (no membership) and screens-twee@demo.test (two
  *     organizations): the access screens in `pnpm screens`
+ *   screens-beheer@demo.test (owner of "Bakkerij Zon (fictief)", its own
+ *     organization with two sites, a team of nine with screens-team-*@
+ *     logins, requests, kiosks and exports) and screens-beheer-leeg@demo.test
+ *     (owner of an empty organization): the manager screens in `pnpm screens`
  *   screens-e2e@, screens-pauze@, screens-uit@, screens-actie@,
  *     screens-leeg@demo.test (site 1; reserved for `pnpm screens`: made-up
  *     history and a realistic "today", reset on every run; screens-leeg@ has
@@ -442,21 +446,26 @@ async function main(): Promise<void> {
   // Members -------------------------------------------------------------------------------
   let owner: { client: Client; factorId: string } | null = null;
 
-  async function privilegedOwner(): Promise<{ client: Client; factorId: string }> {
-    // Enrolling at aal1 is refused once a verified factor exists, so the
-    // seed-owner's factors are reset on every run. This account is never
-    // logged into by a human, so this never breaks a manual session.
+  /**
+   * A short-lived aal2 session for a seed-only account (never a human's).
+   * Enrolling at aal1 is refused once a verified factor exists, so its
+   * factors are reset first; the caller deletes the throwaway factor after.
+   */
+  async function privilegedSession(
+    email: string,
+    userId: string,
+  ): Promise<{ client: Client; factorId: string }> {
     const { data: factors, error: listError } = await admin.auth.admin.mfa.listFactors({
-      userId: seedOwnerId,
+      userId,
     });
     if (listError) fail("admin.mfa.listFactors", listError);
     for (const factor of factors.factors) {
-      await admin.auth.admin.mfa.deleteFactor({ id: factor.id, userId: seedOwnerId });
+      await admin.auth.admin.mfa.deleteFactor({ id: factor.id, userId });
     }
 
     const { data: link, error: linkError } = await admin.auth.admin.generateLink({
       type: "magiclink",
-      email: SEED_OWNER.email,
+      email,
     });
     if (linkError) fail("generateLink", linkError);
 
@@ -481,6 +490,26 @@ async function main(): Promise<void> {
     if (verifyError) fail("mfa.challengeAndVerify", verifyError);
 
     return { client, factorId: enrolled.id };
+  }
+
+  const privilegedOwner = () => privilegedSession(SEED_OWNER.email, seedOwnerId);
+
+  /** A plain (aal1) session, e.g. to accept an invitation like a first login. */
+  async function signIn(email: string): Promise<Client> {
+    const { data: link, error: linkError } = await admin.auth.admin.generateLink({
+      type: "magiclink",
+      email,
+    });
+    if (linkError) fail("generateLink", linkError);
+    const client: Client = createClient<Database>(url, publishableKey, {
+      auth: noSession,
+    });
+    const { error } = await client.auth.verifyOtp({
+      token_hash: link.properties.hashed_token,
+      type: "email",
+    });
+    if (error) fail("verifyOtp", error);
+    return client;
   }
 
   let created = 0;
@@ -545,6 +574,15 @@ async function main(): Promise<void> {
     siteId: siteIds.main,
     deciderId: ownerId,
     userIds,
+  });
+
+  await seedManagerScreens({
+    dbUrl,
+    admin,
+    ensureUser,
+    privilegedSession,
+    signIn,
+    requesterId: seedOwnerId,
   });
 
   console.log(
@@ -725,6 +763,7 @@ async function seedScreensHistory(
   sql: Sql,
   context: ScreensContext,
   person: ScreensPerson,
+  withPendingRequest = true,
 ): Promise<void> {
   const { orgId, siteId, deciderId } = context;
   const { employeeId, userId } = person;
@@ -814,6 +853,7 @@ async function seedScreensHistory(
       'Die dag begon je om 08:00, zoals gepland.',
       ${new Date(decidedAt.getTime() - 2 * HOUR)})`;
 
+  if (!withPendingRequest) return;
   const pending = {
     events: [
       {
@@ -959,6 +999,558 @@ async function seedScreens(input: {
     }
   } finally {
     await sql.end();
+  }
+}
+
+// Manager screens ------------------------------------------------------------------------
+
+/**
+ * `pnpm screens` of `/manage`: a fictional bakery of its own, so the
+ * manager's screenshots never show the e2e accounts. Its owner
+ * (screens-beheer@) is reserved for the screens; its team has logins too
+ * (screens-team-*@), but nobody ever uses them. A second owner
+ * (screens-beheer-leeg@) has an organization with nothing in it: the empty
+ * states.
+ */
+const MANAGER_SCREENS = {
+  email: "screens-beheer@demo.test",
+  name: "Nora Vermeulen",
+  org: "Bakkerij Zon (fictief)",
+  mainSite: "Winkel Centrum (fictief)",
+  secondSite: "Filiaal Station (fictief)",
+};
+const MANAGER_SCREENS_EMPTY = {
+  email: "screens-beheer-leeg@demo.test",
+  name: "Tine Leemans",
+  org: "Nieuwe Zaak (fictief)",
+};
+
+type TeamSite = "main" | "second";
+/** Today's events, minutes before now (kept after today's midnight). */
+type TeamEvent = {
+  type: Exclude<SeedEventType, "void">;
+  ago: number;
+  offline?: boolean;
+};
+
+interface TeamMember {
+  slug: string;
+  name: string;
+  code: string;
+  statute: "bediende" | "arbeider" | "student" | "flexi" | "interim";
+  sites: readonly TeamSite[];
+  /** Planned every day, or `null` for nothing planned. */
+  block: readonly [string, string] | null;
+  today: readonly TeamEvent[];
+  /** Clocked in yesterday at this minute and never out (forgot to clock out). */
+  openSinceYesterday?: number;
+  history?: boolean;
+  pin?: string;
+  left?: boolean;
+}
+
+const TEAM: readonly TeamMember[] = [
+  {
+    slug: "amina",
+    name: "Amina Peeters",
+    code: "B-014",
+    statute: "bediende",
+    sites: ["main"],
+    block: ["08:00", "16:30"],
+    today: [{ type: "clock_in", ago: 204 }],
+    history: true,
+    pin: "4827",
+  },
+  {
+    slug: "bram",
+    name: "Bram Maes",
+    code: "A-022",
+    statute: "arbeider",
+    sites: ["main"],
+    block: ["07:30", "16:00"],
+    today: [
+      { type: "clock_in", ago: 230 },
+      { type: "break_start", ago: 11 },
+    ],
+    pin: "5930",
+  },
+  {
+    slug: "chiara",
+    name: "Chiara Vos",
+    code: "S-003",
+    statute: "student",
+    sites: ["main"],
+    block: ["06:00", "12:00"],
+    today: [
+      { type: "clock_in", ago: 390 },
+      { type: "break_start", ago: 270 },
+      { type: "break_end", ago: 255 },
+      { type: "clock_out", ago: 45 },
+    ],
+  },
+  {
+    slug: "driss",
+    name: "Driss Aerts",
+    code: "B-031",
+    statute: "bediende",
+    sites: ["main"],
+    block: ["08:00", "16:30"],
+    today: [],
+    openSinceYesterday: 7 * 60 + 58,
+  },
+  {
+    slug: "lotte",
+    name: "Lotte De Smet",
+    code: "F-007",
+    statute: "flexi",
+    sites: ["second"],
+    block: ["17:00", "21:30"],
+    today: [],
+  },
+  {
+    slug: "mohamed",
+    name: "Mohamed El Idrissi",
+    code: "A-018",
+    statute: "arbeider",
+    sites: ["second"],
+    block: ["09:00", "17:30"],
+    today: [{ type: "clock_in", ago: 150, offline: true }],
+  },
+  {
+    slug: "maximiliaan",
+    name: "Maximiliaan Van den Broeck-Vercruysse",
+    code: "I-102",
+    statute: "interim",
+    sites: ["main", "second"],
+    block: ["10:00", "18:30"],
+    today: [
+      { type: "clock_in", ago: 95 },
+      { type: "break_start", ago: 50 },
+      { type: "break_end", ago: 30 },
+    ],
+  },
+  {
+    slug: "sofie",
+    name: "Sofie Janssens",
+    code: "B-040",
+    statute: "bediende",
+    sites: ["main"],
+    block: null,
+    today: [],
+  },
+  {
+    slug: "pieter",
+    name: "Pieter Wouters",
+    code: "B-009",
+    statute: "bediende",
+    sites: ["main"],
+    block: null,
+    today: [],
+    left: true,
+  },
+];
+const TEAM_INVITED = {
+  email: "screens-team-yasmine@demo.test",
+  name: "Yasmine Claes",
+  code: "B-045",
+};
+
+type Session = { client: Client; factorId: string };
+
+/** The organization owned by `ownerId` with this name, created when missing. */
+async function ensureOwnedOrganization(
+  admin: Client,
+  ownerId: string,
+  name: string,
+  ownerName: string,
+): Promise<string> {
+  const { data: owned, error } = await admin
+    .from("memberships")
+    .select("organization_id, organizations!inner(name)")
+    .eq("user_id", ownerId)
+    .eq("role", "owner")
+    .eq("organizations.name", name);
+  if (error) fail("memberships", error);
+  const existing = owned[0]?.organization_id;
+  if (existing) return existing;
+  const { data, error: createError } = await admin.rpc(
+    "rpc_admin_create_organization",
+    {
+      p_name: name,
+      p_owner_user_id: ownerId,
+      p_owner_display_name: ownerName,
+    },
+  );
+  if (createError || !data[0]) fail("rpc_admin_create_organization", createError);
+  return data[0].organization_id;
+}
+
+/** Desired events on and after `from`; returns false when they already fit. */
+function eventsFit(
+  current: readonly EffectiveEvent[],
+  desired: readonly { type: string; at: Date }[],
+): boolean {
+  return (
+    current.length === desired.length &&
+    current.every(
+      (event, index) =>
+        event.type === desired[index]!.type &&
+        Math.abs(event.at.getTime() - desired[index]!.at.getTime()) <= 30 * MINUTE,
+    )
+  );
+}
+
+async function seedManagerScreens(input: {
+  dbUrl: string;
+  admin: Client;
+  ensureUser: (email: string) => Promise<string>;
+  privilegedSession: (email: string, userId: string) => Promise<Session>;
+  signIn: (email: string) => Promise<Client>;
+  /** A seed-only user, so no request is ever the manager's own. */
+  requesterId: string;
+}): Promise<void> {
+  const { admin, ensureUser } = input;
+  const ownerId = await ensureUser(MANAGER_SCREENS.email);
+  const orgId = await ensureOwnedOrganization(
+    admin,
+    ownerId,
+    MANAGER_SCREENS.org,
+    MANAGER_SCREENS.name,
+  );
+  const emptyOwnerId = await ensureUser(MANAGER_SCREENS_EMPTY.email);
+  await ensureOwnedOrganization(
+    admin,
+    emptyOwnerId,
+    MANAGER_SCREENS_EMPTY.org,
+    MANAGER_SCREENS_EMPTY.name,
+  );
+
+  const sql = postgres(input.dbUrl, { max: 1, onnotice: () => undefined });
+  let session: Session | null = null;
+  const owner = async () =>
+    (session ??= await input.privilegedSession(MANAGER_SCREENS.email, ownerId));
+
+  try {
+    // Sites: the default one is renamed once, the second is added once.
+    const sites = await sql<{ id: string; name: string }[]>`
+      select id, name from public.sites where organization_id = ${orgId} order by created_at`;
+    const main = sites[0]!;
+    if (main.name !== MANAGER_SCREENS.mainSite) {
+      await sql`update public.sites set name = ${MANAGER_SCREENS.mainSite} where id = ${main.id}`;
+    }
+    let second = sites.find((site) => site.name === MANAGER_SCREENS.secondSite)?.id;
+    if (!second) {
+      const [row] = await sql<{ id: string }[]>`
+        insert into public.sites (organization_id, name)
+        values (${orgId}, ${MANAGER_SCREENS.secondSite}) returning id`;
+      second = row!.id;
+    }
+    const siteIds: Record<TeamSite, string> = { main: main.id, second };
+    const [ownerEmployee] = await sql<{ id: string }[]>`
+      select id from public.employees where organization_id = ${orgId} and user_id = ${ownerId}`;
+    if (ownerEmployee) {
+      await sql`
+        insert into public.site_assignments (organization_id, site_id, employee_id)
+        values (${orgId}, ${siteIds.main}, ${ownerEmployee.id})
+        on conflict (organization_id, site_id, employee_id) do nothing`;
+    }
+
+    // The team: invited by the owner, linked and accepted like a first login.
+    const people = new Map<string, ScreensPerson>();
+    for (const member of TEAM) {
+      const email = `screens-team-${member.slug}@demo.test`;
+      const userId = await ensureUser(email);
+      const [membership] = await sql<{ status: string }[]>`
+        select status from public.memberships
+        where organization_id = ${orgId} and user_id = ${userId}`;
+      if (!membership) {
+        const [open] = await sql<{ id: string }[]>`
+          select id from public.invitations
+          where organization_id = ${orgId} and email = ${email}
+            and status in ('pending', 'linked') and expires_at > now()`;
+        let invitationId = open?.id;
+        if (!invitationId) {
+          const { data, error } = await (
+            await owner()
+          ).client.rpc("rpc_invite_member", {
+            p_org: orgId,
+            p_email: email,
+            p_role: "employee",
+            p_display_name: member.name,
+            p_site_ids: member.sites.map((site) => siteIds[site]),
+            p_employee_code: member.code,
+            p_statute: member.statute,
+          });
+          if (error) fail("rpc_invite_member", error);
+          invitationId = data;
+        }
+        const { error: linkError } = await admin.rpc("rpc_link_invited_user", {
+          p_invitation_id: invitationId,
+          p_user_id: userId,
+        });
+        if (linkError) fail("rpc_link_invited_user", linkError);
+      }
+      if (!membership || membership.status === "invited") {
+        const memberClient = await input.signIn(email);
+        const { error } = await memberClient.rpc("rpc_accept_membership");
+        if (error) fail("rpc_accept_membership", error);
+        await memberClient.auth.signOut({ scope: "local" });
+      }
+      people.set(member.slug, await screensPerson(sql, orgId, email, userId));
+    }
+
+    // One invitation still open.
+    const [invited] = await sql`
+      select 1 from public.invitations
+      where organization_id = ${orgId} and email = ${TEAM_INVITED.email}`;
+    if (!invited) {
+      const { error } = await (
+        await owner()
+      ).client.rpc("rpc_invite_member", {
+        p_org: orgId,
+        p_email: TEAM_INVITED.email,
+        p_role: "employee",
+        p_display_name: TEAM_INVITED.name,
+        p_site_ids: [siteIds.main],
+        p_employee_code: TEAM_INVITED.code,
+        p_statute: "bediende",
+      });
+      if (error) fail("rpc_invite_member", error);
+    }
+
+    const now = Math.floor(Date.now() / MINUTE) * MINUTE;
+    const today = DAY_KEY.format(new Date(now));
+    const midnight = brussels(today, 0).getTime();
+    const yesterday = DAY_KEY.format(new Date(midnight - 12 * HOUR));
+    const since = (ago: number) =>
+      new Date(Math.max(now - ago * MINUTE, midnight + MINUTE));
+
+    for (const member of TEAM) {
+      const person = people.get(member.slug)!;
+      const context: ScreensContext = {
+        orgId,
+        siteId: siteIds[member.sites[0]!],
+        deciderId: ownerId,
+      };
+
+      if (member.block) {
+        const [schedule] = await sql`
+          select 1 from public.schedules where employee_id = ${person.employeeId} limit 1`;
+        if (!schedule) {
+          const block = [{ start: member.block[0], end: member.block[1] }];
+          const pattern = Object.fromEntries(
+            ["mon", "tue", "wed", "thu", "fri", "sat", "sun"].map((day) => [
+              day,
+              block,
+            ]),
+          );
+          await sql`
+            insert into public.schedules
+              (organization_id, employee_id, version, valid_from, pattern, created_by, notified_at)
+            values (${orgId}, ${person.employeeId}, 1, ${"2026-01-01"},
+              ${sql.json(pattern)}, ${ownerId}, now())`;
+        }
+      }
+      if (member.history) {
+        await seedScreensHistory(sql, context, person, false);
+      }
+
+      // Today (and yesterday for a forgotten clock-out), made to fit on every run.
+      const from =
+        member.openSinceYesterday !== undefined
+          ? brussels(yesterday, 0).getTime()
+          : midnight;
+      const desired = [
+        ...(member.openSinceYesterday !== undefined
+          ? [
+              {
+                type: "clock_in" as const,
+                at: brussels(yesterday, member.openSinceYesterday),
+                offline: false,
+              },
+            ]
+          : []),
+        ...member.today.map((event) => ({
+          type: event.type,
+          at: since(event.ago),
+          offline: event.offline ?? false,
+        })),
+      ];
+      await sql.begin(async (tx) => {
+        await tx`set local session_replication_role = replica`;
+        const events = await effectiveEventsOf(tx, person.employeeId);
+        const before = events.filter((event) => event.at.getTime() < from);
+        const last = before.at(-1);
+        if (last && last.type !== "clock_out") {
+          if (last.type === "break_start") {
+            await appendSeedEvent(tx, context, person, {
+              type: "break_end",
+              at: new Date(
+                Math.min(last.at.getTime() + 30 * MINUTE, from - 2 * MINUTE),
+              ),
+            });
+          }
+          await appendSeedEvent(tx, context, person, {
+            type: "clock_out",
+            at: new Date(Math.min(last.at.getTime() + 8.5 * HOUR, from - MINUTE)),
+          });
+        }
+        const current = events.filter((event) => event.at.getTime() >= from);
+        if (eventsFit(current, desired)) return;
+        for (const event of current) {
+          await appendSeedEvent(tx, context, person, {
+            type: "void",
+            at: event.at,
+            supersedes: event.id,
+          });
+        }
+        for (const event of desired) {
+          await appendSeedEvent(tx, context, person, event);
+        }
+      });
+    }
+
+    // Two open requests, one of them offline; stale ones from an earlier day are withdrawn.
+    const requests = [
+      {
+        member: "driss",
+        offline: false,
+        type: "clock_out",
+        at: brussels(yesterday, 16 * 60 + 35),
+        reason: "Ik vergat uit te klokken na de sluiting.",
+      },
+      {
+        member: "mohamed",
+        offline: true,
+        type: "break_start",
+        at: brussels(yesterday, 12 * 60 + 10),
+        reason: null,
+      },
+    ] as const;
+    for (const request of requests) {
+      const person = people.get(request.member)!;
+      const open = await sql<{ id: string; created_at: Date }[]>`
+        select id, created_at from public.correction_requests
+        where employee_id = ${person.employeeId} and status = 'pending'`;
+      const fresh = open.filter((row) => DAY_KEY.format(row.created_at) === today);
+      const stale = open.filter((row) => DAY_KEY.format(row.created_at) !== today);
+      if (stale.length > 0) {
+        await sql.begin(async (tx) => {
+          await tx`set local session_replication_role = replica`;
+          for (const row of stale) {
+            await tx`
+              update public.correction_requests
+              set status = 'withdrawn', decided_by = ${input.requesterId}, decided_at = now()
+              where id = ${row.id}`;
+          }
+        });
+      }
+      if (fresh.length > 0) continue;
+      const proposed = {
+        events: [
+          {
+            type: request.type,
+            occurred_at: request.at.toISOString(),
+            site_id: siteIds[request.member === "mohamed" ? "second" : "main"],
+          },
+        ],
+      };
+      await sql`
+        insert into public.correction_requests (
+          organization_id, employee_id, requested_by, kind, proposed, reason,
+          offline, idempotency_key, offline_reason)
+        values (
+          ${orgId}, ${person.employeeId}, ${input.requesterId}, 'add', ${sql.json(proposed)},
+          ${request.reason}, ${request.offline},
+          ${request.offline ? sql`gen_random_uuid()` : null},
+          ${request.offline ? "later_event_exists" : null})`;
+    }
+
+    // Kiosk PINs, kiosks and "uit dienst": once, through the real RPCs (they write the log).
+    for (const member of TEAM) {
+      const person = people.get(member.slug)!;
+      if (member.pin) {
+        const [pin] = await sql`
+          select 1 from public.employee_pins where employee_id = ${person.employeeId}`;
+        if (!pin) {
+          const { error } = await (
+            await owner()
+          ).client.rpc("rpc_set_employee_pin", {
+            p_employee_id: person.employeeId,
+            p_pin: member.pin,
+          });
+          if (error) fail("rpc_set_employee_pin", error);
+        }
+      }
+      if (member.left) {
+        const [row] = await sql<{ left_at: string | null }[]>`
+          select left_at from public.employees where id = ${person.employeeId}`;
+        if (!row?.left_at) {
+          const { error } = await (
+            await owner()
+          ).client.rpc("rpc_offboard_employee", {
+            p_employee_id: person.employeeId,
+          });
+          if (error) fail("rpc_offboard_employee", error);
+        }
+      }
+    }
+    const [kiosk] = await sql`
+      select 1 from public.kiosk_devices where organization_id = ${orgId} limit 1`;
+    if (!kiosk) {
+      for (const [site, name] of [
+        ["main", "Tablet aan de ingang"],
+        ["second", "Tablet achter de toonbank"],
+      ] as const) {
+        const { error } = await (
+          await owner()
+        ).client.rpc("rpc_kiosk_create", {
+          p_site_id: siteIds[site],
+          p_name: name,
+        });
+        if (error) fail("rpc_kiosk_create", error);
+      }
+      await sql.begin(async (tx) => {
+        await tx`set local session_replication_role = replica`;
+        await tx`
+          update public.kiosk_devices set last_seen_at = now() - interval '12 minutes'
+          where organization_id = ${orgId} and site_id = ${siteIds.main}`;
+      });
+    }
+
+    // Two earlier exports (made-up content: never downloaded in the screens).
+    const [anyExport] = await sql`
+      select 1 from public.exports where organization_id = ${orgId} limit 1`;
+    if (!anyExport) {
+      const [y = 2026, m = 1] = today.split("-").map(Number);
+      for (const [back, rows] of [
+        [1, 184],
+        [2, 171],
+      ] as const) {
+        const first = new Date(Date.UTC(y, m - 1 - back, 1));
+        const last = new Date(Date.UTC(y, m - back, 0));
+        const content = Buffer.from(
+          JSON.stringify({ format: "cloxa.export.v1", seed: true, rows: [] }),
+          "utf8",
+        );
+        await sql`
+          insert into public.exports (
+            organization_id, site_ids, period_from, period_to, format_version, created_by,
+            created_at, row_count, content_sha256, signature, signing_key_id, content)
+          values (
+            ${orgId}, null, ${first.toISOString().slice(0, 10)}, ${last.toISOString().slice(0, 10)},
+            'cloxa.export.v1', ${ownerId}, ${new Date(last.getTime() + 2 * 86_400_000 + 9 * HOUR)},
+            ${rows}, extensions.digest(${content}, 'sha256'), extensions.gen_random_bytes(64),
+            'seed', ${content})`;
+      }
+    }
+  } finally {
+    await sql.end();
+    if (session) {
+      const { factorId, client } = session as Session;
+      await admin.auth.admin.mfa.deleteFactor({ id: factorId, userId: ownerId });
+      await client.auth.signOut({ scope: "local" });
+    }
   }
 }
 
