@@ -56,9 +56,12 @@ green `#248a3d` is 4.40:1 on white, so text uses `#207936`.
 
 - **Button.**
   - `primary`: solid ink, 72px on phones where it's the main action, 52px elsewhere.
-  - `secondary`: 1.5px `line` outline, ink text.
+  - `secondary`: 1.5px `line` outline on `surface`, ink text. Never on `paper`: in dark
+    mode that is black, which reads as a black button on a sheet.
   - `plain`: ink text only, for tertiary actions.
   - `destructive`: red text, outline style, never solid red.
+  - Inside a sheet, the sheet's main action is `primary` too, so it looks the same as on
+    the page in both themes.
 - **Grouped list** (like iOS Settings). Rows sit on `fill`, grouped in rounded blocks
   with hairlines between them. A row can hold a title, secondary text and a trailing
   value or chevron, and is at least 56px tall. This is the default pattern for lists,
@@ -73,9 +76,8 @@ green `#248a3d` is 4.40:1 on white, so text uses `#207936`.
 - **Numbers row** (KPIs). Cells are separated by hairlines with no card boxes. Orange is
   used only for "Aandacht nodig".
 - **Navigation.**
-  - Phone: a bottom tab bar with 3–4 text labels, with the active tab in ink and the
-    others in `ink-3`. No icons are needed. If icons are added, they are always paired
-    with a label.
+  - Phone: a bottom tab bar with 3–4 tabs, each an icon plus a label, the active tab in
+    ink. A count badge (pending questions on Vragen) is visual only.
   - Desktop: a quiet left sidebar with text items, the active item on a `fill`
     background, and counts right-aligned in `ink-3`.
 - **Sheets and confirmations.** Destructive or important actions open a bottom sheet on

@@ -280,7 +280,7 @@ test("a fresh start: no hours, no questions, nothing planned", async ({ page }) 
   await expect(button(page, "Start werk")).toBeVisible(SETTLED);
   await expect(page.getByText("Vandaag niets gepland")).toBeVisible();
   await capture(page, "leeg-klok");
-  await button(page, "Maximiliaan V.").click();
+  await button(page, "Maximiliaan B.").click();
   await expect(page.getByRole("dialog")).toBeVisible();
   await capture(page, "leeg-account", false);
   await closeSheet(page);

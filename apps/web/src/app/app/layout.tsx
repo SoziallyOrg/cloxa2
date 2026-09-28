@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
-import { AccountProvider, shortDisplayName } from "@/components/employee/Account";
+import { AccountProvider } from "@/components/employee/Account";
+import { shortDisplayName } from "@/components/employee/account-name";
 import { EmployeeFrame } from "@/components/employee/EmployeeNav";
 import { RegisterShellWorker } from "@/components/offline/ShellWorker";
 import { requireEmployeeArea } from "@/lib/auth/context";

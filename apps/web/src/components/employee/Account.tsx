@@ -18,6 +18,7 @@ import { queuedCountFor } from "@/lib/offline/browser";
 import { SessionRows } from "../auth/SessionActions";
 import { Row, Section } from "../ui/List";
 import { Sheet } from "../ui/Sheet";
+import { initials } from "./account-name";
 
 export interface Account {
   employeeId: string;
@@ -25,22 +26,6 @@ export interface Account {
   shortName: string;
   /** "Jan Janssens": the sheet's title. */
   fullName: string;
-}
-
-/** "Jan Janssens" → "Jan J."; a single name stays as it is. */
-export function shortDisplayName(displayName: string): string {
-  const parts = displayName.trim().split(/\s+/);
-  const first = parts[0] ?? displayName;
-  const last = parts.length > 1 ? parts[parts.length - 1] : undefined;
-  return last ? `${first} ${last.charAt(0).toUpperCase()}.` : first;
-}
-
-/** "Jan Janssens" → "JJ", for the round avatar in the navigation bar. */
-export function initials(displayName: string): string {
-  const parts = displayName.trim().split(/\s+/).filter(Boolean);
-  const first = parts[0]?.charAt(0) ?? "";
-  const last = parts.length > 1 ? (parts[parts.length - 1]?.charAt(0) ?? "") : "";
-  return `${first}${last}`.toUpperCase();
 }
 
 interface AccountContextValue {
