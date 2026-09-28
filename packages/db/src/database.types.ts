@@ -182,7 +182,7 @@ export type Database = {
           offline_reason: string | null;
           organization_id: string;
           proposed: Json;
-          reason: string;
+          reason: string | null;
           requested_by: string;
           status: string;
           target_event_ids: string[];
@@ -200,7 +200,7 @@ export type Database = {
           offline_reason?: string | null;
           organization_id: string;
           proposed?: Json;
-          reason: string;
+          reason?: string | null;
           requested_by: string;
           status?: string;
           target_event_ids?: string[];
@@ -218,7 +218,7 @@ export type Database = {
           offline_reason?: string | null;
           organization_id?: string;
           proposed?: Json;
-          reason?: string;
+          reason?: string | null;
           requested_by?: string;
           status?: string;
           target_event_ids?: string[];
@@ -275,11 +275,13 @@ export type Database = {
       employees: {
         Row: {
           active: boolean;
+          anonymised_at: string | null;
           created_at: string;
           display_name: string;
           employee_code: string | null;
           id: string;
           language: string;
+          left_at: string | null;
           organization_id: string;
           statute: string;
           updated_at: string;
@@ -287,11 +289,13 @@ export type Database = {
         };
         Insert: {
           active?: boolean;
+          anonymised_at?: string | null;
           created_at?: string;
           display_name: string;
           employee_code?: string | null;
           id?: string;
           language?: string;
+          left_at?: string | null;
           organization_id: string;
           statute?: string;
           updated_at?: string;
@@ -299,11 +303,13 @@ export type Database = {
         };
         Update: {
           active?: boolean;
+          anonymised_at?: string | null;
           created_at?: string;
           display_name?: string;
           employee_code?: string | null;
           id?: string;
           language?: string;
+          left_at?: string | null;
           organization_id?: string;
           statute?: string;
           updated_at?: string;
@@ -838,7 +844,7 @@ export type Database = {
           offline_reason: string | null;
           organization_id: string;
           proposed: Json;
-          reason: string;
+          reason: string | null;
           requested_by: string;
           status: string;
           target_event_ids: string[];
@@ -936,6 +942,7 @@ export type Database = {
         Args: { p_invitation_id: string; p_user_id: string };
         Returns: string;
       };
+      rpc_my_data_export: { Args: never; Returns: Json };
       rpc_my_status: {
         Args: never;
         Returns: {
@@ -948,6 +955,10 @@ export type Database = {
           organization_id: string;
           state: string;
         }[];
+      };
+      rpc_offboard_employee: {
+        Args: { p_employee_id: string; p_left_at?: string };
+        Returns: string;
       };
       rpc_record_export_download: {
         Args: { p_export_id: string; p_format: string; p_org: string };
@@ -979,6 +990,10 @@ export type Database = {
         };
         Returns: undefined;
       };
+      rpc_reinstate_employee: {
+        Args: { p_employee_id: string };
+        Returns: undefined;
+      };
       rpc_request_correction: {
         Args: {
           p_kind: string;
@@ -999,7 +1014,7 @@ export type Database = {
           offline_reason: string | null;
           organization_id: string;
           proposed: Json;
-          reason: string;
+          reason: string | null;
           requested_by: string;
           status: string;
           target_event_ids: string[];
@@ -1049,6 +1064,17 @@ export type Database = {
         Args: { p_employee_id: string };
         Returns: number;
       };
+      rpc_subject_export: { Args: { p_employee_id: string }; Returns: Json };
+      rpc_update_org_settings: {
+        Args: {
+          p_correction_max_age_days: number;
+          p_offline_clocking: boolean;
+          p_offline_max_skew_minutes: number;
+          p_org: string;
+          p_retention_years: number;
+        };
+        Returns: undefined;
+      };
       rpc_verify_chains: {
         Args: { p_org: string };
         Returns: {
@@ -1071,7 +1097,7 @@ export type Database = {
           offline_reason: string | null;
           organization_id: string;
           proposed: Json;
-          reason: string;
+          reason: string | null;
           requested_by: string;
           status: string;
           target_event_ids: string[];

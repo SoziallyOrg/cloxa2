@@ -10,6 +10,7 @@
  *   schedule-e2e@demo.test (site 1; reserved for the schedule e2e test)
  *   kiosk-admin@demo.test (admin), kiosk-e2e@demo.test (site 1; reserved for the kiosk e2e)
  *   offline-e2e@demo.test (site 1; reserved for the offline e2e)
+ *   offboard-e2e@demo.test (site 1; reserved for the offboarding e2e)
  * Codes arrive in the local Mailpit: http://127.0.0.1:54324
  *
  * Refuses to run unless both the Supabase API and the database are on
@@ -83,6 +84,13 @@ const MEMBERS: readonly {
   {
     email: "offline-e2e@demo.test",
     name: "Olaf Offlinetest",
+    role: "employee",
+    sites: ["main"],
+  },
+  // Dedicated to the offboarding e2e spec (offboarded and reinstated per run).
+  {
+    email: "offboard-e2e@demo.test",
+    name: "Otto Uitdiensttest",
     role: "employee",
     sites: ["main"],
   },

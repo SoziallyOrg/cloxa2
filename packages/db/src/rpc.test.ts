@@ -8,11 +8,13 @@ import {
   kioskClock,
   kioskPair,
   kioskStatus,
+  offboardEmployee,
   requestCorrection,
   revokeInvitation,
   RpcError,
   schedulePatternSchema,
   setEmployeePin,
+  updateOrgSettings,
   scheduleForInput,
   signOutEverywhere,
   type CloxaClient,
@@ -606,5 +608,52 @@ describe("clockOffline", () => {
       clockOffline(client, { ...input, capturedAt: "2026-09-28T08:02:00" }),
     ).rejects.toThrow();
     expect(calls).toEqual([]);
+  });
+});
+
+describe("offboarding and org settings", () => {
+  it("offboards without a last day unless one is given", async () => {
+    const { client, calls } = fakeClient({ data: "2026-09-28", error: null });
+    await expect(offboardEmployee(client, { employeeId: ID_A })).resolves.toBe(
+      "2026-09-28",
+    );
+    await offboardEmployee(client, { employeeId: ID_A, leftAt: "2026-09-27" });
+    expect(calls).toEqual([
+      { fn: "rpc_offboard_employee", args: { p_employee_id: ID_A } },
+      {
+        fn: "rpc_offboard_employee",
+        args: { p_employee_id: ID_A, p_left_at: "2026-09-27" },
+      },
+    ]);
+  });
+
+  it("maps the settings and refuses out-of-range values before calling", async () => {
+    const { client, calls } = fakeClient({ data: null, error: null });
+    const valid = {
+      organizationId: ID_A,
+      retentionYears: 5,
+      offlineClocking: true,
+      offlineMaxSkewMinutes: 240,
+      correctionMaxAgeDays: 60,
+    };
+    await updateOrgSettings(client, valid);
+    await expect(
+      updateOrgSettings(client, { ...valid, retentionYears: 4 }),
+    ).rejects.toThrow();
+    await expect(
+      updateOrgSettings(client, { ...valid, offlineMaxSkewMinutes: 4321 }),
+    ).rejects.toThrow();
+    expect(calls).toEqual([
+      {
+        fn: "rpc_update_org_settings",
+        args: {
+          p_org: ID_A,
+          p_retention_years: 5,
+          p_offline_clocking: true,
+          p_offline_max_skew_minutes: 240,
+          p_correction_max_age_days: 60,
+        },
+      },
+    ]);
   });
 });

@@ -9,6 +9,7 @@ import { SignOutEverywhereForm } from "@/components/manage/SignOutEverywhereForm
 import { Heading } from "@/components/ui/Heading";
 import { StatusBadge, type StatusTone } from "@/components/ui/StatusBadge";
 import { Button } from "@/components/ui/Button";
+import { cx } from "@/components/ui/cx";
 import { requireManager } from "@/lib/auth/context";
 import { createClient } from "@/lib/supabase/server";
 
@@ -31,16 +32,26 @@ const STATUS_LABEL_KEY: Record<string, CatalogKey> = {
   active: "manageTeam.statusActive",
   invited: "manageTeam.statusInvited",
   suspended: "manageTeam.statusSuspended",
+  left: "manageTeam.statusLeft",
 };
 
 const STATUS_TONE: Record<string, StatusTone> = {
   active: "working",
   invited: "break",
   suspended: "error",
+  left: "off",
 };
 
-export default async function ManageTeamPage() {
+/** `?toon=uit-dienst` lists people who left; everyone else is the default tab. */
+const LEFT_TAB = "uit-dienst";
+
+export default async function ManageTeamPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const context = await requireManager();
+  const showLeft = (await searchParams)["toon"] === LEFT_TAB;
   const supabase = await createClient();
 
   const { count: pendingCount } = await supabase
@@ -50,9 +61,12 @@ export default async function ManageTeamPage() {
 
   const { data: employeeRows, error: employeesError } = await supabase
     .from("employees")
-    .select("id, display_name, employee_code, statute, user_id, active")
+    .select("id, display_name, employee_code, statute, user_id, active, left_at")
     .order("display_name");
   if (employeesError) throw new Error(`employees_unavailable:${employeesError.code}`);
+  const listed = employeeRows.filter((employee) =>
+    showLeft ? employee.left_at !== null : employee.left_at === null,
+  );
 
   const { data: siteRows, error: sitesError } = await supabase
     .from("sites")
@@ -113,7 +127,9 @@ export default async function ManageTeamPage() {
   function statusOf(employee: {
     user_id: string | null;
     id: string;
-  }): "active" | "invited" | "suspended" {
+    left_at: string | null;
+  }): "active" | "invited" | "suspended" | "left" {
+    if (employee.left_at !== null) return "left";
     if (employee.user_id) {
       const status = membershipStatusByUser.get(employee.user_id);
       if (status === "suspended") return "suspended";
@@ -137,8 +153,45 @@ export default async function ManageTeamPage() {
 
         <section className="flex flex-col gap-4">
           <Heading level={2}>{t("manageTeam.employeesHeading")}</Heading>
+          <nav aria-label={t("manageTeam.filterLabel")} className="flex gap-2">
+            {[
+              {
+                left: false,
+                href: "/manage/team",
+                label: t("manageTeam.filterActive"),
+              },
+              {
+                left: true,
+                href: `/manage/team?toon=${LEFT_TAB}`,
+                label: t("manageTeam.filterLeft"),
+              },
+            ].map((tab) => (
+              <Link
+                key={tab.href}
+                href={tab.href as Route}
+                aria-current={tab.left === showLeft ? "page" : undefined}
+                className={cx(
+                  "focus-ring inline-flex min-h-touch-target items-center rounded-md border-2 px-5 text-lg font-semibold",
+                  tab.left === showLeft
+                    ? "border-primary bg-primary text-primary-contrast"
+                    : "border-border text-ink",
+                )}
+              >
+                {tab.label}
+              </Link>
+            ))}
+          </nav>
+          {listed.length === 0 ? (
+            <p className="text-ink/70">
+              {t(
+                showLeft
+                  ? "manageTeam.noLeftEmployees"
+                  : "manageTeam.noActiveEmployees",
+              )}
+            </p>
+          ) : null}
           <ul className="flex flex-col gap-3">
-            {employeeRows.map((employee) => {
+            {listed.map((employee) => {
               const status = statusOf(employee);
               return (
                 <li
@@ -167,7 +220,7 @@ export default async function ManageTeamPage() {
                       tone={STATUS_TONE[status] ?? "off"}
                       label={t(STATUS_LABEL_KEY[status] ?? "manageTeam.statusActive")}
                     />
-                    {employee.user_id ? (
+                    {employee.user_id && employee.left_at === null ? (
                       <SignOutEverywhereForm
                         employeeId={employee.id}
                         employeeName={employee.display_name}

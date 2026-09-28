@@ -25,7 +25,8 @@ export interface RequestCardProps {
   readonly kindLabel: string;
   readonly changes: readonly RequestCardChange[];
   readonly resultingShiftLabel: string | null;
-  readonly reason: string;
+  /** Null once the requester was anonymised (ADR 007). */
+  readonly reason: string | null;
   /** Present for the "Behandeld" tab; absent (pending) shows the decide buttons. */
   readonly decision?: RequestCardDecision;
   readonly approveAction?: (formData: FormData) => Promise<void>;
@@ -82,10 +83,12 @@ export function RequestCard({
         </p>
       ) : null}
 
-      <div>
-        <p className="text-base font-semibold">{t("manageVragen.reasonLabel")}</p>
-        <p className="text-ink/70">{reason}</p>
-      </div>
+      {reason ? (
+        <div>
+          <p className="text-base font-semibold">{t("manageVragen.reasonLabel")}</p>
+          <p className="text-ink/70">{reason}</p>
+        </div>
+      ) : null}
 
       {decision?.note ? (
         <p className="text-ink/70">

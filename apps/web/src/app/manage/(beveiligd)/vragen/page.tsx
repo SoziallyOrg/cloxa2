@@ -47,7 +47,7 @@ interface CorrectionRow {
   status: string;
   target_event_ids: string[];
   proposed: unknown;
-  reason: string;
+  reason: string | null;
   decision_note: string | null;
   created_at: string;
 }

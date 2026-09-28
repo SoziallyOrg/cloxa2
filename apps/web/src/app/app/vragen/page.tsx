@@ -73,7 +73,9 @@ export default async function QuestionsPage() {
                     label={t(STATUS_LABEL_KEY[key])}
                   />
                 </Stack>
-                <p className="text-ink/70">{request.reason}</p>
+                {request.reason ? (
+                  <p className="text-ink/70">{request.reason}</p>
+                ) : null}
                 {request.decision_note ? (
                   <p className="text-ink/70">
                     {t("questions.managerNote", { note: request.decision_note })}

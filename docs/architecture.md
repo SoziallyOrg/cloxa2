@@ -259,7 +259,21 @@ everything from the earliest affected event to the latest one, under the same lo
   readable through `rpc_record_export_download`, which writes `export.downloaded` first.
 - Employee self-exports are built on the fly from their own rows and audited as
   `export.self_downloaded`; they are not stored or signed.
-- **TODO:** run `private.purge_exports` from a scheduled job (retention, ADR 004).
+- `private.purge_exports` runs daily from `private.run_retention` (ADR 007).
+
+## Retention and data-subject access (ADR 007)
+
+- `employees.left_at` (date) and `anonymised_at`.
+  `rpc_offboard_employee(employee, left_at?)` and `rpc_reinstate_employee(employee)`:
+  privileged with fresh MFA, manager-scoped, never an owner or oneself.
+- `private.run_retention()` (pg_cron, daily 01:15 UTC; granted to no role) anonymises
+  leavers whose `left_at` and facts are older than `greatest(retention_years, 5)` years
+  and purges exports. Facts and chains stay; names, codes, free text, PINs, invitation
+  emails and logins go.
+- `rpc_subject_export(employee)` (owner/admin, fresh MFA) and `rpc_my_data_export()`
+  (self): one audited JSON document per person and org.
+- `rpc_update_org_settings(org, retention_years 5–10, offline_clocking, offline_max_skew_minutes 1–4320, correction_max_age_days 1–365)`:
+  owner/admin, fresh MFA.
 
 ## Auth and sessions
 

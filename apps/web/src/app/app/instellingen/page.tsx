@@ -4,13 +4,14 @@ import type { Route } from "next";
 import { t } from "@cloxa/i18n";
 
 import { PinForm } from "@/components/kiosk/PinForm";
+import { buttonClassName } from "@/components/ui/Button";
 import { Heading } from "@/components/ui/Heading";
 import { requireEmployeeArea } from "@/lib/auth/context";
 import { createClient } from "@/lib/supabase/server";
 
 import { setMyPinAction } from "./actions";
 
-/** `/app/instellingen`: for now only the kiosk PIN. */
+/** `/app/instellingen`: the kiosk PIN and a download of all one's own data. */
 export default async function EmployeeSettingsPage() {
   const context = await requireEmployeeArea();
   const supabase = await createClient();
@@ -43,6 +44,17 @@ export default async function EmployeeSettingsPage() {
           savedMessage={t("kiosk.pinSaved")}
           action={setMyPinAction}
         />
+      </section>
+      <section className="flex flex-col gap-4">
+        <Heading level={2}>{t("myData.heading")}</Heading>
+        <p className="text-lg">{t("myData.intro")}</p>
+        <a
+          href="/app/instellingen/mijn-gegevens"
+          download
+          className={`${buttonClassName("secondary", "md")} self-start`}
+        >
+          {t("myData.download")}
+        </a>
       </section>
     </main>
   );

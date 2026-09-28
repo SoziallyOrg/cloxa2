@@ -58,7 +58,17 @@ export default async function ManageMeerPage() {
               </Link>
             </li>
           ) : null}
-          <li className="text-lg text-ink/70">{t("manageMore.settings")}</li>
+          {context.membership.role === "owner" ||
+          context.membership.role === "admin" ? (
+            <li>
+              <Link
+                href={"/manage/meer/instellingen" as Route}
+                className="focus-ring text-lg font-semibold text-primary underline"
+              >
+                {t("manageMore.settings")}
+              </Link>
+            </li>
+          ) : null}
           <li>
             <Link
               href={"/manage/beveiliging/instellen" as Route}

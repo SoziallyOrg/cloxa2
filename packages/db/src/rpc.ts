@@ -691,6 +691,104 @@ export async function signOutEverywhere(
   );
 }
 
+// Offboarding, retention and data-subject access (ADR 007) --------------------------------
+
+export const offboardEmployeeInput = z.strictObject({
+  employeeId: uuid,
+  /** The last day in service (Europe/Brussels). Defaults to today in the database. */
+  leftAt: localDate.optional(),
+});
+export type OffboardEmployeeInput = z.input<typeof offboardEmployeeInput>;
+
+/**
+ * Privileged, fresh MFA: "Uit dienst". Sets the last day, suspends the
+ * membership, signs the login out everywhere and deactivates the employee.
+ * Returns the stored last day.
+ */
+export async function offboardEmployee(
+  client: CloxaClient,
+  input: OffboardEmployeeInput,
+): Promise<string> {
+  const parsed = offboardEmployeeInput.parse(input);
+  return unwrap(
+    "rpc_offboard_employee",
+    await client.rpc("rpc_offboard_employee", {
+      p_employee_id: parsed.employeeId,
+      ...optional("p_left_at", parsed.leftAt),
+    }),
+  );
+}
+
+export const reinstateEmployeeInput = z.strictObject({ employeeId: uuid });
+export type ReinstateEmployeeInput = z.input<typeof reinstateEmployeeInput>;
+
+/** Privileged, fresh MFA: "Terug in dienst". Refused once the person is anonymised. */
+export async function reinstateEmployee(
+  client: CloxaClient,
+  input: ReinstateEmployeeInput,
+): Promise<void> {
+  const parsed = reinstateEmployeeInput.parse(input);
+  const { error } = await client.rpc("rpc_reinstate_employee", {
+    p_employee_id: parsed.employeeId,
+  });
+  if (error) throw new RpcError("rpc_reinstate_employee", error);
+}
+
+export const subjectExportInput = z.strictObject({ employeeId: uuid });
+export type SubjectExportInput = z.input<typeof subjectExportInput>;
+
+/** Owner/admin, fresh MFA: everything about one person in the org (AVG art. 15). Audited. */
+export async function subjectExport(
+  client: CloxaClient,
+  input: SubjectExportInput,
+): Promise<Json> {
+  const parsed = subjectExportInput.parse(input);
+  return unwrap(
+    "rpc_subject_export",
+    await client.rpc("rpc_subject_export", { p_employee_id: parsed.employeeId }),
+  );
+}
+
+/** Self: the caller's own data in every organization where they are active. Audited. */
+export async function myDataExport(client: CloxaClient): Promise<Json> {
+  return unwrap("rpc_my_data_export", await client.rpc("rpc_my_data_export"));
+}
+
+/** Org setting bounds, mirrored from `private.update_org_settings`. */
+export const ORG_SETTING_BOUNDS = {
+  retentionYears: { min: 5, max: 10 },
+  offlineMaxSkewMinutes: { min: 1, max: 4320 },
+  correctionMaxAgeDays: { min: 1, max: 365 },
+} as const;
+
+const boundedInt = (bounds: { min: number; max: number }) =>
+  z.number().int().min(bounds.min).max(bounds.max);
+
+export const updateOrgSettingsInput = z.strictObject({
+  organizationId: uuid,
+  retentionYears: boundedInt(ORG_SETTING_BOUNDS.retentionYears),
+  offlineClocking: z.boolean(),
+  offlineMaxSkewMinutes: boundedInt(ORG_SETTING_BOUNDS.offlineMaxSkewMinutes),
+  correctionMaxAgeDays: boundedInt(ORG_SETTING_BOUNDS.correctionMaxAgeDays),
+});
+export type UpdateOrgSettingsInput = z.input<typeof updateOrgSettingsInput>;
+
+/** Owner/admin, fresh MFA. Audited with the new values. */
+export async function updateOrgSettings(
+  client: CloxaClient,
+  input: UpdateOrgSettingsInput,
+): Promise<void> {
+  const parsed = updateOrgSettingsInput.parse(input);
+  const { error } = await client.rpc("rpc_update_org_settings", {
+    p_org: parsed.organizationId,
+    p_retention_years: parsed.retentionYears,
+    p_offline_clocking: parsed.offlineClocking,
+    p_offline_max_skew_minutes: parsed.offlineMaxSkewMinutes,
+    p_correction_max_age_days: parsed.correctionMaxAgeDays,
+  });
+  if (error) throw new RpcError("rpc_update_org_settings", error);
+}
+
 // Exports ----------------------------------------------------------------------------------
 
 /** Inclusive Europe/Brussels days per export, and the stored snapshot size cap. */

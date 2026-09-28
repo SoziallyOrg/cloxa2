@@ -18,6 +18,7 @@ import {
   type CatalogKey,
 } from "@cloxa/i18n";
 
+import { OffboardForm, ReinstateForm } from "@/components/manage/EmploymentActions";
 import { ManageShell } from "@/components/manage/ManageShell";
 import { ShiftList } from "@/components/clock/ShiftList";
 import { PinForm } from "@/components/kiosk/PinForm";
@@ -25,10 +26,18 @@ import { buttonClassName } from "@/components/ui/Button";
 import { Heading } from "@/components/ui/Heading";
 import { requireManager } from "@/lib/auth/context";
 import { nowMs } from "@/lib/clock/now";
+import {
+  effectiveRetentionYears,
+  offboardConfirmLines,
+} from "@/lib/manage/offboarding";
 import { formatWeeklyHours } from "@/lib/schedule/hours";
 import { createClient } from "@/lib/supabase/server";
 
-import { setEmployeePinAction } from "./actions";
+import {
+  offboardEmployeeAction,
+  reinstateEmployeeAction,
+  setEmployeePinAction,
+} from "./actions";
 
 const WINDOW_DAYS = 14;
 const WINDOW_MS = WINDOW_DAYS * 24 * 3600 * 1000;
@@ -53,7 +62,7 @@ export default async function ManageEmployeeDetailPage({
 
   const { data: employee, error: employeeError } = await supabase
     .from("employees")
-    .select("id, display_name, employee_code, statute")
+    .select("id, display_name, employee_code, statute, user_id, left_at, anonymised_at")
     .eq("id", id)
     .maybeSingle();
   if (employeeError) throw new Error(`employee_unavailable:${employeeError.code}`);
@@ -63,6 +72,32 @@ export default async function ManageEmployeeDetailPage({
     .from("correction_requests")
     .select("id", { count: "exact", head: true })
     .eq("status", "pending");
+
+  const isOrgAdmin =
+    context.membership.role === "owner" || context.membership.role === "admin";
+  const isSelf = context.employeeId === employee.id;
+
+  const { data: organization, error: organizationError } = await supabase
+    .from("organizations")
+    .select("settings")
+    .eq("id", context.membership.organizationId)
+    .maybeSingle();
+  if (organizationError) {
+    throw new Error(`organization_unavailable:${organizationError.code}`);
+  }
+
+  // Owners and admins can read the role (managers cannot, and the database
+  // refuses for them anyway): an owner is never offered "Uit dienst".
+  const { data: targetMembership } =
+    isOrgAdmin && employee.user_id
+      ? await supabase
+          .from("memberships")
+          .select("role")
+          .eq("organization_id", context.membership.organizationId)
+          .eq("user_id", employee.user_id)
+          .maybeSingle()
+      : { data: null };
+  const canOffboard = !isSelf && targetMembership?.role !== "owner";
 
   const now = nowMs();
   const windowStart = now - WINDOW_MS;
@@ -131,6 +166,56 @@ export default async function ManageEmployeeDetailPage({
           {t("manageEmployee.backLink")}
         </Link>
         <Heading level={1}>{employee.display_name}</Heading>
+        <p className="text-ink/70">
+          {employee.employee_code ?? t("manageEmployee.noCode")}
+        </p>
+
+        <section className="flex flex-col gap-3">
+          <Heading level={2}>{t("manageEmployee.employmentHeading")}</Heading>
+          {employee.anonymised_at ? (
+            <p className="text-lg">{t("manageEmployee.anonymised")}</p>
+          ) : employee.left_at ? (
+            <>
+              <p className="text-lg">
+                {t("manageEmployee.leftSince", {
+                  date: formatBrusselsDate(new Date(`${employee.left_at}T12:00:00Z`)),
+                })}
+              </p>
+              <ReinstateForm action={reinstateEmployeeAction.bind(null, employee.id)} />
+            </>
+          ) : (
+            <>
+              <p className="text-lg">
+                {t("manageEmployee.inService", { name: employee.display_name })}
+              </p>
+              {canOffboard ? (
+                <OffboardForm
+                  employeeName={employee.display_name}
+                  lines={offboardConfirmLines({
+                    name: employee.display_name,
+                    hasLogin: employee.user_id !== null,
+                    retentionYears: effectiveRetentionYears(organization?.settings),
+                  })}
+                  action={offboardEmployeeAction.bind(null, employee.id)}
+                />
+              ) : null}
+            </>
+          )}
+        </section>
+
+        {isOrgAdmin ? (
+          <section className="flex flex-col gap-3">
+            <Heading level={2}>{t("manageEmployee.subjectExportHeading")}</Heading>
+            <p className="text-lg">{t("manageEmployee.subjectExportIntro")}</p>
+            <a
+              href={`/manage/medewerker/${employee.id}/inzage`}
+              download
+              className={`${buttonClassName("secondary", "md")} self-start`}
+            >
+              {t("manageEmployee.subjectExportLink")}
+            </a>
+          </section>
+        ) : null}
 
         <section className="flex flex-col gap-3">
           <Heading level={2}>{t("manageEmployee.shiftsHeading")}</Heading>
@@ -149,7 +234,7 @@ export default async function ManageEmployeeDetailPage({
                     {formatBrusselsDate(new Date(row.created_at))} ·{" "}
                     {t(STATUS_LABEL_KEY[row.status] ?? "questions.statusPending")}
                   </p>
-                  <p className="text-ink/70">{row.reason}</p>
+                  {row.reason ? <p className="text-ink/70">{row.reason}</p> : null}
                   {row.decision_note ? (
                     <p className="text-ink/70">
                       {t("questions.managerNote", { note: row.decision_note })}
