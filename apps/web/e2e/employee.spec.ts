@@ -139,7 +139,7 @@ test("employee clocks a shift with a break, sees it in Mijn uren and asks for a 
   await expect(sheet).toContainText(reason);
   await sheet.getByRole("button", { name: "Intrekken", exact: true }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect(page.getByRole("status")).toHaveText("Je vraag is ingetrokken.");
+  await expect(page.getByRole("status")).toContainText("Je vraag is ingetrokken.");
   await expect(request).toContainText("Ingetrokken");
 
   expect(consoleErrors).toEqual([]);

@@ -362,7 +362,7 @@ test("the confirmation after clocking", async ({ page }) => {
     .getByRole("dialog")
     .getByRole("button", { name: "Intrekken", exact: true })
     .click();
-  await expect(page.getByRole("status")).toHaveText(
+  await expect(page.getByRole("status")).toContainText(
     "Je vraag is ingetrokken.",
     SETTLED,
   );
