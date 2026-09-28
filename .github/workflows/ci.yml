@@ -119,8 +119,12 @@ jobs:
         with:
           version: 2.116.0
 
+      # Only what pgTAP and the integration tests need: fewer image pulls (Docker
+      # Hub rate limits) and fewer host ports.
       - name: Start local Supabase stack
-        run: supabase start
+        run: >-
+          supabase start
+          -x studio,imgproxy,storage-api,edge-runtime,logflare,vector,realtime,supavisor,postgres-meta,mailpit
 
       - name: Lint database
         run: supabase db lint --local --schema public,private --fail-on warning
@@ -154,7 +158,18 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Scan for leaked secrets
-        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2.3.9
+      # The gitleaks GitHub Action needs a paid licence for organisations, so run
+      # the MIT-licensed CLI directly. The version and checksum are pinned.
+      - name: Install gitleaks 8.30.1
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_VERSION: 8.30.1
+          GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+        run: |
+          archive="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -fsSL -o "${RUNNER_TEMP}/${archive}"             "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${archive}"
+          echo "${GITLEAKS_SHA256}  ${RUNNER_TEMP}/${archive}" | sha256sum --check --strict
+          tar -xzf "${RUNNER_TEMP}/${archive}" -C "${RUNNER_TEMP}" gitleaks
+          echo "${RUNNER_TEMP}" >> "$GITHUB_PATH"
+
+      - name: Scan for leaked secrets (full history)
+        run: gitleaks git --redact --verbose --exit-code 1 .

@@ -65,9 +65,12 @@ describe("export signing", () => {
   });
 
   it("accepts only base64 PKCS8 Ed25519 keys", () => {
-    const { privateKey: rsa } = generateKeyPairSync("rsa", { modulusLength: 1024 });
-    const rsaPem = rsa.export({ format: "pem", type: "pkcs8" }).toString();
-    expect(parseSigningKey(Buffer.from(rsaPem).toString("base64"))).toBeNull();
+    // Any non-Ed25519 key must be refused; P-256 keeps the test fast.
+    const { privateKey: ecKey } = generateKeyPairSync("ec", {
+      namedCurve: "prime256v1",
+    });
+    const ecPem = ecKey.export({ format: "pem", type: "pkcs8" }).toString();
+    expect(parseSigningKey(Buffer.from(ecPem).toString("base64"))).toBeNull();
     expect(parseSigningKey("not a key")).toBeNull();
   });
 

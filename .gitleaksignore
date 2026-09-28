@@ -1,0 +1,4 @@
+# False positives: prose "social-secretariat delivery, payroll/declaration" in the old v1 README.
+4f33bc6892cc558bc566ef30af28ec5990cbdcf0:packages/database/README.md:generic-api-key:451
+fa31f49c4f624060037e5656ba1665b7fac5018f:packages/database/README.md:generic-api-key:451
+ead22cb07b080deb1433e7c41daf17db44e694d5:packages/database/README.md:generic-api-key:406
