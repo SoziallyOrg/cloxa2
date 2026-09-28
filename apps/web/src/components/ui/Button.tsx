@@ -6,7 +6,7 @@ import { ActivityIndicator } from "./ActivityIndicator";
 import { cx } from "./cx";
 
 export type ButtonVariant = "primary" | "secondary" | "plain" | "destructive";
-/** `lg`: the screen's main action on phones (72px, full width). `md`: 52px. */
+/** `lg`: Klok's main action (64px, full width). `md`: 56px, everything else. */
 export type ButtonSize = "lg" | "md";
 
 export interface ButtonProps extends Omit<
@@ -22,19 +22,19 @@ export interface ButtonProps extends Omit<
   children: ReactNode;
 }
 
-// Outlined buttons sit on `surface`, never `paper`: in dark mode paper is
-// black, which read as a black button on the lifted grey of a sheet. Surface
-// lifts with the sheet (see `ELEVATED`), so they match rows everywhere.
+// Secondary buttons are soft `surface` fills, never `paper`: in dark mode
+// paper is black, which read as a black button on the lifted grey of a
+// sheet. Surface lifts with the sheet (see `ELEVATED`). No borders.
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
   primary: "bg-ink text-paper",
-  secondary: "border-[1.5px] border-line bg-surface text-ink",
+  secondary: "bg-surface text-ink",
   plain: "text-ink",
-  destructive: "border-[1.5px] border-line bg-surface text-danger",
+  destructive: "bg-surface text-danger",
 };
 
 const SIZE_CLASSES: Record<ButtonSize, string> = {
-  lg: "min-h-primary-action w-full text-title-2 font-semibold",
-  md: "min-h-control text-body font-semibold",
+  lg: "min-h-primary-action w-full text-headline",
+  md: "min-h-control text-headline",
 };
 
 /** Button looks for a link that navigates (never nest a `<button>` in an `<a>`). */

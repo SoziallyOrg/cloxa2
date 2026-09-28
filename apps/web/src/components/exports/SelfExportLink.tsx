@@ -58,12 +58,7 @@ export function SelfExportLink({ heading }: { heading: string }) {
             </span>
           }
         />
-        <Row
-          type="submit"
-          icon={Download}
-          tile="blue"
-          title={t("exports.selfDownload")}
-        />
+        <Row type="submit" icon={Download} title={t("exports.selfDownload")} />
       </Section>
     </form>
   );

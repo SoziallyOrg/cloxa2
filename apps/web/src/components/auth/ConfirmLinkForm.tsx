@@ -46,7 +46,7 @@ export function ConfirmLinkForm({
             resetSignal={state}
           />
         ) : null}
-        <Button type="submit" size="lg" loading={pending}>
+        <Button type="submit" wide loading={pending}>
           {t("auth.confirm.submit")}
         </Button>
       </Stack>

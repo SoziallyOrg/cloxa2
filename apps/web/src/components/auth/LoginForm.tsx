@@ -51,7 +51,7 @@ export function LoginForm({ next, turnstileSiteKey }: LoginFormProps) {
             resetSignal={state}
           />
         ) : null}
-        <Button type="submit" size="lg" loading={pending}>
+        <Button type="submit" wide loading={pending}>
           {t("login.submit")}
         </Button>
       </Stack>

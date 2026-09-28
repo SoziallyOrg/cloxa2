@@ -72,12 +72,7 @@ export function AccountProvider({
       {children}
       <Sheet open={open} onClose={() => setOpen(false)} title={account.fullName}>
         <Section>
-          <Row
-            href="/app/instellingen"
-            icon={Settings}
-            tile="gray"
-            title={t("account.settings")}
-          />
+          <Row href="/app/instellingen" icon={Settings} title={t("account.settings")} />
         </Section>
         <SessionRows queuedCount={() => queuedCountFor(account.employeeId)} />
       </Sheet>
@@ -87,9 +82,9 @@ export function AccountProvider({
 
 export interface AccountButtonProps {
   /**
-   * `header`: the name, top right on Klok (phones). `bar`: a round avatar in
-   * a navigation bar (phones). `sidebar`: avatar and name at the bottom of
-   * the desktop sidebar.
+   * `header`: the name, top right on Klok (phones). `bar`: the name as a
+   * quiet trailing button in a navigation bar (phones). `sidebar`: initials
+   * and name at the bottom of the desktop sidebar.
    */
   placement: "header" | "bar" | "sidebar";
 }
@@ -112,11 +107,10 @@ export function AccountButton({ placement }: AccountButtonProps) {
       <button
         type="button"
         aria-haspopup="dialog"
-        aria-label={account.shortName}
         onClick={openSheet}
-        className="focus-ring inline-flex size-bar-button items-center justify-center rounded-full pressable md:hidden"
+        className="focus-ring -mr-1 min-h-bar-button max-w-[40vw] pressable truncate rounded-control px-2 text-body text-ink-2 md:hidden"
       >
-        {avatar}
+        {account.shortName}
       </button>
     );
   }
@@ -127,7 +121,7 @@ export function AccountButton({ placement }: AccountButtonProps) {
         type="button"
         aria-haspopup="dialog"
         onClick={openSheet}
-        className="focus-ring flex min-h-touch-target w-full items-center gap-3 rounded-list px-3 text-left text-body text-ink pressable"
+        className="focus-ring flex min-h-touch-target w-full pressable items-center gap-3 rounded-list px-3 text-left text-body text-ink"
       >
         {avatar}
         <span className="min-w-0 flex-1 truncate">{account.shortName}</span>
@@ -145,7 +139,7 @@ export function AccountButton({ placement }: AccountButtonProps) {
       type="button"
       aria-haspopup="dialog"
       onClick={openSheet}
-      className="focus-ring -mr-3 min-h-touch-target max-w-[55vw] truncate rounded-control px-3 text-body text-ink-2 pressable"
+      className="focus-ring -mr-3 min-h-touch-target max-w-[55vw] pressable truncate rounded-control px-3 text-body text-ink-2"
     >
       {account.shortName}
     </button>

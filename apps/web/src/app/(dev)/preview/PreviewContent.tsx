@@ -115,27 +115,23 @@ export function PreviewContent() {
           <Row
             href="/preview/push"
             icon={Clock}
-            tile="green"
             title={t("preview.rowPushed")}
             subtitle={t("preview.rowPushedSubtitle")}
           />
           <Row
             href="/preview/push"
             icon={MapPin}
-            tile="blue"
             title={t("preview.rowSite")}
             value={t("preview.rowSiteValue")}
           />
           <Row
             icon={CalendarDays}
-            tile="orange"
             title={t("preview.rowWeek")}
             subtitle={t("preview.rowWeekSubtitle")}
             value={t("preview.rowWeekValue")}
           />
           <Row
             icon={UserRound}
-            tile="gray"
             title={t("preview.rowLongName")}
             value={t("preview.rowLongNameValue")}
             chevron
@@ -145,7 +141,6 @@ export function PreviewContent() {
             href="#lijsten"
             download
             icon={Download}
-            tile="ink"
             title={t("preview.rowDownload")}
             subtitle={t("preview.rowDownloadSubtitle")}
           />
@@ -166,7 +161,6 @@ export function PreviewContent() {
         >
           <Row
             icon={WifiOff}
-            tile="orange"
             title={t("preview.switchOffline")}
             accessory={
               <Switch
@@ -179,13 +173,11 @@ export function PreviewContent() {
           />
           <Row
             icon={MapPin}
-            tile="blue"
             title={t("preview.switchLocation")}
             accessory={<Switch label={t("preview.switchLocation")} />}
           />
           <Row
             icon={Bell}
-            tile="red"
             title={t("preview.switchManaged")}
             accessory={
               <Switch label={t("preview.switchManaged")} defaultChecked disabled />

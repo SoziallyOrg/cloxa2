@@ -19,47 +19,41 @@
   --color-fill: #f5f5f7;
   --color-line: #e8e8ea;
 
-  /* iOS inset grouped: page background, row surface, separator, pressed row. */
-  --color-grouped: #f2f2f7;
-  --color-surface: #ffffff;
+  /* Pages stay white; row groups sit on the soft fill (batch 1). Separator
+     and pressed row are quiet: a hairline, a subtle highlight. */
+  --color-grouped: #ffffff;
+  --color-surface: #f5f5f7;
   /* Inside sheets: dark mode lifts both one step, as iOS does. */
-  --color-grouped-elevated: #f2f2f7;
-  --color-surface-elevated: #ffffff;
-  --color-separator: #c6c6c8;
-  --color-pressed: #d1d1d6;
+  --color-grouped-elevated: #ffffff;
+  --color-surface-elevated: #f5f5f7;
+  --color-separator: #e2e2e6;
+  --color-pressed: #e8e8ec;
   /* Controls: the off track of a switch, the thumb of a segmented control. */
-  --color-track: #e9e9eb;
+  --color-track: #e5e5ea;
   --color-thumb: #ffffff;
 
   /* Status: always paired with a word, never colour alone. */
+  /* Muted, not saturated. */
   --color-working: #207936;
-  --color-break: #b25000;
-  --color-attention: #c93400;
-  --color-danger: #d70015;
+  --color-break: #b45309;
+  --color-attention: #c2410c;
+  --color-danger: #b91c1c;
   --color-working-tint: rgb(32 121 54 / 0.12);
-  --color-break-tint: rgb(178 80 0 / 0.12);
-  --color-attention-tint: rgb(201 52 0 / 0.12);
-  --color-danger-tint: rgb(215 0 21 / 0.12);
-
-  /* Settings-style icon tiles (white glyph, >= 3:1). */
-  --color-tile-gray: #8e8e93;
-  --color-tile-ink: #3a3a3c;
-  --color-tile-blue: #007aff;
-  --color-tile-green: #207936;
-  --color-tile-orange: #c93400;
-  --color-tile-red: #d70015;
+  --color-break-tint: rgb(180 83 9 / 0.12);
+  --color-attention-tint: rgb(194 65 12 / 0.12);
+  --color-danger-tint: rgb(185 28 28 / 0.12);
 
   /* Translucent materials, always with `backdrop-blur-material`. */
   --color-material-bar: rgb(249 249 249 / 0.8);
-  --color-material-sidebar: rgb(242 242 247 / 0.82);
+  --color-material-sidebar: rgb(250 250 251 / 0.85);
   --color-material-sheet: rgb(255 255 255 / 0.9);
   --blur-material: 20px;
 
   /* The iOS text styles. `display` (timer) and `number` (KPIs) are ours. */
   --text-large-title: 34px;
   --text-large-title--line-height: 41px;
-  --text-large-title--font-weight: 700;
-  --text-large-title--letter-spacing: -0.012em;
+  --text-large-title--font-weight: 600;
+  --text-large-title--letter-spacing: -0.02em;
   --text-title-1: 28px;
   --text-title-1--line-height: 34px;
   --text-title-1--letter-spacing: -0.01em;
@@ -85,10 +79,10 @@
   --text-caption-2--line-height: 13px;
   --text-caption-2--font-weight: 500;
 
-  --text-display: 88px;
+  --text-display: 96px;
   --text-display--line-height: 1;
-  --text-display--font-weight: 300;
-  --text-display--letter-spacing: -0.035em;
+  --text-display--font-weight: 250;
+  --text-display--letter-spacing: -0.04em;
   /* Page titles on screens not yet on `NavBar`. */
   --text-title: 32px;
   --text-title--line-height: 1.15;
@@ -105,8 +99,7 @@
 
   --radius-control: 14px;
   --radius-group: 16px;
-  --radius-list: 10px;
-  --radius-tile: 7px;
+  --radius-list: 16px;
   --radius-sheet: 14px;
   --radius-alert: 14px;
   --radius-md: 14px;
@@ -115,12 +108,10 @@
   /* Sizes on the 4px grid. */
   --spacing-touch-target: 48px;
   --spacing-bar-button: 44px;
-  --spacing-control: 52px;
+  --spacing-control: 56px;
   --spacing-row: 56px;
-  --spacing-row-ios: 44px;
-  --spacing-row-two-line: 52px;
-  --spacing-tile: 29px;
-  --spacing-primary-action: 72px;
+  --spacing-row-two-line: 64px;
+  --spacing-primary-action: 64px;
   --spacing-nav-bar: 44px;
   --spacing-tab-bar: 50px;
   --spacing-sidebar: 260px;
@@ -225,8 +216,8 @@
     --color-surface: #1c1c1e;
     --color-grouped-elevated: #1c1c1e;
     --color-surface-elevated: #2c2c2e;
-    --color-separator: #38383a;
-    --color-pressed: #3a3a3c;
+    --color-separator: #2e2e30;
+    --color-pressed: #2c2c2e;
     --color-track: #39393d;
     --color-thumb: #636366;
 
@@ -240,7 +231,7 @@
     --color-danger-tint: rgb(255 105 97 / 0.22);
 
     --color-material-bar: rgb(22 22 23 / 0.8);
-    --color-material-sidebar: rgb(28 28 30 / 0.82);
+    --color-material-sidebar: rgb(12 12 13 / 0.85);
     --color-material-sheet: rgb(30 30 32 / 0.9);
   }
 }

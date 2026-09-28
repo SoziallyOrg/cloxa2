@@ -4,9 +4,13 @@ import { cx } from "./cx";
 
 export type TextInputProps = Omit<InputHTMLAttributes<HTMLInputElement>, "className">;
 
-/** Shared look for inputs and selects: large, calm, on `fill`, no heavy borders. */
+/**
+ * Shared look for inputs and selects: large, calm, filled, no border. A 2px
+ * ink ring outside, on focus-visible only.
+ */
 export const inputClassName = cx(
-  "focus-ring min-h-row w-full rounded-control border-0 bg-fill px-4 text-body text-ink placeholder:text-ink-3",
+  "min-h-row w-full rounded-control border-0 bg-surface px-4 text-body text-ink placeholder:text-ink-3",
+  "outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink",
   "aria-invalid:ring-2 aria-invalid:ring-danger",
 );
 

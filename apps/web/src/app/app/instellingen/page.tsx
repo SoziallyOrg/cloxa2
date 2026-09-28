@@ -32,7 +32,6 @@ export default async function EmployeeSettingsPage() {
           <Row
             href="/app/instellingen/pincode"
             icon={KeyRound}
-            tile="blue"
             title={t("kiosk.menuLink")}
             value={pin ? t("kiosk.pinStateSet") : t("kiosk.pinStateNotSet")}
           />
@@ -42,7 +41,6 @@ export default async function EmployeeSettingsPage() {
             href="/app/instellingen/mijn-gegevens"
             download
             icon={Download}
-            tile="green"
             title={t("myData.download")}
             subtitle={t("myData.format")}
           />

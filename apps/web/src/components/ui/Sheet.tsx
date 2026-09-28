@@ -163,7 +163,7 @@ export function Sheet({
           <button
             type="button"
             onClick={requestClose}
-            className="focus-ring min-h-touch-target shrink-0 justify-self-end rounded-control px-3 text-body font-semibold text-ink pressable"
+            className="focus-ring min-h-touch-target shrink-0 pressable justify-self-end rounded-control px-3 text-body font-semibold text-ink"
           >
             {closeLabel ?? t("common.close")}
           </button>

@@ -116,7 +116,6 @@ export function SessionRows({ queuedCount }: SessionRowsProps) {
       <Section footer={t("session.logoutEverywhereHint")}>
         <Row
           icon={LogOut}
-          tile="red"
           title={t("session.logout")}
           disabled={pending}
           aria-busy={pending || undefined}
@@ -124,7 +123,6 @@ export function SessionRows({ queuedCount }: SessionRowsProps) {
         />
         <Row
           icon={MonitorSmartphone}
-          tile="gray"
           title={t("session.logoutEverywhere")}
           disabled={pending}
           onClick={() => press("global")}

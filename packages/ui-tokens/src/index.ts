@@ -10,8 +10,6 @@ export {
   spacing,
   statusTints,
   textStyles,
-  tileColors,
   tokens,
-  type TileColor,
   type Tokens,
 } from "./tokens";

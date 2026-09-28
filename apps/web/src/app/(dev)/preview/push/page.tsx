@@ -23,13 +23,11 @@ export default function PreviewPushedPage() {
         <Section footer={t("preview.pushedBody")}>
           <Row
             icon={Clock}
-            tile="green"
             title={t("preview.rowWeek")}
             value={t("preview.rowWeekValue")}
           />
           <Row
             icon={CalendarDays}
-            tile="blue"
             title={t("preview.rowSite")}
             value={t("preview.rowSiteValue")}
           />

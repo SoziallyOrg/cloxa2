@@ -50,7 +50,7 @@ export function NavBar({
       leading={back ? <BackButton {...back} /> : null}
       trailing={trailing}
     >
-      <div className="flex flex-col gap-1 px-inset pt-1 pb-3">
+      <div className="flex flex-col gap-1 px-gutter pt-1 pb-4">
         <h1 className="text-large-title break-words">{title}</h1>
         {subtitle ? <p className="text-subhead text-ink-2">{subtitle}</p> : null}
       </div>

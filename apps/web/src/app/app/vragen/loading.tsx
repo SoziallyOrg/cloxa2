@@ -5,7 +5,7 @@ export default function QuestionsLoading() {
   return (
     <div className="flex flex-col gap-2 pb-10">
       <SkeletonTitle />
-      <div className="px-inset">
+      <div className="px-gutter">
         <SkeletonList rows={3} subtitle value />
       </div>
     </div>

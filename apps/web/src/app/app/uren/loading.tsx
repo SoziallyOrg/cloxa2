@@ -5,7 +5,7 @@ export default function HoursLoading() {
   return (
     <div className="flex flex-col gap-8 pb-10">
       <SkeletonTitle />
-      <div className="flex flex-col gap-8 px-inset">
+      <div className="flex flex-col gap-8 px-gutter">
         <div
           aria-hidden="true"
           className="flex flex-col gap-2 rounded-list bg-surface px-4 py-4"

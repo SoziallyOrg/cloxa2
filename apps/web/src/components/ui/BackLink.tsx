@@ -12,7 +12,7 @@ export function BackLink({ href, label }: BackLinkProps) {
   return (
     <Link
       href={href as Route}
-      className="focus-ring -ml-2 inline-flex min-h-touch-target items-center gap-1.5 self-start rounded-control px-2 text-body text-ink-2 pressable"
+      className="focus-ring -ml-2 inline-flex min-h-touch-target pressable items-center gap-1.5 self-start rounded-control px-2 text-body text-ink-2"
     >
       <svg
         aria-hidden="true"

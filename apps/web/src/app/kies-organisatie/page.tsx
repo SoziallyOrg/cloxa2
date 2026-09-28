@@ -42,7 +42,6 @@ export default async function ChooseOrganizationPage() {
             type="submit"
             form={`org-${membership.id}`}
             icon={Building2}
-            tile="blue"
             title={membership.organizationName}
             chevron
           />

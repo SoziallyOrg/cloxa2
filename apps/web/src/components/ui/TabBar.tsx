@@ -25,10 +25,10 @@ export interface TabBarProps {
 }
 
 /**
- * The iOS tab bar: translucent material with a hairline on top, above the
- * home indicator. The active tab is ink with a bolder, filled icon; the
- * others are `ink-2` (AA even at 11px). Place it fixed at the bottom (see
- * `SidebarLayout`).
+ * The tab bar: translucent material with a hairline on top, above the home
+ * indicator. Thin monochrome line icons (1.5px) with small labels; the
+ * active tab is ink, the others `ink-2` (AA even at 11px). No colour. Place
+ * it fixed at the bottom (see `SidebarLayout`).
  */
 export function TabBar({ items, label }: TabBarProps) {
   return (
@@ -45,22 +45,16 @@ export function TabBar({ items, label }: TabBarProps) {
                 href={href as Route}
                 aria-current={current ? "page" : undefined}
                 className={cx(
-                  "focus-ring flex h-full flex-col items-center justify-center gap-0.5 rounded-control pt-1 pressable focus-visible:-outline-offset-3",
+                  "focus-ring flex h-full pressable flex-col items-center justify-center gap-0.5 rounded-control pt-1 focus-visible:-outline-offset-3",
                   current ? "text-ink" : "text-ink-2",
                 )}
               >
                 <span className="relative">
-                  <Icon
-                    aria-hidden="true"
-                    className="size-6"
-                    strokeWidth={current ? 2.4 : 1.8}
-                    fill={current ? "currentColor" : "none"}
-                    fillOpacity={current ? 0.16 : 0}
-                  />
+                  <Icon aria-hidden="true" className="size-6" strokeWidth={1.5} />
                   {count !== undefined && count > 0 ? (
                     <span
                       aria-hidden="true"
-                      className="absolute -top-1 left-4 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-attention px-1 text-caption-2 font-semibold text-paper"
+                      className="absolute -top-1 left-4 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-ink px-1 text-caption-2 font-semibold text-paper"
                     >
                       {count}
                     </span>

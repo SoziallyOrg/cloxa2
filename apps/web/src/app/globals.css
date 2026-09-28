@@ -27,15 +27,18 @@ body {
 }
 
 /*
- * Press feedback, as on iOS: a tappable dims to 0.6 at once while pressed and
- * fades back on release. No hover-only cues anywhere.
+ * Press feedback: a tappable scales to 0.98 and dims slightly at once while
+ * pressed, then springs back on release. No hover-only cues anywhere.
  */
 @utility pressable {
   -webkit-tap-highlight-color: transparent;
-  transition: opacity 200ms ease-out;
+  transition:
+    opacity 200ms ease-out,
+    scale 200ms var(--ease-spring);
 
   &:active:not(:disabled, [aria-disabled="true"]) {
-    opacity: 0.6;
+    opacity: 0.85;
+    scale: 0.98;
     transition-duration: 0ms;
   }
 }

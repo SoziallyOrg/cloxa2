@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { contrastRatio } from "./contrast";
-import { colors, tileColors } from "./tokens";
+import { colors } from "./tokens";
 
 const AA_TEXT = 4.5;
 const AA_LARGE = 3;
@@ -24,8 +24,9 @@ for (const scheme of ["light", "dark"] as const) {
     fill: c.fill,
     "grouped (sheet)": c.groupedElevated,
     "surface (sheet)": c.surfaceElevated,
-    // Alerts and action sheets: the translucent material over the dimmed page.
-    material: scheme === "light" ? "#f0f0f0" : "#1e1e20",
+    // Alerts and action sheets: the translucent material (90% white) over the
+    // page dimmed by the 40% black backdrop: 0.9 * 255 + 0.1 * 153 = 245.
+    material: scheme === "light" ? "#f4f4f4" : "#1e1e20",
   };
 
   describe(`${scheme} scheme`, () => {
@@ -54,11 +55,3 @@ for (const scheme of ["light", "dark"] as const) {
     });
   });
 }
-
-describe("icon tiles", () => {
-  it("keep a white glyph at 3:1 or more", () => {
-    for (const tile of Object.values(tileColors)) {
-      expect(contrastRatio("#ffffff", tile)).toBeGreaterThanOrEqual(AA_LARGE);
-    }
-  });
-});

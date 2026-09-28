@@ -4,8 +4,6 @@ import type { LucideIcon } from "lucide-react";
 import { Check, ChevronRight } from "lucide-react";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 
-import type { TileColor } from "@cloxa/ui-tokens";
-
 import { cx } from "./cx";
 import { PUSH } from "./transitions";
 
@@ -15,28 +13,27 @@ export interface ListProps {
 }
 
 /**
- * iOS inset grouped list: `Section`s 16px from the edge on the grouped
- * background (`bg-grouped`), with room between them.
+ * Row groups on a white page: `Section`s inside the 24px gutter, 32px apart.
  */
 export function List({ children, className }: ListProps) {
   return (
-    <div className={cx("flex flex-col gap-8 px-inset", className)}>{children}</div>
+    <div className={cx("flex flex-col gap-8 px-gutter", className)}>{children}</div>
   );
 }
 
 export interface SectionProps {
-  /** Uppercase footnote above the group, e.g. "DEZE WEEK". */
+  /** A small sentence-case label above the group, e.g. "Deze week". */
   header?: ReactNode;
   /** Heading level for `header` (an `h2` by default). */
   headingLevel?: 2 | 3;
-  /** Footnote under the group: a quiet explanation. */
+  /** A quiet explanation under the group. */
   footer?: ReactNode;
   children: ReactNode;
   className?: string;
   "data-testid"?: string;
 }
 
-/** One rounded group of rows (10px radius) with its header and footer. */
+/** One soft group of rows (`fill`, 16px radius) with its label and footer. */
 export function Section({
   header,
   headingLevel = 2,
@@ -50,35 +47,28 @@ export function Section({
   return (
     <section className={cx("flex flex-col", className)} data-testid={testId}>
       {header ? (
-        <Heading className="px-4 pb-1.5 text-footnote font-normal tracking-wide text-ink-2 uppercase">
+        <Heading className="px-4 pb-2 text-subhead font-normal text-ink-2">
           {header}
         </Heading>
       ) : null}
       <ul className="overflow-hidden rounded-list bg-surface">{children}</ul>
       {footer ? (
-        <div className="px-4 pt-1.5 text-footnote text-ink-2">{footer}</div>
+        <div className="px-4 pt-2 text-subhead text-ink-2">{footer}</div>
       ) : null}
     </section>
   );
 }
-
-const TILE_CLASSES: Record<TileColor, string> = {
-  gray: "bg-tile-gray",
-  ink: "bg-tile-ink",
-  blue: "bg-tile-blue",
-  green: "bg-tile-green",
-  orange: "bg-tile-orange",
-  red: "bg-tile-red",
-};
 
 interface RowContent {
   title: ReactNode;
   subtitle?: ReactNode | undefined;
   /** Trailing value in the secondary colour, e.g. "7 u 59 min". */
   value?: ReactNode | undefined;
-  /** A leading Settings-style icon on a coloured 29px tile. */
+  /**
+   * A thin monochrome line icon, only where it helps scanning (settings).
+   * Data rows get none.
+   */
   icon?: LucideIcon | undefined;
-  tile?: TileColor | undefined;
   /** A trailing chevron: on by default for links, off otherwise. */
   chevron?: boolean | undefined;
   /** Red title, for destructive rows ("Afmelden"). */
@@ -113,29 +103,19 @@ const INTERACTIVE =
   "focus-ring flex w-full items-center text-left transition-colors duration-200 select-none focus-visible:-outline-offset-3 active:bg-pressed active:duration-0 disabled:cursor-not-allowed disabled:opacity-60";
 
 /**
- * One row: a link (`href`), a button (`onClick` or `type`), or static. At
- * least 48px (52px with a subtitle). The separator is inset from the leading
- * edge, after the icon. Long titles truncate with an ellipsis. Pressed rows
- * highlight, as iOS rows do, rather than dim.
+ * One row: a link (`href`), a button (`onClick` or `type`), or static. 56px
+ * (64px with a subtitle). The separator is inset from the leading edge,
+ * after the icon. Long titles truncate with an ellipsis. Pressed rows get a
+ * subtle highlight, as iOS rows do, rather than dim.
  */
 export function Row(props: RowProps) {
-  const {
-    title,
-    subtitle,
-    value,
-    icon,
-    tile = "gray",
-    chevron,
-    tone = "default",
-    checked,
-  } = props;
+  const { title, subtitle, value, icon, chevron, tone = "default", checked } = props;
   const content = (withChevron: boolean, accessory?: ReactNode) => (
     <RowBody
       title={title}
       subtitle={subtitle}
       value={value}
       icon={icon}
-      tile={tile}
       tone={tone}
       chevron={chevron ?? withChevron}
       checked={checked}
@@ -185,7 +165,6 @@ const CONTENT_KEYS = [
   "subtitle",
   "value",
   "icon",
-  "tile",
   "chevron",
   "tone",
   "checked",
@@ -204,30 +183,28 @@ function RowBody({
   subtitle,
   value,
   icon: Icon,
-  tile,
   tone,
   chevron,
   checked,
   accessory,
-}: RowContent & { tile: TileColor; accessory?: ReactNode }) {
+}: RowContent & { accessory?: ReactNode }) {
   return (
     <>
       {Icon ? (
-        <span
+        <Icon
           aria-hidden="true"
           className={cx(
-            "ml-4 flex size-tile shrink-0 items-center justify-center rounded-tile text-white",
-            TILE_CLASSES[tile],
+            "ml-4 size-[22px] shrink-0",
+            tone === "danger" ? "text-danger" : "text-ink-2",
           )}
-        >
-          <Icon className="size-[18px]" strokeWidth={2} />
-        </span>
+          strokeWidth={1.5}
+        />
       ) : null}
       <span
         className={cx(
           "flex min-w-0 flex-1 items-center gap-3 py-2.5 pr-4 group-not-first/row:border-t-[0.5px] group-not-first/row:border-separator",
           Icon ? "ml-3" : "ml-4",
-          subtitle ? "min-h-row-two-line" : "min-h-touch-target",
+          subtitle ? "min-h-row-two-line" : "min-h-row",
         )}
       >
         <span className="flex min-w-0 flex-1 flex-col">
@@ -235,6 +212,7 @@ function RowBody({
             className={cx(
               "truncate text-body",
               tone === "danger" ? "text-danger" : "text-ink",
+              checked && "font-semibold",
             )}
           >
             {title}
@@ -284,7 +262,7 @@ export function ListItem({ children, className }: ListItemProps) {
     <li className="group/row">
       <div
         className={cx(
-          "ml-4 flex min-h-touch-target flex-col justify-center py-2.5 pr-4 group-not-first/row:border-t-[0.5px] group-not-first/row:border-separator",
+          "ml-4 flex min-h-row flex-col justify-center py-3 pr-4 group-not-first/row:border-t-[0.5px] group-not-first/row:border-separator",
           className,
         )}
       >

@@ -28,7 +28,7 @@ export function MfaEnrolment() {
               {state.error}
             </p>
           ) : null}
-          <Button type="submit" size="lg" loading={pending}>
+          <Button type="submit" wide loading={pending}>
             {t("mfa.setupStart")}
           </Button>
         </Stack>

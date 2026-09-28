@@ -128,7 +128,7 @@ export function PinForm({
           />
         </Section>
         <div className="mt-auto md:mt-0">
-          <Button type="submit" size="lg" loading={submitting}>
+          <Button type="submit" wide loading={submitting}>
             {submitLabel}
           </Button>
         </div>
@@ -170,7 +170,7 @@ export function PinForm({
           />
         </Field>
         <div>
-          <Button type="submit" size="lg" loading={submitting}>
+          <Button type="submit" wide loading={submitting}>
             {submitLabel}
           </Button>
         </div>

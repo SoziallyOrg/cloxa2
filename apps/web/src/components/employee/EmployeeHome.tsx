@@ -77,15 +77,15 @@ export function EmployeeHome({
       <section className="flex flex-col pt-8 md:pt-16">
         <StatusLine tone={statusTone(shiftState)} label={statusWord(shiftState)} live />
         {face.timerMs !== null && face.timerSpoken !== null ? (
-          <div className="mt-6 -ml-1">
+          <div className="mt-5 -ml-1.5">
             <Timer valueMs={face.timerMs} spoken={face.timerSpoken} />
           </div>
         ) : null}
         {face.subline ? (
-          <p className="mt-4 text-body text-ink-2">{face.subline}</p>
+          <p className="mt-3 text-subhead text-ink-2">{face.subline}</p>
         ) : null}
         {face.plannedLine ? (
-          <p className="mt-5 text-title-1 font-light">{face.plannedLine}</p>
+          <p className="mt-5 text-large-title font-light">{face.plannedLine}</p>
         ) : null}
         {face.progress ? (
           <div className="mt-10">

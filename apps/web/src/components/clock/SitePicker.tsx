@@ -42,7 +42,6 @@ export function SitePicker({ sites, action }: SitePickerProps) {
               type="submit"
               form={`site-${site.id}`}
               icon={MapPin}
-              tile="blue"
               title={site.name}
               chevron
             />

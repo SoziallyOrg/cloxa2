@@ -97,7 +97,7 @@ function StepDots({ step }: { step: 1 | 2 | 3 }) {
 /** The bottom action, in reach of the thumb and above the tab bar on phones. */
 function BottomAction({ children }: { children: React.ReactNode }) {
   return (
-    <div className="sticky bottom-[calc(var(--spacing-tab-bar)+env(safe-area-inset-bottom))] mt-auto flex flex-col gap-3 bg-grouped/85 px-inset pt-2 pb-4 backdrop-blur-md md:static md:mt-0 md:bg-transparent md:pb-10 md:backdrop-blur-none">
+    <div className="sticky bottom-[calc(var(--spacing-tab-bar)+env(safe-area-inset-bottom))] mt-auto flex flex-col gap-3 bg-grouped/85 px-gutter pt-2 pb-4 backdrop-blur-md md:static md:mt-0 md:bg-transparent md:pb-10 md:backdrop-blur-none">
       {children}
     </div>
   );
@@ -237,7 +237,7 @@ export function CorrectionForm({
             <Link
               href="/app/vragen"
               transitionTypes={POP}
-              className={buttonClassName("primary", "lg")}
+              className={buttonClassName("primary", "md", true)}
             >
               {t("correctionForm.toQuestions")}
             </Link>
@@ -314,7 +314,7 @@ export function CorrectionForm({
               ) : null}
               {view === "reason" ? (
                 <Button
-                  size="lg"
+                  wide
                   loading={submitting}
                   disabled={payload === null}
                   onClick={() => void handleSubmit()}
@@ -323,7 +323,7 @@ export function CorrectionForm({
                 </Button>
               ) : (
                 <Button
-                  size="lg"
+                  wide
                   disabled={!canAdvance(state, targets)}
                   onClick={() =>
                     move("forward", () =>
@@ -394,28 +394,24 @@ function MomentStep({ state, targets, setState }: StepProps) {
       )}
 
       {needsTime ? (
-        <Section>
-          <Row
-            title={
-              <label htmlFor="time">
-                {state.kind === "add"
-                  ? t("correctionForm.timeLabel")
-                  : t("correctionForm.newTimeLabel")}
-              </label>
+        // A large, calm, filled field: "08:00" in big tabular text, with the
+        // native picker (a wheel on iOS) behind it.
+        <div className="flex flex-col gap-2">
+          <label htmlFor="time" className="px-4 text-subhead text-ink-2">
+            {state.kind === "add"
+              ? t("correctionForm.timeLabel")
+              : t("correctionForm.newTimeLabel")}
+          </label>
+          <input
+            id="time"
+            type="time"
+            value={state.time}
+            onChange={(event) =>
+              setState((current) => ({ ...current, time: event.target.value }))
             }
-            accessory={
-              <input
-                id="time"
-                type="time"
-                value={state.time}
-                onChange={(event) =>
-                  setState((current) => ({ ...current, time: event.target.value }))
-                }
-                className="focus-ring min-h-9 shrink-0 rounded-md border-0 bg-track px-2.5 text-body text-ink tabular-nums"
-              />
-            }
+            className="min-h-16 w-full rounded-control border-0 bg-surface px-4 text-large-title font-light text-ink tabular-nums outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
           />
-        </Section>
+        </div>
       ) : null}
     </>
   );

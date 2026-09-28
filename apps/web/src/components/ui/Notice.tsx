@@ -50,7 +50,7 @@ export function Notice({ tone, children, onDismiss, autoFocus = true }: NoticePr
           type="button"
           onClick={onDismiss}
           aria-label={t("ui.dismiss")}
-          className="focus-ring min-h-touch-target shrink-0 rounded-control px-3 text-subhead font-normal text-ink-2 pressable"
+          className="focus-ring min-h-touch-target shrink-0 pressable rounded-control px-3 text-subhead font-normal text-ink-2"
         >
           {t("common.close")}
         </button>

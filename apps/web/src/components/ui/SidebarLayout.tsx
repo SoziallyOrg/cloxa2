@@ -78,7 +78,7 @@ export function SidebarNav({ items, label }: SidebarNavProps) {
               href={href as Route}
               aria-current={current ? "page" : undefined}
               className={cx(
-                "focus-ring flex min-h-touch-target items-center gap-3 rounded-list px-3 text-body pressable",
+                "focus-ring flex min-h-touch-target pressable items-center gap-3 rounded-list px-3 text-body",
                 current ? "bg-pressed font-semibold text-ink" : "text-ink",
               )}
             >
@@ -88,7 +88,7 @@ export function SidebarNav({ items, label }: SidebarNavProps) {
                   "size-[22px] shrink-0",
                   current ? "text-ink" : "text-ink-2",
                 )}
-                strokeWidth={current ? 2.25 : 1.8}
+                strokeWidth={1.5}
               />
               <span className="min-w-0 flex-1 truncate">{itemLabel}</span>
               {count !== undefined && count > 0 ? (

@@ -22,7 +22,7 @@ export interface SwitchProps {
 }
 
 /**
- * The iOS toggle, green when on, for booleans in settings. A real
+ * A monochrome toggle for booleans in settings: ink when on, grey when off. A real
  * `role="switch"` button (Space and Enter toggle it) with a 48px hit area
  * around the 51×31 track.
  */
@@ -59,14 +59,16 @@ export function Switch({
           // A larger invisible hit area (48px) for fingers.
           "before:absolute before:-inset-2 before:content-['']",
           "disabled:cursor-not-allowed disabled:opacity-50",
-          on ? "bg-working" : "bg-track",
+          on ? "bg-ink" : "bg-track",
         )}
       >
         <span
           aria-hidden="true"
           className={cx(
-            "size-[27px] rounded-full bg-white shadow-[0_3px_8px_rgb(0_0_0/0.15),0_3px_1px_rgb(0_0_0/0.06)] transition-[translate,width] duration-300 ease-spring group-active:w-[31px]",
-            on ? "translate-x-5 group-active:translate-x-4" : "translate-x-0",
+            "size-[27px] rounded-full shadow-[0_3px_8px_rgb(0_0_0/0.15),0_3px_1px_rgb(0_0_0/0.06)] transition-[translate,width,background-color] duration-300 ease-spring group-active:w-[31px]",
+            on
+              ? "translate-x-5 bg-paper group-active:translate-x-4"
+              : "translate-x-0 bg-thumb",
           )}
         />
       </button>
