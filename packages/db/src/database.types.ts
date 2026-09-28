@@ -590,30 +590,24 @@ export type Database = {
           site_id: string;
         }[];
       };
-      rpc_auth_attempt:
-        | {
-            Args: { p_email_hash: string; p_ip_hash?: string; p_kind: string };
-            Returns: {
-              allowed: boolean;
-              retry_after: number;
-            }[];
-          }
-        | {
-            Args: {
-              p_email_hash: string;
-              p_ip_hash: string;
-              p_kind: string;
-              p_subject_hash: string;
-            };
-            Returns: {
-              allowed: boolean;
-              retry_after: number;
-            }[];
-          };
+      rpc_auth_attempt: {
+        Args: {
+          p_email_hash: string;
+          p_ip_hash: string;
+          p_kind: string;
+          p_subject_hash: string;
+        };
+        Returns: {
+          allowed: boolean;
+          paused: boolean;
+          retry_after: number;
+        }[];
+      };
       rpc_auth_attempt_reset: {
         Args: { p_email_hash: string };
         Returns: undefined;
       };
+      rpc_auth_link_failure: { Args: { p_ip_hash: string }; Returns: undefined };
       rpc_clock: {
         Args: {
           p_client_captured_at?: string;

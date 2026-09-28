@@ -380,62 +380,101 @@ export async function decideCorrection(
 const sha256Hex = z.string().regex(/^[0-9a-f]{64}$/);
 const bytea = (hex: string) => `\\x${hex}`;
 
+/** Null when no trusted proxy vouches for the client IP: IP-keyed rules are skipped. */
+const ipHash = sha256Hex.nullable();
+
 export const authAttemptInput = z.discriminatedUnion("kind", [
-  /** Sending a code: 3 per email, 20 per IP per 15 minutes. */
-  z.strictObject({
-    kind: z.literal("otp_request"),
-    emailHash: sha256Hex,
-    ipHash: sha256Hex,
-  }),
   /**
-   * Checking an email code: 5 failures per flow (email + per-flow nonce), 20 per
-   * email per hour, 30 per IP per 15 minutes.
+   * Sending a code: 3 per email + IP pair and 20 per IP per 15 minutes (only
+   * when the IP is known), 10 per email per hour. `pairHash` is present
+   * exactly when `ipHash` is.
    */
+  z
+    .strictObject({
+      kind: z.literal("otp_request"),
+      emailHash: sha256Hex,
+      ipHash,
+      pairHash: sha256Hex.nullable(),
+    })
+    .refine((value) => (value.ipHash === null) === (value.pairHash === null), {
+      message: "pairHash must be set exactly when ipHash is",
+    }),
+  /** Checking an email code: 5 failures per flow (email + per-flow nonce), 30 per IP per 15 minutes. */
   z.strictObject({
     kind: z.literal("otp_verify"),
     emailHash: sha256Hex,
     flowHash: sha256Hex,
-    ipHash: sha256Hex,
+    ipHash,
   }),
-  /** Posting an email link: 10 per IP per 15 minutes. */
-  z.strictObject({ kind: z.literal("link_verify"), ipHash: sha256Hex }),
+  /**
+   * Before posting an email link: a check only, nothing is recorded. Blocked
+   * after 30 failures per IP per 15 minutes, or `paused` for everyone after
+   * 300 failures per 10 minutes. Record failures with `authLinkFailure`.
+   */
+  z.strictObject({ kind: z.literal("link_verify"), ipHash }),
   /** Checking a TOTP code: 5 failures per user, then a 15-minute block. */
   z.strictObject({ kind: z.literal("totp_verify"), userHash: sha256Hex }),
 ]);
 export type AuthAttemptInput = z.input<typeof authAttemptInput>;
 
+export interface AuthAttemptResult {
+  allowed: boolean;
+  retryAfterSeconds: number;
+  /** Link sign-in is paused for everyone (the global link-failure ceiling). */
+  paused: boolean;
+}
+
 /**
  * service_role only (secret-key client). Call before each OTP request and
  * each code, link or TOTP verification; a blocked attempt is not recorded.
- * Uses the four-argument (v2) limiter.
  */
 export async function authAttempt(
   client: CloxaClient,
   input: AuthAttemptInput,
-): Promise<{ allowed: boolean; retryAfterSeconds: number }> {
+): Promise<AuthAttemptResult> {
   const parsed = authAttemptInput.parse(input);
-  const hex = (value: string | undefined) =>
-    value === undefined ? null : bytea(value);
+  const hex = (value: string | null | undefined) =>
+    value === undefined || value === null ? null : bytea(value);
   const args = {
     p_kind: parsed.kind,
     p_email_hash: hex("emailHash" in parsed ? parsed.emailHash : undefined),
     p_ip_hash: hex("ipHash" in parsed ? parsed.ipHash : undefined),
     p_subject_hash: hex(
-      parsed.kind === "otp_verify"
-        ? parsed.flowHash
-        : parsed.kind === "totp_verify"
-          ? parsed.userHash
-          : undefined,
+      parsed.kind === "otp_request"
+        ? parsed.pairHash
+        : parsed.kind === "otp_verify"
+          ? parsed.flowHash
+          : parsed.kind === "totp_verify"
+            ? parsed.userHash
+            : undefined,
     ),
   };
   const rows = unwrap(
     "rpc_auth_attempt",
-    // All four keys are always sent (nulls included) so PostgREST picks the
-    // v2 overload; the generated types don't model SQL nulls for it.
+    // The generated types don't model SQL nulls for these arguments.
     await client.rpc("rpc_auth_attempt", args as Functions["rpc_auth_attempt"]["Args"]),
   );
   const row = first("rpc_auth_attempt", rows);
-  return { allowed: row.allowed, retryAfterSeconds: row.retry_after };
+  return {
+    allowed: row.allowed,
+    retryAfterSeconds: row.retry_after,
+    paused: row.paused,
+  };
+}
+
+export const authLinkFailureInput = z.strictObject({ ipHash });
+export type AuthLinkFailureInput = z.input<typeof authLinkFailureInput>;
+
+/** service_role only. Call after an email link was refused; never after a success. */
+export async function authLinkFailure(
+  client: CloxaClient,
+  input: AuthLinkFailureInput,
+): Promise<void> {
+  const parsed = authLinkFailureInput.parse(input);
+  const { error } = await client.rpc("rpc_auth_link_failure", {
+    p_ip_hash: parsed.ipHash === null ? null : bytea(parsed.ipHash),
+  } as Functions["rpc_auth_link_failure"]["Args"]);
+  if (error) throw new RpcError("rpc_auth_link_failure", error);
 }
 
 /** The email hash after a code or link, the user hash after TOTP. */

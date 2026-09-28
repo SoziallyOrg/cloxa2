@@ -16,6 +16,8 @@ beforeAll(async () => {
   vi.stubEnv("CLOXA_SITE_URL", "https://cloxa.example");
   vi.stubEnv("AUTH_HASH_PEPPER", "p".repeat(32));
   vi.stubEnv("FLOW_COOKIE_SECRET", "f".repeat(32));
+  // Required in production.
+  vi.stubEnv("CLOXA_PROXY_MODE", "vercel");
   ({ proxy } = await import("./proxy"));
 });
 

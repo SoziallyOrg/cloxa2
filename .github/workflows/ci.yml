@@ -59,6 +59,8 @@ jobs:
           SUPABASE_SECRET_KEY: dummy-ci-only
           AUTH_HASH_PEPPER: dummy-ci-only-pepper-000000000000000000
           FLOW_COOKIE_SECRET: dummy-ci-only-cookie-secret-0000000000000
+          # Required in production builds; CI mirrors the Vercel deployment.
+          CLOXA_PROXY_MODE: vercel
         run: pnpm build
 
       - name: Audit production dependencies

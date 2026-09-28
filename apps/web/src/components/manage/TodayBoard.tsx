@@ -1,3 +1,6 @@
+import Link from "next/link";
+import type { Route } from "next";
+
 import { t } from "@cloxa/i18n";
 
 import { EmptyState } from "../ui/EmptyState";
@@ -23,6 +26,7 @@ export interface TodayBoardAttentionItem {
   readonly id: string;
   readonly name: string;
   readonly reason: string;
+  readonly href: string;
 }
 
 export interface TodayBoardProps {
@@ -66,12 +70,12 @@ export function TodayBoard({ counters, people, attention }: TodayBoardProps) {
                   <span className="font-semibold">{item.name}</span>
                   <span>{item.reason}</span>
                 </div>
-                <a
-                  href="#"
+                <Link
+                  href={item.href as Route}
                   className="focus-ring inline-flex min-h-touch-target items-center justify-center rounded-md border-2 border-status-break px-6 text-lg font-semibold text-status-break"
                 >
                   {t("manage.viewAction")}
-                </a>
+                </Link>
               </li>
             ))}
           </ul>

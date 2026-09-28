@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildSecurityHeaders } from "./headers";
+import { buildSecurityHeaders, TURNSTILE_ORIGIN } from "./headers";
 
 const supabaseUrl = "https://example.supabase.co";
 
@@ -56,5 +56,50 @@ describe("buildSecurityHeaders", () => {
     expect(headers["Content-Security-Policy"]).toContain("base-uri 'none'");
     expect(headers["Content-Security-Policy"]).toContain("form-action 'self'");
     expect(headers["Content-Security-Policy"]).toContain("object-src 'none'");
+  });
+
+  describe("with Turnstile", () => {
+    const directive = (csp: string | undefined, name: string) =>
+      csp?.split("; ").find((part) => part.startsWith(`${name} `));
+
+    it("allows challenges.cloudflare.com in script-src and frame-src only when enabled", () => {
+      const on = buildSecurityHeaders({
+        nonce: "n",
+        isDev: false,
+        supabaseUrl,
+        turnstile: true,
+      })["Content-Security-Policy"];
+      expect(TURNSTILE_ORIGIN).toBe("https://challenges.cloudflare.com");
+      expect(directive(on, "script-src")).toContain(TURNSTILE_ORIGIN);
+      expect(directive(on, "script-src")).toContain("'nonce-n'");
+      expect(directive(on, "frame-src")).toBe(`frame-src ${TURNSTILE_ORIGIN}`);
+    });
+
+    it("leaves the policy untouched when disabled or unset", () => {
+      const off = buildSecurityHeaders({
+        nonce: "n",
+        isDev: false,
+        supabaseUrl,
+        turnstile: false,
+      })["Content-Security-Policy"];
+      const unset = buildSecurityHeaders({ nonce: "n", isDev: false, supabaseUrl })[
+        "Content-Security-Policy"
+      ];
+      expect(off).toBe(unset);
+      expect(off).not.toContain("cloudflare");
+      expect(directive(off, "frame-src")).toBeUndefined();
+    });
+
+    it("keeps the other strict directives", () => {
+      const on = buildSecurityHeaders({
+        nonce: "n",
+        isDev: false,
+        supabaseUrl,
+        turnstile: true,
+      })["Content-Security-Policy"];
+      expect(on).toContain("frame-ancestors 'none'");
+      expect(on).toContain("default-src 'self'");
+      expect(directive(on, "connect-src")).toBe(`connect-src 'self' ${supabaseUrl}`);
+    });
   });
 });

@@ -76,3 +76,28 @@ export function decideManageAccess({
     return { kind: "verify", reason: "idle" };
   return { kind: "ok" };
 }
+
+export interface FactorSummary {
+  id: string;
+  factor_type: string;
+  status: string;
+}
+
+/**
+ * After a first TOTP factor was verified: must it be undone? Yes when any
+ * other verified TOTP factor exists, i.e. two enrolments raced past the
+ * "no factor yet" check (for example the real user and someone holding a
+ * stolen aal1 session). The caller unenrolls the new one; if both racers see
+ * each other, both undo theirs and the user simply sets up again.
+ */
+export function mustUndoNewTotpFactor(
+  factors: readonly FactorSummary[],
+  newFactorId: string,
+): boolean {
+  return factors.some(
+    (factor) =>
+      factor.factor_type === "totp" &&
+      factor.status === "verified" &&
+      factor.id !== newFactorId,
+  );
+}

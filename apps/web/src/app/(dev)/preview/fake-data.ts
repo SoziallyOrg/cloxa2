@@ -116,5 +116,5 @@ export const FAKE_TODAY_BOARD_PEOPLE: readonly TodayBoardPerson[] = [
 ];
 
 export const FAKE_TODAY_BOARD_ATTENTION: readonly TodayBoardAttentionItem[] = [
-  { id: "1", name: "Driss Peeters", reason: "Vergeten uit te klokken" },
+  { id: "1", name: "Driss Peeters", reason: "Vergeten uit te klokken", href: "#" },
 ];

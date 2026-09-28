@@ -61,7 +61,7 @@ test("manager enrols TOTP, re-verifies when idle, and cannot post actions at aal
   await page.getByLabel("Code uit je app").fill(totp(secret));
   await page.getByRole("button", { name: "Bevestig en ga verder" }).click();
   await expect(page).toHaveURL(/\/manage$/, { timeout: 15_000 });
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Beheer");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Vandaag");
 
   // Idle: without a valid activity cookie the next visit needs the app again.
   await page.context().clearCookies({ name: "cx_act" });

@@ -12,7 +12,7 @@ import { requirePrivilegedRole, type MemberContext } from "../context";
 import { COOKIE } from "../cookies";
 import { parseSixDigitCode, type EnrolState, type FormState } from "../form-state";
 import { recordTotpVerify, resetUserAttempts, retryMinutes } from "../limiter";
-import { IDLE_TIMEOUT_SECONDS } from "../mfa";
+import { IDLE_TIMEOUT_SECONDS, mustUndoNewTotpFactor } from "../mfa";
 import { setCloxaCookie } from "../server-cookies";
 import { mintActivity } from "../session-cookies";
 
@@ -113,6 +113,19 @@ export async function confirmEnrolment(
     code,
   });
   if (error) return { error: t("mfa.invalid") };
+
+  // The check above and this verify are not atomic: two enrolments can both
+  // pass it. Look again and undo ours if another factor won (fail closed if we
+  // cannot tell). No activity cookie is set, so /manage stays locked.
+  const { data: after, error: afterError } = await supabase.auth.mfa.listFactors();
+  if (afterError || mustUndoNewTotpFactor(after.all, id.data)) {
+    const { error: undoError } = await supabase.auth.mfa.unenroll({
+      factorId: id.data,
+    });
+    if (undoError)
+      console.error("mfa_unenroll_failed", undoError.code ?? undoError.status);
+    return { error: afterError ? t("mfa.setupFailed") : t("auth.mfa.alreadyLinked") };
+  }
 
   return finishVerification(context);
 }

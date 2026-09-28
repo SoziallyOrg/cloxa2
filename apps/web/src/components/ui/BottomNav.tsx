@@ -13,13 +13,13 @@ export interface BottomNavItem {
 }
 
 export interface BottomNavProps {
-  /** At most 3 items: one obvious set of destinations, not a menu. */
+  /** At most 4 items: one obvious set of destinations, not a menu. */
   items: readonly BottomNavItem[];
 }
 
 /** Fixed, 64px-tall bottom navigation with an icon and a visible label. */
 export function BottomNav({ items }: BottomNavProps) {
-  const visibleItems = items.slice(0, 3);
+  const visibleItems = items.slice(0, 4);
 
   return (
     <nav className="h-bottom-nav w-full border-t border-border bg-surface">

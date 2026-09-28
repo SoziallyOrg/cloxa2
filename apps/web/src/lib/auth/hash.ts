@@ -11,7 +11,7 @@ export function normalizeEmail(raw: unknown): string | null {
   return parsed.success ? parsed.data : null;
 }
 
-export type HashPurpose = "email" | "ip" | "flow" | "user";
+export type HashPurpose = "email" | "ip" | "email_ip" | "flow" | "user";
 
 /**
  * Keyed hash for the attempt limiter: lowercase hex HMAC-SHA256. The pepper
@@ -31,23 +31,38 @@ export function limiterHash(
 
 /**
  * How the app is reached, from `CLOXA_PROXY_MODE`:
- * - `vercel` (default): the platform sets `x-real-ip`; else the first
- *   `x-forwarded-for` hop.
+ * - `vercel`: the platform overwrites `x-real-ip`; nothing else is trusted
+ *   (`x-forwarded-for` may carry hops the client made up).
  * - `append:<n>`: a proxy chain that appends to `x-forwarded-for`; the client is
  *   the n-th hop from the right (1 = added by the proxy closest to us). Hops
  *   further left are client-controlled and never trusted.
- * - `none`: no proxy in front, so no header is trustworthy: every request shares
- *   one IP bucket and only the per-email limits bite.
+ * - `none`: no proxy in front, so no header is trustworthy and the IP-keyed
+ *   limits are skipped.
  */
 export type ProxyMode =
   { kind: "vercel" } | { kind: "append"; hops: number } | { kind: "none" };
 
-export function parseProxyMode(raw: string | undefined): ProxyMode | null {
-  const value = raw?.trim() ?? "";
-  if (value === "" || value === "vercel") return { kind: "vercel" };
+export function parseProxyMode(raw: string): ProxyMode | null {
+  const value = raw.trim();
+  if (value === "vercel") return { kind: "vercel" };
   if (value === "none") return { kind: "none" };
   const match = /^append:([1-9]\d?)$/.exec(value);
   return match ? { kind: "append", hops: Number(match[1]) } : null;
+}
+
+/**
+ * The `CLOXA_PROXY_MODE` setting, or null when invalid. Required in
+ * production: a wrong guess either trusts spoofable headers or silently drops
+ * the per-IP limits. Unset elsewhere means `none`.
+ */
+export function proxyModeSetting(
+  raw: string | undefined,
+  production: boolean,
+): ProxyMode | null {
+  if (raw === undefined || raw.trim() === "") {
+    return production ? null : { kind: "none" };
+  }
+  return parseProxyMode(raw);
 }
 
 function validIp(candidate: string | undefined | null): string | null {
@@ -60,23 +75,20 @@ export function resolveClientIp(
   headers: Pick<Headers, "get">,
   mode: ProxyMode,
 ): string | null {
-  const hops = (headers.get("x-forwarded-for") ?? "")
-    .split(",")
-    .map((hop) => hop.trim())
-    .filter(Boolean);
-
   switch (mode.kind) {
     case "none":
       return null;
     case "vercel":
-      return validIp(headers.get("x-real-ip")) ?? validIp(hops[0]);
-    case "append":
+      return validIp(headers.get("x-real-ip"));
+    case "append": {
+      const hops = (headers.get("x-forwarded-for") ?? "")
+        .split(",")
+        .map((hop) => hop.trim())
+        .filter(Boolean);
       return validIp(hops[hops.length - mode.hops]);
+    }
   }
 }
-
-/** Shared bucket when the client IP is unknown (no proxy, or a missing/garbage header). */
-export const UNKNOWN_IP = "unknown";
 
 /** 8 groups of an IPv6 address, or null. Zone ids are dropped. */
 function ipv6Groups(ip: string): number[] | null {
@@ -103,12 +115,13 @@ function ipv6Groups(ip: string): number[] | null {
 
 /**
  * Limiter key for an IP: IPv4 as is, IPv6 as its /64 (one subscriber usually
- * holds a whole /64, so per-address limits would be trivial to dodge).
+ * holds a whole /64, so per-address limits would be trivial to dodge). Null
+ * when unparsable.
  */
-export function canonicalIp(ip: string): string {
+export function canonicalIp(ip: string): string | null {
   if (isIP(ip) === 4) return ip;
   const groups = ipv6Groups(ip);
-  if (!groups) return UNKNOWN_IP;
+  if (!groups) return null;
   const [g0, g1, g2, g3, g4, g5, g6, g7] = groups as [
     number,
     number,
@@ -126,6 +139,11 @@ export function canonicalIp(ip: string): string {
   return `${[g0, g1, g2, g3].map((g) => g.toString(16)).join(":")}::/64`;
 }
 
-export function ipLimiterKey(ip: string | null): string {
-  return ip ? canonicalIp(ip) : UNKNOWN_IP;
+/**
+ * The IP part of limiter keys, or null when the IP is unknown (no trusted
+ * proxy, a missing or unparsable header). Callers then skip the IP-keyed
+ * rules rather than lumping every unknown client into one shared bucket.
+ */
+export function ipLimiterKey(ip: string | null): string | null {
+  return ip ? canonicalIp(ip) : null;
 }

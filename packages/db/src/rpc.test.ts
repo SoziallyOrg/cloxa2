@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   authAttempt,
+  authLinkFailure,
   inviteMember,
   requestCorrection,
   revokeInvitation,
@@ -207,24 +208,30 @@ describe("schedulePatternSchema", () => {
 describe("service and member RPCs", () => {
   it("sends hashes as bytea hex and returns the first row", async () => {
     const { client, calls } = fakeClient({
-      data: [{ allowed: false, retry_after: 812 }],
+      data: [{ allowed: false, retry_after: 812, paused: false }],
       error: null,
     });
+    const PAIR = "c".repeat(64);
 
     await expect(
-      authAttempt(client, { kind: "otp_request", emailHash: HASH, ipHash: HASH }),
-    ).resolves.toEqual({ allowed: false, retryAfterSeconds: 812 });
+      authAttempt(client, {
+        kind: "otp_request",
+        emailHash: HASH,
+        ipHash: HASH,
+        pairHash: PAIR,
+      }),
+    ).resolves.toEqual({ allowed: false, retryAfterSeconds: 812, paused: false });
     expect(calls[0]?.args).toEqual({
       p_kind: "otp_request",
       p_email_hash: `\\x${HASH}`,
       p_ip_hash: `\\x${HASH}`,
-      p_subject_hash: null,
+      p_subject_hash: `\\x${PAIR}`,
     });
   });
 
   it("sends the flow as subject for code checks and the user for TOTP", async () => {
     const { client, calls } = fakeClient({
-      data: [{ allowed: true, retry_after: 0 }],
+      data: [{ allowed: true, retry_after: 0, paused: false }],
       error: null,
     });
     const FLOW = "b".repeat(64);
@@ -260,6 +267,38 @@ describe("service and member RPCs", () => {
     ]);
   });
 
+  it("sends a null IP (and no pair) when the client IP is unknown", async () => {
+    const { client, calls } = fakeClient({
+      data: [{ allowed: false, retry_after: 300, paused: true }],
+      error: null,
+    });
+
+    await authAttempt(client, {
+      kind: "otp_request",
+      emailHash: HASH,
+      ipHash: null,
+      pairHash: null,
+    });
+    await expect(
+      authAttempt(client, { kind: "link_verify", ipHash: null }),
+    ).resolves.toEqual({ allowed: false, retryAfterSeconds: 300, paused: true });
+
+    expect(calls.map((call) => call.args)).toEqual([
+      {
+        p_kind: "otp_request",
+        p_email_hash: `\\x${HASH}`,
+        p_ip_hash: null,
+        p_subject_hash: null,
+      },
+      {
+        p_kind: "link_verify",
+        p_email_hash: null,
+        p_ip_hash: null,
+        p_subject_hash: null,
+      },
+    ]);
+  });
+
   it("never lets a TOTP check carry an email", async () => {
     const { client } = fakeClient({ data: [], error: null });
     await expect(
@@ -271,11 +310,38 @@ describe("service and member RPCs", () => {
     ).rejects.toThrow();
   });
 
-  it("requires the IP hash for OTP requests", async () => {
-    const { client } = fakeClient({ data: [], error: null });
+  it("requires the email + IP pair exactly when the IP is known", async () => {
+    const { client, calls } = fakeClient({ data: [], error: null });
     await expect(
       authAttempt(client, { kind: "otp_request", emailHash: HASH } as never),
     ).rejects.toThrow();
+    await expect(
+      authAttempt(client, {
+        kind: "otp_request",
+        emailHash: HASH,
+        ipHash: HASH,
+        pairHash: null,
+      }),
+    ).rejects.toThrow();
+    await expect(
+      authAttempt(client, {
+        kind: "otp_request",
+        emailHash: HASH,
+        ipHash: null,
+        pairHash: HASH,
+      }),
+    ).rejects.toThrow();
+    expect(calls).toHaveLength(0);
+  });
+
+  it("records a link failure with or without an IP", async () => {
+    const { client, calls } = fakeClient({ data: null, error: null });
+    await authLinkFailure(client, { ipHash: HASH });
+    await authLinkFailure(client, { ipHash: null });
+    expect(calls).toEqual([
+      { fn: "rpc_auth_link_failure", args: { p_ip_hash: `\\x${HASH}` } },
+      { fn: "rpc_auth_link_failure", args: { p_ip_hash: null } },
+    ]);
   });
 
   it("normalizes the invited email and omits unset optional fields", async () => {

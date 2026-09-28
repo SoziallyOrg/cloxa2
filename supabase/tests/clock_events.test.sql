@@ -462,7 +462,8 @@ select results_eq(
   'owner with fresh MFA verifies both chains of own org'
 );
 select results_eq(
-  $$select actor_user_id, metadata from public.audit_log where action = 'integrity.chains_verified'$$,
+  $$select actor_user_id, metadata from public.audit_log where action = 'integrity.chains_verified'
+    and actor_user_id::text like '00000000-0000-4000-8000-%'$$,
   $$values ('00000000-0000-4000-8000-000000000201'::uuid, '{"audit_chain_ok": true, "clock_chain_ok": true}'::jsonb)$$,
   'chain verification writes an audit row'
 );

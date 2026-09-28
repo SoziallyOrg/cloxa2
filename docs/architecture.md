@@ -213,30 +213,43 @@ everything from the earliest affected event to the latest one, under the same lo
     function (`apps/web/src/lib/auth/mfa.ts`).
 - Auth calls (OTP request and verification) go through server actions that check the
   attempt limiter below first. Supabase's own rate limits then see the server, so the
-  per-IP limit here uses the client IP from the trusted proxy header. Cloudflare
-  Turnstile (the Supabase `auth.captcha` setting) is switched on in hosted environments.
+  per-IP limits here use the client IP from the trusted proxy header.
+- **Turnstile** (optional): when `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` are
+  both set, the `/login` request form and the `/auth/confirm` POST carry a Cloudflare
+  Turnstile token, checked server-side (siteverify, with the expected action) before the
+  limiter, so bots cannot use up a real person's limits. Only then does the CSP allow
+  `https://challenges.cloudflare.com` in `script-src` and `frame-src`. Off locally and
+  in e2e; setting only one key fails at startup.
 - **Attempt limiting** (`private.auth_attempts`, keyed HMAC-SHA256 hashes only, pepper
-  `AUTH_HASH_PEPPER`). The server calls
+  `AUTH_HASH_PEPPER`; ADR 003). The server calls
   `rpc_auth_attempt(kind, email_hash, ip_hash, subject_hash)` (service_role) before
   every attempt and `rpc_auth_attempt_reset(key_hash)` after a success. Blocked calls
   are not recorded; rows older than 24 hours are purged by the call. No organization, so
-  no audit row.
-  - `otp_request`: 3 per email and 20 per IP per 15 minutes. A blocked request gets the
-    same screen but no flow cookie, and the email is sent in `after()` so known and
-    unknown addresses answer equally fast.
+  no audit row. When the client IP is unknown, `ip_hash` is null and every IP-keyed rule
+  is skipped (there is no shared "unknown" bucket).
+  - `otp_request`: 3 per email + IP and 20 per IP per 15 minutes; 10 per email per hour.
+    A blocked request gets the same screen but no flow cookie, and the email is sent in
+    `after()` so known and unknown addresses answer equally fast.
   - `otp_verify`: 5 failures per login flow (email plus a random nonce in the signed
-    `cx_flow` cookie), then blocked 15 minutes; 20 per email per hour; 30 per IP per 15
-    minutes. Typing wrong codes in one's own flow cannot lock out the real user's flow.
-  - `link_verify`: 10 per IP per 15 minutes. `/auth/confirm` only renders a button on
+    `cx_flow` cookie), then blocked 15 minutes; 30 per IP per 15 minutes. No per-email
+    ceiling: typing wrong codes cannot lock out the real user's own flow.
+  - `link_verify`: a check only; failures are recorded afterwards
+    (`rpc_auth_link_failure`). 30 failures per IP per 15 minutes; 300 failures overall
+    per 10 minutes pause link sign-in for everyone, and `/auth/confirm` asks people to
+    type the code from the same email instead. `/auth/confirm` only renders a button on
     GET; the token is spent on the POST (server action), so mail scanners and cross-site
     pages cannot sign anyone in.
   - `totp_verify`: 5 failures per user id, then blocked 15 minutes; never the email key.
-- **Client IP** (`CLOXA_PROXY_MODE`): `vercel` (default) trusts `x-real-ip`, else the
-  first `x-forwarded-for` hop; `append:<n>` takes the n-th `x-forwarded-for` hop from
-  the right (for proxies that append); `none` trusts no header, so all requests share
-  one IP bucket and only the per-email limits apply. IPv6 is limited per /64. The IP is
-  also forwarded to Supabase Auth as `X-Forwarded-For`; hosted Supabase may ignore it,
-  so our limiter and Turnstile remain the backstop.
+- **Client IP** (`CLOXA_PROXY_MODE`, required in production, `none` by default
+  elsewhere): `vercel` trusts only `x-real-ip` (never `x-forwarded-for`); `append:<n>`
+  takes the n-th `x-forwarded-for` hop from the right (for proxies that append); `none`
+  trusts no header, so only the per-email and per-flow limits apply (logged once at
+  startup). IPv6 is limited per /64. The IP is also forwarded to Supabase Auth as
+  `X-Forwarded-For`; hosted Supabase may ignore it, so our limiter and Turnstile remain
+  the backstop.
+- **First TOTP factor**: after a successful `confirmEnrolment` the factors are listed
+  again; if another verified TOTP factor exists (two enrolments raced), the new one is
+  unenrolled and the user sees "Er is al een beveiligingsapp gekoppeld".
 - The service key is used only in server-side code, never for reading or writing user
   data on a user's behalf: sending invitations (after the privileged, audited
   `rpc_invite_member`) and `rpc_link_invited_user`, `rpc_admin_create_organization`

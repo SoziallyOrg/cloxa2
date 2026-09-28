@@ -8,14 +8,17 @@ import { t } from "@cloxa/i18n";
 import { createClient } from "@/lib/supabase/server";
 
 import type { FormState } from "../form-state";
-import { recordLinkVerify, retryMinutes } from "../limiter";
+import { checkLinkVerify, recordLinkFailure, retryMinutes } from "../limiter";
 import { parseConfirmType, parseTokenHash, safeNextPath } from "../redirects";
+import { verifyTurnstile } from "../turnstile";
 
 /**
  * POST half of `/auth/confirm`: exchanges an email link's `token_hash` for
  * session cookies. Only a deliberate button press (a same-origin server
  * action) spends the token, so mail scanners that prefetch links and
- * cross-site "login CSRF" pages cannot. Rate limited per client IP.
+ * cross-site "login CSRF" pages cannot. Only failures count: 30 per client
+ * IP, and past 300 overall link sign-in pauses for everyone (people then use
+ * the code from the same email, which has its own limits).
  */
 export async function confirmEmailLink(
   _previous: FormState,
@@ -26,8 +29,13 @@ export async function confirmEmailLink(
   const next = safeNextPath(formData.get("next")) ?? "/start";
   if (!tokenHash || !type) redirect("/login?fout=link");
 
-  const attempt = await recordLinkVerify();
+  const human = await verifyTurnstile(formData, "confirm");
+  if (human === "unavailable") return { error: t("login.unavailable") };
+  if (human === "failed") return { error: t("auth.turnstile.failed") };
+
+  const attempt = await checkLinkVerify();
   if (attempt.kind === "unavailable") return { error: t("login.unavailable") };
+  if (attempt.kind === "paused") return { error: t("auth.confirm.paused") };
   if (attempt.kind === "blocked") {
     return {
       error: t("loginCode.blocked", {
@@ -38,7 +46,10 @@ export async function confirmEmailLink(
 
   const supabase = await createClient();
   const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type });
-  if (error) redirect("/login?fout=link");
+  if (error) {
+    await recordLinkFailure();
+    redirect("/login?fout=link");
+  }
 
   // Passwordless app: a recovery link simply signs the user in.
   redirect(next as Route);

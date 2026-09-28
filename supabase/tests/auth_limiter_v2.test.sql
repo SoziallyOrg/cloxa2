@@ -4,7 +4,7 @@ create extension if not exists pgtap with schema extensions;
 set local search_path = extensions, public, pg_catalog;
 set local "request.jwt.claim.sub" = '';
 
-select plan(20);
+select plan(14);
 
 create function pg_temp.h(p_label text)
 returns bytea
@@ -46,7 +46,7 @@ select ok(
   pg_catalog.has_function_privilege('service_role', 'public.rpc_auth_attempt(text, bytea, bytea, bytea)', 'EXECUTE')
     and not pg_catalog.has_function_privilege('authenticated', 'public.rpc_auth_attempt(text, bytea, bytea, bytea)', 'EXECUTE')
     and not pg_catalog.has_function_privilege('anon', 'public.rpc_auth_attempt(text, bytea, bytea, bytea)', 'EXECUTE'),
-  'the v2 limiter is executable by service_role only'
+  'the limiter is executable by service_role only'
 );
 
 set local role authenticated;
@@ -78,24 +78,7 @@ select results_eq(
   'a new login flow for the same email is not locked out by failures elsewhere'
 );
 
--- Email ceiling: 20 failures per hour across flows.
-select pg_temp.v2('fb', 4, 'otp_verify', 'victim@example.test', null, 'victim@example.test:flow-b');
-select pg_temp.v2('fc', 5, 'otp_verify', 'victim@example.test', null, 'victim@example.test:flow-c');
-select pg_temp.v2('fd', 5, 'otp_verify', 'victim@example.test', null, 'victim@example.test:flow-d');
-select is(
-  (select count(*) from outcome where label ~ '^f[a-d]' and allowed) + 1,
-  20::bigint, 'twenty verifications per email per hour are allowed across flows (incl. the flow-b check)'
-);
-select pg_temp.v2('fe', 1, 'otp_verify', 'victim@example.test', null, 'victim@example.test:flow-e');
-select ok(
-  (select not allowed and retry_after between 3500 and 3600 from outcome where label = 'fe01'),
-  'the 21st verification for one email within an hour is blocked, in any flow'
-);
-select results_eq(
-  $$select allowed from public.rpc_auth_attempt('otp_verify', pg_temp.h('other@example.test'), null, pg_temp.h('other@example.test:flow-a'))$$,
-  $$values (true)$$,
-  'the email ceiling does not affect other addresses'
-);
+-- (The v2 per-email ceiling was removed in v3; see auth_limiter_v3.test.sql.)
 
 -- IP cap: 30 verifications per 15 minutes, whatever the email.
 insert into outcome
@@ -113,23 +96,7 @@ select ok(
   'the 31st verification from one IP is blocked'
 );
 
--- link_verify: 10 per IP per 15 minutes ---------------------------------------------------
-
-select pg_temp.v2('lk', 11, 'link_verify', null, '198.51.100.20', null);
-select results_eq(
-  $$select count(*) filter (where allowed), bool_and(allowed) filter (where label <> 'lk11') from outcome where label ~ '^lk'$$,
-  $$values (10::bigint, true)$$,
-  'an IP may post ten email links per 15 minutes'
-);
-select ok(
-  (select not allowed and retry_after between 895 and 900 from outcome where label = 'lk11'),
-  'the eleventh link from one IP is blocked'
-);
-select results_eq(
-  $$select allowed from public.rpc_auth_attempt('link_verify', null, pg_temp.h('198.51.100.21'), null)$$,
-  $$values (true)$$,
-  'another IP may still post links'
-);
+-- (link_verify counts failures only since v3; see auth_limiter_v3.test.sql.)
 
 -- totp_verify: per user, 5 failures then a 15-minute block --------------------------------
 

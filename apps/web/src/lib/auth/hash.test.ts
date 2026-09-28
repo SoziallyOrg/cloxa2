@@ -8,8 +8,8 @@ import {
   limiterHash,
   normalizeEmail,
   parseProxyMode,
+  proxyModeSetting,
   resolveClientIp,
-  UNKNOWN_IP,
   type ProxyMode,
 } from "./hash";
 
@@ -56,10 +56,9 @@ describe("limiterHash", () => {
 });
 
 describe("parseProxyMode", () => {
-  it("defaults to vercel and parses the other modes", () => {
-    expect(parseProxyMode(undefined)).toEqual({ kind: "vercel" });
-    expect(parseProxyMode("")).toEqual({ kind: "vercel" });
+  it("parses the three modes", () => {
     expect(parseProxyMode("vercel")).toEqual({ kind: "vercel" });
+    expect(parseProxyMode(" vercel ")).toEqual({ kind: "vercel" });
     expect(parseProxyMode("none")).toEqual({ kind: "none" });
     expect(parseProxyMode("append:2")).toEqual({ kind: "append", hops: 2 });
   });
@@ -68,6 +67,27 @@ describe("parseProxyMode", () => {
     expect(parseProxyMode("append:0")).toBeNull();
     expect(parseProxyMode("append:")).toBeNull();
     expect(parseProxyMode("cloudflare")).toBeNull();
+    expect(parseProxyMode("")).toBeNull();
+  });
+});
+
+describe("proxyModeSetting (the CLOXA_PROXY_MODE env rule)", () => {
+  it("has no default in production", () => {
+    expect(proxyModeSetting(undefined, true)).toBeNull();
+    expect(proxyModeSetting("", true)).toBeNull();
+    expect(proxyModeSetting("  ", true)).toBeNull();
+  });
+
+  it("defaults to none outside production", () => {
+    expect(proxyModeSetting(undefined, false)).toEqual({ kind: "none" });
+    expect(proxyModeSetting("", false)).toEqual({ kind: "none" });
+  });
+
+  it("takes an explicit mode anywhere and rejects garbage", () => {
+    expect(proxyModeSetting("vercel", true)).toEqual({ kind: "vercel" });
+    expect(proxyModeSetting("append:1", false)).toEqual({ kind: "append", hops: 1 });
+    expect(proxyModeSetting("cloudflare", true)).toBeNull();
+    expect(proxyModeSetting("cloudflare", false)).toBeNull();
   });
 });
 
@@ -75,16 +95,25 @@ describe("resolveClientIp", () => {
   const headers = (entries: Record<string, string>) => new Headers(entries);
   const vercel: ProxyMode = { kind: "vercel" };
 
-  it("vercel: prefers x-real-ip, else the first x-forwarded-for hop", () => {
+  it("vercel: trusts only x-real-ip", () => {
     expect(
       resolveClientIp(
         headers({ "x-real-ip": "198.51.100.1", "x-forwarded-for": "203.0.113.7" }),
         vercel,
       ),
     ).toBe("198.51.100.1");
+  });
+
+  it("vercel without x-real-ip gives null, never an x-forwarded-for hop", () => {
     expect(
       resolveClientIp(headers({ "x-forwarded-for": "203.0.113.7, 10.0.0.1" }), vercel),
-    ).toBe("203.0.113.7");
+    ).toBeNull();
+    expect(
+      resolveClientIp(
+        headers({ "x-real-ip": "garbage", "x-forwarded-for": "203.0.113.7" }),
+        vercel,
+      ),
+    ).toBeNull();
   });
 
   it("append:n takes the n-th hop from the right, ignoring spoofed hops on the left", () => {
@@ -107,8 +136,12 @@ describe("resolveClientIp", () => {
   });
 
   it("returns null for garbage and missing headers", () => {
+    expect(resolveClientIp(headers({ "x-real-ip": "not-an-ip" }), vercel)).toBeNull();
     expect(
-      resolveClientIp(headers({ "x-forwarded-for": "not-an-ip" }), vercel),
+      resolveClientIp(headers({ "x-forwarded-for": "not-an-ip" }), {
+        kind: "append",
+        hops: 1,
+      }),
     ).toBeNull();
     expect(resolveClientIp(headers({}), vercel)).toBeNull();
   });
@@ -138,8 +171,9 @@ describe("canonicalIp / ipLimiterKey", () => {
     expect(canonicalIp("::ffff:cb00:7107")).toBe("203.0.113.7");
   });
 
-  it("uses one shared bucket when the IP is unknown", () => {
-    expect(ipLimiterKey(null)).toBe(UNKNOWN_IP);
+  it("has no key (so no shared bucket) when the IP is unknown or unparsable", () => {
+    expect(ipLimiterKey(null)).toBeNull();
+    expect(canonicalIp("2001:db8::1::2")).toBeNull();
     expect(ipLimiterKey("2001:db8::1")).toBe("2001:db8:0:0::/64");
   });
 });

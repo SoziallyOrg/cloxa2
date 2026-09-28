@@ -5,6 +5,7 @@ import { t } from "@cloxa/i18n";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { ConfirmLinkForm } from "@/components/auth/ConfirmLinkForm";
 import { parseConfirmType, parseTokenHash, safeNextPath } from "@/lib/auth/redirects";
+import { turnstileSiteKey } from "@/lib/auth/turnstile";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -30,6 +31,7 @@ export default async function ConfirmLinkPage({
         tokenHash={tokenHash}
         type={type}
         next={safeNextPath(params["next"])}
+        turnstileSiteKey={turnstileSiteKey()}
       />
     </AuthShell>
   );

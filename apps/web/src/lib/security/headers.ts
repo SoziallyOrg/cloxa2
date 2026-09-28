@@ -8,7 +8,15 @@ export interface BuildSecurityHeadersInput {
    * here) so this function stays pure and unit-testable.
    */
   supabaseUrl: string;
+  /**
+   * Cloudflare Turnstile is configured: allow its script and iframe. Off by
+   * default, so the policy only widens where Turnstile actually runs.
+   */
+  turnstile?: boolean;
 }
+
+/** Origin of the Turnstile script and challenge iframe. */
+export const TURNSTILE_ORIGIN = "https://challenges.cloudflare.com";
 
 /**
  * Pure builder for the security headers applied to every response in
@@ -19,11 +27,15 @@ export function buildSecurityHeaders({
   nonce,
   isDev,
   supabaseUrl,
+  turnstile = false,
 }: BuildSecurityHeadersInput): Record<string, string> {
   const scriptSrc = [
     "'self'",
     `'nonce-${nonce}'`,
     "'strict-dynamic'",
+    // Ignored where 'strict-dynamic' is supported (the widget script is then
+    // trusted through our nonced bundle); the fallback for older browsers.
+    ...(turnstile ? [TURNSTILE_ORIGIN] : []),
     ...(isDev ? ["'unsafe-eval'"] : []),
   ].join(" ");
 
@@ -33,6 +45,7 @@ export function buildSecurityHeaders({
     `style-src 'self' 'nonce-${nonce}'`,
     "img-src 'self' data: blob:",
     `connect-src 'self' ${supabaseUrl}`,
+    ...(turnstile ? [`frame-src ${TURNSTILE_ORIGIN}`] : []),
     "frame-ancestors 'none'",
     "base-uri 'none'",
     "form-action 'self'",

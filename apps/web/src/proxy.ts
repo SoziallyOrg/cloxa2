@@ -1,5 +1,6 @@
 import type { NextRequest } from "next/server";
 
+import { turnstileEnabled } from "./lib/auth/turnstile-config";
 import { buildSecurityHeaders } from "./lib/security/headers";
 import {
   applySecurityHeaders,
@@ -18,7 +19,17 @@ export async function proxy(request: NextRequest) {
   const isDev = process.env["NODE_ENV"] !== "production";
   const supabaseUrl = process.env["NEXT_PUBLIC_SUPABASE_URL"] ?? "";
 
-  const securityHeaders = buildSecurityHeaders({ nonce, isDev, supabaseUrl });
+  const turnstile = turnstileEnabled({
+    siteKey: process.env["TURNSTILE_SITE_KEY"],
+    secretKey: process.env["TURNSTILE_SECRET_KEY"],
+  });
+
+  const securityHeaders = buildSecurityHeaders({
+    nonce,
+    isDev,
+    supabaseUrl,
+    turnstile,
+  });
   const csp = securityHeaders["Content-Security-Policy"] ?? "";
 
   // Built lazily: a session refresh rewrites the request cookies first.

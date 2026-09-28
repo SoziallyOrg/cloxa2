@@ -462,7 +462,9 @@ select is(
 
 select results_eq(
   $$select entity_id, actor_user_id, metadata ->> 'cause', metadata ? 'membership_id'
-    from public.audit_log where action = 'member.invitation_revoked' order by created_at$$,
+    from public.audit_log where action = 'member.invitation_revoked'
+      and entity_id in (select id from inv) -- only this test's rows; local dev data may exist
+    order by created_at$$,
   $$select * from (values
     ((select id from inv where label = 'u11'), '00000000-0000-4000-8000-000000000703'::uuid, 'revoked'::text, false),
     ((select id from inv where label = 'u11b'), '00000000-0000-4000-8000-000000000702'::uuid, 'revoked', true),
@@ -572,7 +574,9 @@ select is(
   1::bigint, 'other users keep their sessions'
 );
 select results_eq(
-  $$select entity_id, actor_user_id, metadata from public.audit_log where action = 'member.signed_out_everywhere' order by created_at$$,
+  $$select entity_id, actor_user_id, metadata from public.audit_log where action = 'member.signed_out_everywhere'
+    and actor_user_id::text like '00000000-0000-4000-8000-%' -- fixture users only
+    order by created_at$$,
   $$values
     ('40000000-0000-4000-8000-000000000704'::uuid, '00000000-0000-4000-8000-000000000703'::uuid,
      '{"user_id": "00000000-0000-4000-8000-000000000704", "sessions_revoked": 2}'::jsonb),

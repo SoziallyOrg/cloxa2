@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { AttemptResult } from "./limiter";
+import type { AttemptResult, LinkAttemptResult } from "./limiter";
 
 /**
  * Server actions and the `/auth/confirm` page with Next, Supabase and the
@@ -17,7 +17,18 @@ const state = vi.hoisted(() => ({
   limiter: {
     otpRequest: { kind: "allowed" } as AttemptResult,
     otpVerify: { kind: "allowed" } as AttemptResult,
-    linkVerify: { kind: "allowed" } as AttemptResult,
+    linkVerify: { kind: "allowed" } as LinkAttemptResult,
+  },
+  linkFailures: 0,
+  otpRequests: 0,
+  env: {
+    FLOW_COOKIE_SECRET: "f".repeat(32),
+    AUTH_HASH_PEPPER: "p".repeat(32),
+    CLOXA_SITE_URL: "https://cloxa.example",
+    CLOXA_PROXY_MODE: { kind: "vercel" },
+    TURNSTILE_ENABLED: false,
+    TURNSTILE_SITE_KEY: undefined as string | undefined,
+    TURNSTILE_SECRET_KEY: undefined as string | undefined,
   },
   production: false,
 }));
@@ -44,23 +55,22 @@ vi.mock("next/navigation", () => ({
 vi.mock("next/server", () => ({
   after: (callback: () => Promise<void>) => state.afterCallbacks.push(callback),
 }));
-vi.mock("@/lib/env.server", () => ({
-  env: {
-    FLOW_COOKIE_SECRET: "f".repeat(32),
-    AUTH_HASH_PEPPER: "p".repeat(32),
-    CLOXA_SITE_URL: "https://cloxa.example",
-    CLOXA_PROXY_MODE: { kind: "vercel" },
-  },
-}));
+vi.mock("@/lib/env.server", () => ({ env: state.env }));
 vi.mock("@/lib/supabase/server", () => ({
   requestIsSecure: async () => state.production,
   createClient: state.createClient,
   createOtpSender: () => ({ auth: { signInWithOtp: state.signInWithOtp } }),
 }));
 vi.mock("./limiter", () => ({
-  recordOtpRequest: async () => state.limiter.otpRequest,
+  recordOtpRequest: async () => {
+    state.otpRequests += 1;
+    return state.limiter.otpRequest;
+  },
   recordOtpVerify: async () => state.limiter.otpVerify,
-  recordLinkVerify: async () => state.limiter.linkVerify,
+  checkLinkVerify: async () => state.limiter.linkVerify,
+  recordLinkFailure: async () => {
+    state.linkFailures += 1;
+  },
   requestClientIp: async () => "203.0.113.7",
   resetEmailAttempts: async () => undefined,
   retryMinutes: (seconds: number) => Math.ceil(seconds / 60),
@@ -100,7 +110,13 @@ beforeEach(() => {
   state.limiter.otpRequest = { kind: "allowed" };
   state.limiter.otpVerify = { kind: "allowed" };
   state.limiter.linkVerify = { kind: "allowed" };
+  state.linkFailures = 0;
+  state.otpRequests = 0;
+  state.env.TURNSTILE_ENABLED = false;
+  state.env.TURNSTILE_SITE_KEY = undefined;
+  state.env.TURNSTILE_SECRET_KEY = undefined;
   state.production = false;
+  vi.unstubAllGlobals();
 });
 
 describe("/auth/confirm", () => {
@@ -130,6 +146,8 @@ describe("/auth/confirm", () => {
     );
     expect(state.verifyOtp).toHaveBeenCalledWith({ token_hash: TOKEN, type: "email" });
     expect(result).toBe("REDIRECT /app");
+    // Successes never count against the link limits.
+    expect(state.linkFailures).toBe(0);
   });
 
   it("POST falls back to /start for an invalid next", async () => {
@@ -151,12 +169,24 @@ describe("/auth/confirm", () => {
     expect(result).toEqual({ error: expect.stringContaining("10 minuten") });
   });
 
-  it("POST with a refused token goes to the login page", async () => {
+  it("POST with a refused token records one failure and goes to the login page", async () => {
     state.verifyOtp.mockResolvedValue({ error: { code: "otp_expired" } });
     const result = await outcome(() =>
       confirmEmailLink(INITIAL, form({ token_hash: TOKEN, type: "email" })),
     );
     expect(result).toBe("REDIRECT /login?fout=link");
+    expect(state.linkFailures).toBe(1);
+  });
+
+  it("POST while link sign-in is paused asks for the code and spends no token", async () => {
+    state.limiter.linkVerify = { kind: "paused" };
+    const result = await outcome(() =>
+      confirmEmailLink(INITIAL, form({ token_hash: TOKEN, type: "email" })),
+    );
+    expect(state.verifyOtp).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      error: expect.stringContaining("Gebruik de code uit de e-mail"),
+    });
   });
 });
 
@@ -208,6 +238,60 @@ describe("requestCode", () => {
       type: "email",
     });
     expect(result).toBe("REDIRECT /start");
+  });
+});
+
+describe("Turnstile (when both keys are set)", () => {
+  function enable(answer: unknown) {
+    state.env.TURNSTILE_ENABLED = true;
+    state.env.TURNSTILE_SITE_KEY = "site-key";
+    state.env.TURNSTILE_SECRET_KEY = "secret-key";
+    const fetchMock = vi.fn(async () => Response.json(answer));
+    vi.stubGlobal("fetch", fetchMock);
+    return fetchMock;
+  }
+
+  it("refuses a login request without a token before touching the limiter", async () => {
+    const fetchMock = enable({ success: true, action: "login" });
+    const result = await outcome(() =>
+      requestCode(INITIAL, form({ email: "a@example.be" })),
+    );
+    expect(result).toEqual({ error: expect.stringContaining("persoon") });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(state.otpRequests).toBe(0);
+  });
+
+  it("checks the token server-side and then continues", async () => {
+    const fetchMock = enable({ success: true, action: "login" });
+    const result = await outcome(() =>
+      requestCode(
+        INITIAL,
+        form({ email: "a@example.be", "cf-turnstile-response": "token-1" }),
+      ),
+    );
+    expect(result).toBe("REDIRECT /login/code");
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+      expect.objectContaining({ method: "POST" }),
+    );
+    const body = (
+      fetchMock.mock.calls[0] as unknown as [string, { body: URLSearchParams }]
+    )[1].body;
+    expect(body.get("secret")).toBe("secret-key");
+    expect(body.get("response")).toBe("token-1");
+    expect(body.get("remoteip")).toBe("203.0.113.7");
+  });
+
+  it("rejects a token issued for another form", async () => {
+    enable({ success: true, action: "login" });
+    const result = await outcome(() =>
+      confirmEmailLink(
+        INITIAL,
+        form({ token_hash: TOKEN, type: "email", "cf-turnstile-response": "token-1" }),
+      ),
+    );
+    expect(result).toEqual({ error: expect.stringContaining("persoon") });
+    expect(state.verifyOtp).not.toHaveBeenCalled();
   });
 });
 

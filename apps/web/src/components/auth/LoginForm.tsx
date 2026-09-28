@@ -11,12 +11,16 @@ import { TextInput } from "@/components/ui/TextInput";
 import { requestCode } from "@/lib/auth/actions/login";
 import { INITIAL_FORM_STATE } from "@/lib/auth/form-state";
 
+import { TurnstileWidget } from "./TurnstileWidget";
+
 export interface LoginFormProps {
   /** Already validated against the redirect allowlist, or null. */
   next: string | null;
+  /** Set only when Turnstile is configured. */
+  turnstileSiteKey: string | null;
 }
 
-export function LoginForm({ next }: LoginFormProps) {
+export function LoginForm({ next, turnstileSiteKey }: LoginFormProps) {
   const [state, action, pending] = useActionState(requestCode, INITIAL_FORM_STATE);
 
   return (
@@ -40,6 +44,13 @@ export function LoginForm({ next }: LoginFormProps) {
             autoFocus
           />
         </Field>
+        {turnstileSiteKey ? (
+          <TurnstileWidget
+            siteKey={turnstileSiteKey}
+            action="login"
+            resetSignal={state}
+          />
+        ) : null}
         <Button type="submit" size="xl" loading={pending}>
           {t("login.submit")}
         </Button>

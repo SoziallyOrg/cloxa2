@@ -23,6 +23,7 @@ import {
 import { safeNextPath } from "../redirects";
 import { deleteCloxaCookie, setCloxaCookie } from "../server-cookies";
 import { mintFlow, newFlowNonce, readFlow } from "../session-cookies";
+import { verifyTurnstile } from "../turnstile";
 
 /**
  * Step 1: send a code. After the email passes validation the user always
@@ -41,6 +42,11 @@ export async function requestCode(
   const email = normalizeEmail(formData.get("email"));
   if (!email) return { error: t("login.emailInvalid") };
   const next = safeNextPath(formData.get("next"));
+
+  // Before the limiter: bots must not use up a real person's request budget.
+  const human = await verifyTurnstile(formData, "login");
+  if (human === "unavailable") return { error: t("login.unavailable") };
+  if (human === "failed") return { error: t("auth.turnstile.failed") };
 
   const attempt = await recordOtpRequest(email);
   if (attempt.kind === "unavailable") return { error: t("login.unavailable") };

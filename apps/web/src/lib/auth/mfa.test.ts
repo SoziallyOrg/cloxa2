@@ -7,6 +7,7 @@ import {
   isMfaFresh,
   latestSecondFactorAt,
   MFA_MAX_AGE_SECONDS,
+  mustUndoNewTotpFactor,
 } from "./mfa";
 
 const NOW = 1_790_000_000;
@@ -114,5 +115,46 @@ describe("decideManageAccess", () => {
       kind: "verify",
       reason: "idle",
     });
+  });
+});
+
+describe("mustUndoNewTotpFactor (enrolment race)", () => {
+  const NEW = "new-factor";
+  const totp = (id: string, status: string) => ({ id, factor_type: "totp", status });
+
+  it("keeps a factor that is the only verified TOTP factor", () => {
+    expect(mustUndoNewTotpFactor([totp(NEW, "verified")], NEW)).toBe(false);
+    expect(
+      mustUndoNewTotpFactor(
+        [totp(NEW, "verified"), totp("left-over", "unverified")],
+        NEW,
+      ),
+    ).toBe(false);
+  });
+
+  it("undoes the new factor when another verified TOTP factor exists", () => {
+    expect(
+      mustUndoNewTotpFactor([totp("other", "verified"), totp(NEW, "verified")], NEW),
+    ).toBe(true);
+    // Even if the list doesn't show the new one as verified yet.
+    expect(mustUndoNewTotpFactor([totp("other", "verified")], NEW)).toBe(true);
+  });
+
+  it("ignores other factor types", () => {
+    expect(
+      mustUndoNewTotpFactor(
+        [
+          totp(NEW, "verified"),
+          { id: "phone", factor_type: "phone", status: "verified" },
+        ],
+        NEW,
+      ),
+    ).toBe(false);
+  });
+
+  it("makes both racers undo their own factor, so neither silently wins", () => {
+    const both = [totp("a", "verified"), totp("b", "verified")];
+    expect(mustUndoNewTotpFactor(both, "a")).toBe(true);
+    expect(mustUndoNewTotpFactor(both, "b")).toBe(true);
   });
 });

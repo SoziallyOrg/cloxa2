@@ -6,6 +6,7 @@ import { AuthShell } from "@/components/auth/AuthShell";
 import { LoginForm } from "@/components/auth/LoginForm";
 import { getAuthContext } from "@/lib/auth/context";
 import { safeNextPath } from "@/lib/auth/redirects";
+import { turnstileSiteKey } from "@/lib/auth/turnstile";
 
 export default async function LoginPage({
   searchParams,
@@ -27,7 +28,7 @@ export default async function LoginPage({
         </p>
       ) : null}
       <p className="text-lg">{t("login.intro")}</p>
-      <LoginForm next={next} />
+      <LoginForm next={next} turnstileSiteKey={turnstileSiteKey()} />
     </AuthShell>
   );
 }

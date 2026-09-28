@@ -1,0 +1,137 @@
+import { describe, expect, it } from "vitest";
+
+import {
+  buildAttention,
+  forgottenClockOuts,
+  longBreaks,
+  notStartedAttention,
+  pendingQuestionsAttention,
+  type OpenShiftStatus,
+  type ScheduledStart,
+} from "./attention";
+
+function shift(overrides: Partial<OpenShiftStatus>): OpenShiftStatus {
+  return {
+    employeeId: "emp-1",
+    employeeName: "Jan Jansen",
+    startedAt: Date.parse("2026-09-28T08:00:00+02:00"),
+    openBreakStartedAt: null,
+    ...overrides,
+  };
+}
+
+describe("forgottenClockOuts", () => {
+  it("flags an open shift longer than 12h", () => {
+    const now = Date.parse("2026-09-28T20:01:00+02:00");
+    const result = forgottenClockOuts(
+      [shift({ startedAt: Date.parse("2026-09-28T08:00:00+02:00") })],
+      now,
+    );
+    expect(result).toHaveLength(1);
+    expect(result[0]!.reason).toBe("forgotClockOut");
+  });
+
+  it("does not flag a shift within 12h on the same Brussels day", () => {
+    const now = Date.parse("2026-09-28T19:00:00+02:00");
+    const result = forgottenClockOuts(
+      [shift({ startedAt: Date.parse("2026-09-28T08:00:00+02:00") })],
+      now,
+    );
+    expect(result).toHaveLength(0);
+  });
+
+  it("flags a shift open from a previous Brussels day even under 12h", () => {
+    const now = Date.parse("2026-09-29T00:10:00+02:00");
+    const result = forgottenClockOuts(
+      [shift({ startedAt: Date.parse("2026-09-28T23:50:00+02:00") })],
+      now,
+    );
+    expect(result).toHaveLength(1);
+  });
+
+  it("is DST-safe across the October fallback boundary", () => {
+    // 2026-10-25 is the Brussels DST fallback (CEST -> CET); the local day
+    // is 25h long. A shift started at 08:00 the day before is still open at
+    // 20:30 local the next day but under 12h has not passed by then.
+    const startedAt = Date.parse("2026-10-24T08:00:00+02:00");
+    const now = Date.parse("2026-10-24T19:00:00+02:00");
+    expect(forgottenClockOuts([shift({ startedAt })], now)).toHaveLength(0);
+  });
+});
+
+describe("longBreaks", () => {
+  it("flags an open break over 60 minutes", () => {
+    const now = Date.parse("2026-09-28T12:05:00+02:00");
+    const openBreakStartedAt = Date.parse("2026-09-28T11:00:00+02:00");
+    const result = longBreaks([shift({ openBreakStartedAt })], now);
+    expect(result).toHaveLength(1);
+    expect(result[0]!.reason).toBe("longBreak");
+  });
+
+  it("does not flag a break under 60 minutes", () => {
+    const now = Date.parse("2026-09-28T11:30:00+02:00");
+    const openBreakStartedAt = Date.parse("2026-09-28T11:00:00+02:00");
+    expect(longBreaks([shift({ openBreakStartedAt })], now)).toHaveLength(0);
+  });
+
+  it("ignores shifts without an open break", () => {
+    const now = Date.parse("2026-09-28T12:05:00+02:00");
+    expect(longBreaks([shift({ openBreakStartedAt: null })], now)).toHaveLength(0);
+  });
+});
+
+describe("notStartedAttention", () => {
+  const scheduled: ScheduledStart[] = [
+    {
+      employeeId: "emp-2",
+      employeeName: "Marie Peeters",
+      startAt: Date.parse("2026-09-28T08:00:00+02:00"),
+    },
+  ];
+
+  it("flags a scheduled start passed by more than 15 minutes with no clock_in", () => {
+    const now = Date.parse("2026-09-28T08:16:00+02:00");
+    const result = notStartedAttention(scheduled, new Set(), now);
+    expect(result).toHaveLength(1);
+    expect(result[0]!.reason).toBe("notStarted");
+  });
+
+  it("does not flag within the 15-minute grace period", () => {
+    const now = Date.parse("2026-09-28T08:10:00+02:00");
+    expect(notStartedAttention(scheduled, new Set(), now)).toHaveLength(0);
+  });
+
+  it("does not flag an employee who already clocked in", () => {
+    const now = Date.parse("2026-09-28T08:16:00+02:00");
+    expect(notStartedAttention(scheduled, new Set(["emp-2"]), now)).toHaveLength(0);
+  });
+});
+
+describe("pendingQuestionsAttention", () => {
+  it("returns nothing when there are no pending requests", () => {
+    expect(pendingQuestionsAttention(0)).toEqual([]);
+  });
+
+  it("returns one summary item carrying the count", () => {
+    const result = pendingQuestionsAttention(3);
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({ reason: "pendingQuestions", count: 3 });
+  });
+});
+
+describe("buildAttention", () => {
+  it("combines every rule in a stable order", () => {
+    const now = Date.parse("2026-09-28T20:01:00+02:00");
+    const result = buildAttention({
+      openShifts: [shift({ startedAt: Date.parse("2026-09-28T08:00:00+02:00") })],
+      scheduledStarts: [],
+      clockedInEmployeeIds: new Set(),
+      pendingCorrectionsCount: 2,
+      now,
+    });
+    expect(result.map((item) => item.reason)).toEqual([
+      "forgotClockOut",
+      "pendingQuestions",
+    ]);
+  });
+});

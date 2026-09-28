@@ -9,14 +9,23 @@ import { Stack } from "@/components/ui/Stack";
 import { confirmEmailLink } from "@/lib/auth/actions/confirm";
 import { INITIAL_FORM_STATE } from "@/lib/auth/form-state";
 
+import { TurnstileWidget } from "./TurnstileWidget";
+
 export interface ConfirmLinkFormProps {
   tokenHash: string;
   type: string;
   next: string | null;
+  /** Set only when Turnstile is configured. */
+  turnstileSiteKey: string | null;
 }
 
 /** One big button: the email link is only used when the person presses it. */
-export function ConfirmLinkForm({ tokenHash, type, next }: ConfirmLinkFormProps) {
+export function ConfirmLinkForm({
+  tokenHash,
+  type,
+  next,
+  turnstileSiteKey,
+}: ConfirmLinkFormProps) {
   const [state, action, pending] = useActionState(confirmEmailLink, INITIAL_FORM_STATE);
 
   return (
@@ -29,6 +38,13 @@ export function ConfirmLinkForm({ tokenHash, type, next }: ConfirmLinkFormProps)
           <p role="alert" className="text-lg font-semibold text-status-error">
             {state.error}
           </p>
+        ) : null}
+        {turnstileSiteKey ? (
+          <TurnstileWidget
+            siteKey={turnstileSiteKey}
+            action="confirm"
+            resetSignal={state}
+          />
         ) : null}
         <Button type="submit" size="xl" loading={pending}>
           {t("auth.confirm.submit")}
