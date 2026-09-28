@@ -1,4 +1,8 @@
-import { recordExportDownload, RpcError } from "@cloxa/db";
+import {
+  recordExportDownload,
+  recordExportIntegrityFailure,
+  RpcError,
+} from "@cloxa/db";
 import { t } from "@cloxa/i18n";
 import { z } from "zod";
 
@@ -7,6 +11,7 @@ import { isPrivileged } from "@/lib/auth/routing";
 import { exportContentSchema } from "@/lib/exports/content";
 import { serializeExportCsv } from "@/lib/exports/csv";
 import { downloadHeaders, exportFilename, jsonEnvelope } from "@/lib/exports/download";
+import { downloadAccess, integrityVerdict } from "@/lib/exports/route-decisions";
 import { checkExportSignature } from "@/lib/exports/sign";
 import { sha256Hex } from "@/lib/exports/signing";
 import { createClient } from "@/lib/supabase/server";
@@ -29,7 +34,8 @@ function refuse(status: number, message: string): Response {
 /**
  * A route handler is a public endpoint: the /manage layout does not run
  * here, so the privileged-session checks are repeated before anything else.
- * The download RPC writes the audit row before it hands over the content.
+ * The download RPC writes the audit row before it hands over the content,
+ * and only for an export of the organization selected in the app.
  */
 export async function GET(
   _request: Request,
@@ -39,16 +45,20 @@ export async function GET(
   if (!parsed.success) return refuse(404, t("exports.downloadDenied"));
 
   const context = await getAuthContext();
-  if (context.kind !== "member" || !isPrivileged(context.membership.role)) {
+  const member = context.kind === "member" ? context : null;
+  const privileged = member !== null && isPrivileged(member.membership.role);
+  const gateOk =
+    member !== null && privileged && (await manageGate(member)).kind === "ok";
+  if (member === null || downloadAccess({ member: true, privileged, gateOk }) === 403) {
     return refuse(403, t("exports.downloadDenied"));
   }
-  const gate = await manageGate(context);
-  if (gate.kind !== "ok") return refuse(403, t("exports.downloadDenied"));
+  const organizationId = member.membership.organizationId;
 
   const supabase = await createClient();
   let stored;
   try {
     stored = await recordExportDownload(supabase, {
+      organizationId,
       exportId: parsed.data.id,
       format: parsed.data.format,
     });
@@ -59,15 +69,24 @@ export async function GET(
     throw error;
   }
 
-  // Serve only what still matches its hash and a signature we can vouch for.
   const bytes = Buffer.from(stored.content, "utf8");
-  const intact =
-    sha256Hex(bytes) === stored.content_sha256_hex &&
-    checkExportSignature(bytes, stored.signature_hex, stored.signing_key_id) !==
-      "invalid";
-  if (!intact) {
-    console.error("export_integrity_failed", stored.id);
-    return refuse(409, t("exports.downloadIntegrity"));
+  const verdict = integrityVerdict({
+    storedSha256Hex: stored.content_sha256_hex,
+    actualSha256Hex: sha256Hex(bytes),
+    signature: checkExportSignature(bytes, stored.signature_hex, stored.signing_key_id),
+  });
+  if (!verdict.ok) {
+    console.error("export_integrity_failed", stored.id, verdict.reason);
+    try {
+      await recordExportIntegrityFailure(supabase, {
+        organizationId,
+        exportId: stored.id,
+        reason: verdict.reason,
+      });
+    } catch (error) {
+      console.error("export_integrity_audit_failed", (error as { code?: string }).code);
+    }
+    return refuse(verdict.status, t("exports.downloadIntegrity"));
   }
 
   const period = { from: stored.period_from, to: stored.period_to };

@@ -83,6 +83,7 @@ export default async function ManageExportsPage() {
           <Heading level={1}>{t("exports.heading")}</Heading>
           <p className="text-lg text-ink/70">{t("exports.intro")}</p>
           <p className="text-lg text-ink/70">{t("exports.indicative")}</p>
+          <p className="text-lg text-ink/70">{t("exports.csvUnsigned")}</p>
         </div>
 
         <section className="max-w-xl rounded-lg border border-border p-4">

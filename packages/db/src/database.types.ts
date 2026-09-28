@@ -765,7 +765,7 @@ export type Database = {
         }[];
       };
       rpc_record_export_download: {
-        Args: { p_export_id: string; p_format: string };
+        Args: { p_export_id: string; p_format: string; p_org: string };
         Returns: {
           content: string;
           content_sha256_hex: string;
@@ -781,6 +781,10 @@ export type Database = {
           signing_key_id: string;
           site_ids: string[];
         }[];
+      };
+      rpc_record_export_integrity_failure: {
+        Args: { p_export_id: string; p_org: string; p_reason: string };
+        Returns: undefined;
       };
       rpc_record_self_export: {
         Args: {

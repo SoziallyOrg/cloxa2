@@ -699,13 +699,16 @@ export async function createExport(
 }
 
 export const recordExportDownloadInput = z.strictObject({
+  /** The organization selected in the app; the export must belong to it. */
+  organizationId: uuid,
   exportId: uuid,
   format: z.enum(["csv", "json"]),
 });
 export type RecordExportDownloadInput = z.input<typeof recordExportDownloadInput>;
 
 /**
- * Privileged, fresh MFA, in scope. Writes the `export.downloaded` audit row,
+ * Privileged, fresh MFA, in scope, and the export belongs to `organizationId`.
+ * Writes the `export.downloaded` audit row,
  * then returns the stored export. The only way to read export content: call
  * it before every download.
  */
@@ -717,11 +720,35 @@ export async function recordExportDownload(
   const rows = unwrap(
     "rpc_record_export_download",
     await client.rpc("rpc_record_export_download", {
+      p_org: parsed.organizationId,
       p_export_id: parsed.exportId,
       p_format: parsed.format,
     }),
   );
   return first("rpc_record_export_download", rows);
+}
+
+export const recordExportIntegrityFailureInput = z.strictObject({
+  organizationId: uuid,
+  exportId: uuid,
+  reason: z.enum(["hash", "signature"]),
+});
+export type RecordExportIntegrityFailureInput = z.input<
+  typeof recordExportIntegrityFailureInput
+>;
+
+/** Same access as a download. Audits a stored export that failed its hash or signature check. */
+export async function recordExportIntegrityFailure(
+  client: CloxaClient,
+  input: RecordExportIntegrityFailureInput,
+): Promise<void> {
+  const parsed = recordExportIntegrityFailureInput.parse(input);
+  const { error } = await client.rpc("rpc_record_export_integrity_failure", {
+    p_org: parsed.organizationId,
+    p_export_id: parsed.exportId,
+    p_reason: parsed.reason,
+  });
+  if (error) throw new RpcError("rpc_record_export_integrity_failure", error);
 }
 
 export const recordSelfExportInput = z

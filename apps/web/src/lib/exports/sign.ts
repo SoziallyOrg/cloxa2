@@ -5,19 +5,22 @@ import { generateKeyPairSync, type KeyObject } from "node:crypto";
 import { env } from "@/lib/env.server";
 
 import {
+  checkSignature,
   DEV_UNSIGNED_KEY_ID,
   parseSigningKey,
+  parseVerifyKeys,
   publicJwk,
   publicKeyOf,
   signBytes,
-  verifyBytes,
   type PublishedKey,
+  type SignatureCheck,
 } from "./signing";
 
 interface Signer {
   readonly keyId: string;
   readonly privateKey: KeyObject;
-  readonly publicKey: KeyObject;
+  /** The current public key first, then retired ones from EXPORT_VERIFY_KEYS. */
+  readonly keyRing: ReadonlyMap<string, KeyObject>;
 }
 
 // One per process (this module can be evaluated in more than one bundle).
@@ -33,24 +36,27 @@ function signer(): Signer {
   const existing = holder[cached];
   if (existing) return existing;
 
-  let created: Signer;
   const configured = env.EXPORT_SIGNING_KEY
     ? parseSigningKey(env.EXPORT_SIGNING_KEY)
     : null;
-  if (configured && env.EXPORT_SIGNING_KEY_ID) {
-    created = {
-      keyId: env.EXPORT_SIGNING_KEY_ID,
-      privateKey: configured,
-      publicKey: publicKeyOf(configured),
-    };
-  } else {
-    const pair = generateKeyPairSync("ed25519");
-    created = {
-      keyId: DEV_UNSIGNED_KEY_ID,
-      privateKey: pair.privateKey,
-      publicKey: pair.publicKey,
-    };
+  const keyId =
+    configured && env.EXPORT_SIGNING_KEY_ID
+      ? env.EXPORT_SIGNING_KEY_ID
+      : DEV_UNSIGNED_KEY_ID;
+  const privateKey =
+    configured && env.EXPORT_SIGNING_KEY_ID
+      ? configured
+      : generateKeyPairSync("ed25519").privateKey;
+
+  const keyRing = new Map<string, KeyObject>([[keyId, publicKeyOf(privateKey)]]);
+  const retired = env.EXPORT_VERIFY_KEYS
+    ? parseVerifyKeys(env.EXPORT_VERIFY_KEYS)
+    : null;
+  for (const [kid, key] of retired ?? []) {
+    if (!keyRing.has(kid)) keyRing.set(kid, key);
   }
+
+  const created: Signer = { keyId, privateKey, keyRing };
   holder[cached] = created;
   return created;
 }
@@ -67,33 +73,24 @@ export function signExportContent(bytes: Uint8Array): {
   };
 }
 
-export type SignatureCheck = "valid" | "invalid" | "unverifiable";
-
-/**
- * Check a stored export before serving it. `unverifiable`: a `dev-unsigned`
- * export outside production (its per-process key may be gone). Everything
- * else must verify against the current key; a manager calling the RPC
- * directly cannot produce that.
- */
+/** Check a stored export against the current and retired keys before serving it. */
 export function checkExportSignature(
   bytes: Uint8Array,
   signatureHex: string,
   keyId: string,
 ): SignatureCheck {
-  const current = signer();
-  if (keyId === current.keyId) {
-    return verifyBytes(current.publicKey, bytes, Buffer.from(signatureHex, "hex"))
-      ? "valid"
-      : "invalid";
-  }
-  if (keyId === DEV_UNSIGNED_KEY_ID && process.env.NODE_ENV !== "production") {
-    return "unverifiable";
-  }
-  return "invalid";
+  return checkSignature({
+    bytes,
+    signatureHex,
+    keyId,
+    keys: signer().keyRing,
+    production: process.env.NODE_ENV === "production",
+  });
 }
 
-/** Public keys anyone may use to verify a downloaded export. */
+/** Public keys anyone may use to verify a downloaded export: current first, then retired. */
 export function publishedExportKeys(): { keys: PublishedKey[] } {
-  const current = signer();
-  return { keys: [publicJwk(current.keyId, current.publicKey)] };
+  return {
+    keys: [...signer().keyRing].map(([kid, key]) => publicJwk(kid, key)),
+  };
 }

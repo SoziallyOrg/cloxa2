@@ -9,6 +9,7 @@ import {
   DEV_UNSIGNED_KEY_ID,
   KEY_ID_PATTERN,
   parseSigningKey,
+  parseVerifyKeys,
 } from "./exports/signing";
 
 /**
@@ -64,6 +65,17 @@ const serverSchema = z
         message: `EXPORT_SIGNING_KEY_ID cannot be ${DEV_UNSIGNED_KEY_ID}`,
       })
       .optional(),
+    /**
+     * Retired public keys that still verify older exports: a JSON list of
+     * `{kid, publicKeyJwk}` (Ed25519 JWK). Published next to the current key.
+     */
+    EXPORT_VERIFY_KEYS: z
+      .string()
+      .min(1)
+      .optional()
+      .refine((value) => value === undefined || parseVerifyKeys(value) !== null, {
+        message: "EXPORT_VERIFY_KEYS must be a JSON list of {kid, publicKeyJwk}",
+      }),
   })
   // Half a Turnstile config is a mistake, not a way to switch it off.
   .refine(
@@ -111,6 +123,7 @@ const serverOnlyEnv = serverSchema.parse({
   TURNSTILE_SECRET_KEY: process.env["TURNSTILE_SECRET_KEY"] || undefined,
   EXPORT_SIGNING_KEY: process.env["EXPORT_SIGNING_KEY"] || undefined,
   EXPORT_SIGNING_KEY_ID: process.env["EXPORT_SIGNING_KEY_ID"] || undefined,
+  EXPORT_VERIFY_KEYS: process.env["EXPORT_VERIFY_KEYS"] || undefined,
 });
 
 export const env = {

@@ -202,6 +202,7 @@ everything from the earliest affected event to the latest one, under the same lo
   readable through `rpc_record_export_download`, which writes `export.downloaded` first.
 - Employee self-exports are built on the fly from their own rows and audited as
   `export.self_downloaded`; they are not stored or signed.
+- **TODO:** run `private.purge_exports` from a scheduled job (retention, ADR 004).
 
 ## Auth and sessions
 

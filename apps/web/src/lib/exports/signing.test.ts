@@ -3,7 +3,9 @@ import { generateKeyPairSync } from "node:crypto";
 import { describe, expect, it } from "vitest";
 
 import {
+  checkSignature,
   parseSigningKey,
+  parseVerifyKeys,
   publicJwk,
   publicKeyOf,
   sha256Hex,
@@ -73,5 +75,47 @@ describe("export signing", () => {
     expect(sha256Hex(Buffer.from("abc"))).toBe(
       "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
     );
+  });
+});
+
+describe("key rotation (EXPORT_VERIFY_KEYS)", () => {
+  function jwkEntry(kid: string) {
+    const pair = generateKeyPairSync("ed25519");
+    const jwk = pair.publicKey.export({ format: "jwk" });
+    return {
+      pair,
+      entry: { kid, publicKeyJwk: { kty: "OKP", crv: "Ed25519", x: String(jwk.x) } },
+    };
+  }
+
+  it("verifies exports signed with a retired key, and not with an unknown one", () => {
+    const retired = jwkEntry("prod-1");
+    const keys = parseVerifyKeys(JSON.stringify([retired.entry]));
+    expect(keys).not.toBeNull();
+    if (!keys) return;
+
+    const signatureHex = signBytes(retired.pair.privateKey, content).toString("hex");
+    const check = (keyId: string) =>
+      checkSignature({ bytes: content, signatureHex, keyId, keys, production: true });
+    expect(check("prod-1")).toBe("valid");
+    expect(check("prod-9")).toBe("invalid");
+  });
+
+  it("refuses malformed lists, duplicate kids and the dev key id", () => {
+    const one = jwkEntry("prod-1").entry;
+    expect(parseVerifyKeys("not json")).toBeNull();
+    expect(parseVerifyKeys(JSON.stringify({ keys: [one] }))).toBeNull();
+    expect(parseVerifyKeys(JSON.stringify([one, one]))).toBeNull();
+    expect(
+      parseVerifyKeys(JSON.stringify([{ ...one, kid: "dev-unsigned" }])),
+    ).toBeNull();
+    expect(
+      parseVerifyKeys(
+        JSON.stringify([
+          { ...one, publicKeyJwk: { ...one.publicKeyJwk, crv: "P-256" } },
+        ]),
+      ),
+    ).toBeNull();
+    expect(parseVerifyKeys("[]")?.size).toBe(0);
   });
 });

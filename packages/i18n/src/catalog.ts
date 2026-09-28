@@ -306,6 +306,8 @@ export const catalog = {
     intro:
       "Een export is een momentopname van de uren. Latere correcties komen er niet in: maak dan een nieuwe export. Elke download wordt bijgehouden.",
     indicative: "Het verschil met het rooster is indicatief.",
+    csvUnsigned:
+      "Alleen het JSON-bestand is digitaal ondertekend. Controleer daarmee of de gegevens niet gewijzigd zijn.",
     createHeading: "Nieuwe export",
     fromLabel: "Van",
     toLabel: "Tot en met",
@@ -333,6 +335,8 @@ export const catalog = {
     errorTooLarge:
       "Deze export is te groot. Kies een kortere periode of minder locaties.",
     errorGeneric: "De export is niet gelukt. Probeer het opnieuw.",
+    errorRateLimited:
+      "Je hebt veel exports gemaakt. Wacht even en probeer het later opnieuw.",
     downloadDenied: "Je hebt geen toegang tot deze export.",
     downloadIntegrity:
       "Deze export kon niet gecontroleerd worden en wordt daarom niet gedownload. Neem contact op met Cloxa.",

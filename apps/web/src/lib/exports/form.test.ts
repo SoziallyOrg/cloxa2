@@ -62,6 +62,9 @@ describe("mapExportError", () => {
     expect(mapExportError(rpc("site_not_visible", "42501"))).toBe("exports.errorSites");
     expect(mapExportError(rpc("content_too_large"))).toBe("exports.errorTooLarge");
     expect(mapExportError(rpc("invalid_period"))).toBe("exports.errorPeriod");
+    expect(mapExportError(rpc("export_rate_limited", "54000"))).toBe(
+      "exports.errorRateLimited",
+    );
     expect(mapExportError(rpc("row_not_visible", "42501"))).toBe(
       "exports.errorGeneric",
     );

@@ -62,7 +62,7 @@ as $$
   );
 $$;
 
-select plan(43);
+select plan(60);
 
 -- Fixtures (rolled back). Org A: owner u1, manager u2 (manages A1), employee
 -- u3 (A1), employee u4 (A2). Org B: owner u5 (B1).
@@ -242,14 +242,14 @@ select throws_ok(
   '42501', 'not_authorized', 'stale MFA cannot create an export'
 );
 select throws_ok(
-  $$select * from public.rpc_record_export_download((select id from ids where label = 'manager_a1'), 'csv')$$,
+  $$select * from public.rpc_record_export_download('10000000-0000-4000-8000-00000000050a', (select id from ids where label = 'manager_a1'), 'csv')$$,
   '42501', 'not_authorized', 'stale MFA cannot download an export'
 );
 select is((select count(*) from public.exports), 0::bigint, 'stale MFA lists no exports');
 
 select pg_temp.login('00000000-0000-4000-8000-000000000502');
 select throws_ok(
-  $$select * from public.rpc_record_export_download((select id from ids where label = 'manager_a1'), 'csv')$$,
+  $$select * from public.rpc_record_export_download('10000000-0000-4000-8000-00000000050a', (select id from ids where label = 'manager_a1'), 'csv')$$,
   '42501', 'not_authorized', 'a manager without aal2 cannot download an export'
 );
 
@@ -301,14 +301,14 @@ select results_eq(
   'a manager lists only exports inside their site scope'
 );
 select throws_ok(
-  $$select * from public.rpc_record_export_download((select id from ids where label = 'owner_all'), 'csv')$$,
+  $$select * from public.rpc_record_export_download('10000000-0000-4000-8000-00000000050a', (select id from ids where label = 'owner_all'), 'csv')$$,
   '42501', 'not_authorized', 'a manager cannot download a whole-organization export'
 );
 
 -- Downloads are audited --------------------------------------------------------------------------
 
 create temporary table downloaded on commit drop as
-select * from public.rpc_record_export_download((select id from ids where label = 'manager_a1'), 'json');
+select * from public.rpc_record_export_download('10000000-0000-4000-8000-00000000050a', (select id from ids where label = 'manager_a1'), 'json');
 
 select results_eq(
   $$select row_count, content::jsonb ->> 'format_version', length(content_sha256_hex), length(signature_hex), signing_key_id
@@ -331,7 +331,7 @@ select results_eq(
   'creation and every download each write one audit row'
 );
 select throws_ok(
-  $$select * from public.rpc_record_export_download((select id from ids where label = 'manager_a1'), 'pdf')$$,
+  $$select * from public.rpc_record_export_download('10000000-0000-4000-8000-00000000050a', (select id from ids where label = 'manager_a1'), 'pdf')$$,
   '22023', 'invalid_format', 'only csv and json downloads exist'
 );
 
@@ -340,7 +340,7 @@ select throws_ok(
 select pg_temp.login('00000000-0000-4000-8000-000000000505', '1 minute');
 select is((select count(*) from public.exports), 0::bigint, 'org B owner sees no org A exports');
 select throws_ok(
-  $$select * from public.rpc_record_export_download((select id from ids where label = 'manager_a1'), 'csv')$$,
+  $$select * from public.rpc_record_export_download('10000000-0000-4000-8000-00000000050a', (select id from ids where label = 'manager_a1'), 'csv')$$,
   '42501', 'not_authorized', 'org B owner cannot download an org A export'
 );
 select throws_ok(
@@ -399,6 +399,134 @@ select results_eq(
   'a self export writes one audit row'
 );
 
+-- Hardening: strict shape, scope, org binding, integrity, limits --------------------------------
+
+set local role authenticated;
+select pg_temp.login('00000000-0000-4000-8000-000000000501', '1 minute');
+
+select throws_ok(
+  $$select public.rpc_create_export('10000000-0000-4000-8000-00000000050a', '2026-09-01', '2026-09-30', null, 0,
+    (pg_temp.content('10000000-0000-4000-8000-00000000050a', '00000000-0000-4000-8000-000000000501',
+      '2026-09-01', '2026-09-30', 'null', '[]')::jsonb || '{"note": "x"}')::text,
+    decode(repeat('ab', 64), 'hex'), 'test-key')$$,
+  '22023', 'invalid_content', 'an unknown top-level key is refused'
+);
+select throws_ok(
+  $$select public.rpc_create_export('10000000-0000-4000-8000-00000000050a', '2026-09-01', '2026-09-30', null, 1,
+    pg_temp.content('10000000-0000-4000-8000-00000000050a', '00000000-0000-4000-8000-000000000501',
+      '2026-09-01', '2026-09-30', 'null',
+      jsonb_build_array(pg_temp.row('40000000-0000-4000-8000-000000000503', '2026-09-01', null) || '{"salary": 1}')),
+    decode(repeat('ab', 64), 'hex'), 'test-key')$$,
+  '22023', 'invalid_content', 'an unknown row key is refused'
+);
+select throws_ok(
+  $$select public.rpc_create_export('10000000-0000-4000-8000-00000000050a', '2026-09-01', '2026-09-30', null, 1,
+    pg_temp.content('10000000-0000-4000-8000-00000000050a', '00000000-0000-4000-8000-000000000501',
+      '2026-09-01', '2026-09-30', 'null',
+      jsonb_build_array(jsonb_build_object('employee_id', '40000000-0000-4000-8000-000000000503', 'day', '2026-09-01',
+        'shifts', jsonb_build_array(jsonb_build_object('site_id', '20000000-0000-4000-8000-0000000005a1', 'gps', '1,2'))))),
+    decode(repeat('ab', 64), 'hex'), 'test-key')$$,
+  '22023', 'invalid_content', 'an unknown shift key is refused'
+);
+select throws_ok(
+  $$select public.rpc_create_export('10000000-0000-4000-8000-00000000050a', '2026-09-01', '2026-09-30',
+    array['20000000-0000-4000-8000-0000000005a1', null]::uuid[], 0,
+    pg_temp.content('10000000-0000-4000-8000-00000000050a', '00000000-0000-4000-8000-000000000501',
+      '2026-09-01', '2026-09-30', '["20000000-0000-4000-8000-0000000005a1", null]', '[]'),
+    decode(repeat('ab', 64), 'hex'), 'test-key')$$,
+  '22023', 'invalid_sites', 'a site list containing null is refused'
+);
+select throws_ok(
+  $$select * from public.rpc_record_export_download('10000000-0000-4000-8000-00000000050b', (select id from ids where label = 'manager_a1'), 'csv')$$,
+  '42501', 'not_authorized', 'a download names the organization the export belongs to'
+);
+
+select lives_ok(
+  $$select public.rpc_record_export_integrity_failure('10000000-0000-4000-8000-00000000050a', (select id from ids where label = 'manager_a1'), 'signature')$$,
+  'the web server can record an integrity failure'
+);
+select throws_ok(
+  $$select public.rpc_record_export_integrity_failure('10000000-0000-4000-8000-00000000050a', (select id from ids where label = 'manager_a1'), 'other')$$,
+  '22023', 'invalid_reason', 'integrity failures carry a known reason'
+);
+select results_eq(
+  $$select actor_user_id, metadata from public.audit_log where action = 'export.integrity_failed'$$,
+  $$values ('00000000-0000-4000-8000-000000000501'::uuid, '{"reason": "signature", "signing_key_id": "test-key"}'::jsonb)$$,
+  'an integrity failure writes one audit row'
+);
+
+-- A manager who loses a site loses its exports.
+reset role;
+delete from public.site_assignments where membership_id = '30000000-0000-4000-8000-000000000502';
+set local role authenticated;
+select pg_temp.login('00000000-0000-4000-8000-000000000502', '1 minute');
+select is((select count(*) from public.exports), 0::bigint, 'a manager without the site no longer lists its exports');
+select throws_ok(
+  $$select * from public.rpc_record_export_download('10000000-0000-4000-8000-00000000050a', (select id from ids where label = 'manager_a1'), 'csv')$$,
+  '42501', 'not_authorized', 'a manager without the site can no longer download its exports'
+);
+
+-- Creation limits: 20 per user per hour, 100 per organization per day.
+reset role;
+insert into public.audit_log (organization_id, actor_user_id, action, entity, entity_id)
+select '10000000-0000-4000-8000-00000000050a', '00000000-0000-4000-8000-000000000501', 'export.created', 'export', gen_random_uuid()
+from generate_series(1, 20);
+set local role authenticated;
+select pg_temp.login('00000000-0000-4000-8000-000000000501', '1 minute');
+select throws_ok(
+  $$select public.rpc_create_export('10000000-0000-4000-8000-00000000050a', '2026-09-01', '2026-09-30', null, 0,
+    pg_temp.content('10000000-0000-4000-8000-00000000050a', '00000000-0000-4000-8000-000000000501',
+      '2026-09-01', '2026-09-30', 'null', '[]'),
+    decode(repeat('ab', 64), 'hex'), 'test-key')$$,
+  '54000', 'export_rate_limited', 'a 21st export within the hour is refused'
+);
+reset role;
+insert into public.audit_log (organization_id, actor_user_id, action, entity, entity_id)
+select '10000000-0000-4000-8000-00000000050a', '00000000-0000-4000-8000-000000000503', 'export.created', 'export', gen_random_uuid()
+from generate_series(1, 80);
+insert into public.site_assignments (organization_id, site_id, employee_id, membership_id) values
+  ('10000000-0000-4000-8000-00000000050a', '20000000-0000-4000-8000-0000000005a1', null, '30000000-0000-4000-8000-000000000502');
+set local role authenticated;
+select pg_temp.login('00000000-0000-4000-8000-000000000502', '1 minute');
+select throws_ok(
+  $$select public.rpc_create_export('10000000-0000-4000-8000-00000000050a', '2026-09-01', '2026-09-30',
+    array['20000000-0000-4000-8000-0000000005a1']::uuid[], 0,
+    pg_temp.content('10000000-0000-4000-8000-00000000050a', '00000000-0000-4000-8000-000000000502',
+      '2026-09-01', '2026-09-30', '["20000000-0000-4000-8000-0000000005a1"]', '[]'),
+    decode(repeat('ab', 64), 'hex'), 'test-key')$$,
+  '54000', 'export_rate_limited', 'past 100 exports a day the organization is limited for everyone'
+);
+reset role;
+
+-- Retention purge --------------------------------------------------------------------------------
+
+select ok(
+  not has_function_privilege('anon', 'private.purge_exports(date)', 'EXECUTE')
+  and not has_function_privilege('authenticated', 'private.purge_exports(date)', 'EXECUTE')
+  and not has_function_privilege('service_role', 'private.purge_exports(date)', 'EXECUTE'),
+  'no API role can execute purge_exports'
+);
+
+insert into public.exports (organization_id, period_from, period_to, format_version, created_by, row_count,
+  content_sha256, signature, signing_key_id, content)
+select '10000000-0000-4000-8000-00000000050a', (current_date - make_interval(years => age))::date,
+  (current_date - make_interval(years => age))::date, 'cloxa.export.v1', '00000000-0000-4000-8000-000000000501', 0,
+  digest(convert_to('{}', 'UTF8'), 'sha256'), decode(repeat('ab', 64), 'hex'), 'old-key', convert_to('{}', 'UTF8')
+from unnest(array[6, 4]) as age;
+
+select is(private.purge_exports(current_date - 3650), 0, 'nothing ended before the given date: nothing is purged');
+select is(private.purge_exports(current_date), 1, 'only the export older than the 5-year retention is purged');
+select is(
+  (select array_agg(period_to order by period_to) from public.exports where signing_key_id = 'old-key'),
+  array[(current_date - interval '4 years')::date],
+  'the export still within retention is kept'
+);
+select results_eq(
+  $$select entity, entity_id, metadata ->> 'count' from public.audit_log where action = 'export.purged'$$,
+  $$values ('organization'::text, '10000000-0000-4000-8000-00000000050a'::uuid, '1'::text)$$,
+  'a purge writes one audit row per organization'
+);
+
 select throws_ok($$update public.exports set row_count = 99$$, '55000', 'exports is append-only', 'exports are never updated');
 select throws_ok($$delete from public.exports$$, '55000', 'exports is append-only', 'exports are never deleted');
 select throws_ok($$truncate public.exports$$, '55000', 'exports is append-only', 'exports are never truncated');
@@ -414,7 +542,7 @@ select throws_ok(
 set local role anon;
 set local "request.jwt.claims" = '{"role":"anon"}';
 select throws_ok(
-  $$select * from public.rpc_record_export_download('90000000-0000-4000-8000-000000000501', 'csv')$$,
+  $$select * from public.rpc_record_export_download('10000000-0000-4000-8000-00000000050a', '90000000-0000-4000-8000-000000000501', 'csv')$$,
   '42501', null, 'anon cannot execute rpc_record_export_download'
 );
 reset role;

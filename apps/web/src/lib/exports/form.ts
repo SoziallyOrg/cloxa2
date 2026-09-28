@@ -46,6 +46,7 @@ export type ExportErrorKey =
   | "exports.errorPeriod"
   | "exports.errorSites"
   | "exports.errorTooLarge"
+  | "exports.errorRateLimited"
   | "exports.errorGeneric";
 
 /** Map a create-export failure to a copy key. */
@@ -57,6 +58,8 @@ export function mapExportError(error: unknown): ExportErrorKey {
       case "site_not_visible":
       case "invalid_sites":
         return "exports.errorSites";
+      case "export_rate_limited":
+        return "exports.errorRateLimited";
       case "content_too_large":
         return "exports.errorTooLarge";
       default:
