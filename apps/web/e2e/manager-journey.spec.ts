@@ -119,7 +119,11 @@ test("manager approves a correction and invites a new team member", async ({
   await expect(page.getByText("Stap 3 van 3")).toBeVisible();
   await page.getByLabel(/^Reden/).fill(reason);
   await button(page, "Versturen").click();
-  await expect(page.getByRole("status")).toHaveText("Je melding is verstuurd.");
+  // The correction write (append-only, hash-chained audit row) can take a
+  // few seconds against the local Supabase stack.
+  await expect(page.getByRole("status")).toHaveText("Je melding is verstuurd.", {
+    timeout: 15_000,
+  });
 
   // 2. The manager works in a separate browser context (their own device).
   const employeePage = page;

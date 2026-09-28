@@ -14,7 +14,6 @@ import {
  * reset through the admin API first, so the test can run again and again.
  */
 const MANAGER = "manager-e2e@demo.test";
-const ACTION_FIELD = /^\$ACTION_ID_/;
 
 test("manager enrols TOTP, re-verifies when idle, and cannot post actions at aal1", async ({
   page,
@@ -29,31 +28,47 @@ test("manager enrols TOTP, re-verifies when idle, and cannot post actions at aal
   await expect(page).toHaveURL(/\/manage\/beveiliging\/instellen$/);
 
   // An aal1 session posting a server action straight at /manage is turned away
-  // before it runs, with a 303 (never a replayed POST). The page's logout
-  // action is the probe: had it run, the session would be gone.
-  const field = await page
-    .locator('form input[type="hidden"]')
-    .evaluateAll(
-      (inputs) =>
-        inputs
-          .map((input) => input.getAttribute("name"))
-          .find((name) => name?.startsWith("$ACTION_ID_")) ?? null,
-    );
-  expect(field).toMatch(ACTION_FIELD);
+  // before it runs, with a 303 (never a replayed POST). The page's own "start
+  // enrolment" action is the probe: it's the only live action id we can get
+  // our hands on while JS drives the form (progressive-enhancement hidden
+  // fields no longer exist once a form is behind a client action). We
+  // capture the exact request the browser makes when clicking the button,
+  // then replay its Next-Action id and body at /manage instead of at this
+  // page, to prove the guard fires for any action, not just this one.
+  const startRequest = page.waitForRequest(
+    (request) =>
+      request.method() === "POST" && request.headers()["next-action"] !== undefined,
+  );
+  await page.getByRole("button", { name: "Start met instellen" }).click();
+  const captured = await startRequest;
+  // The real click went ahead as normal: enrolment is under way. Read the
+  // secret now, since the probe below deliberately never touches this tab's
+  // in-memory state.
+  await expect(page.getByRole("img", { name: /QR-code/ })).toBeVisible();
+  const secret = (await page.getByTestId("totp-secret").innerText()).replace(/\s/g, "");
+
+  const nextAction = captured.headers()["next-action"];
+  const contentType = captured.headers()["content-type"];
+  expect(nextAction).toMatch(/^[0-9a-f]{16,}$/i);
   const denied = await page.request.post("/manage", {
-    headers: { "Next-Action": field!.replace(ACTION_FIELD, ""), Origin: baseURL! },
-    multipart: { [field!]: "" },
+    headers: {
+      "Next-Action": nextAction!,
+      "Content-Type": contentType!,
+      Origin: baseURL!,
+    },
+    data: captured.postDataBuffer() ?? undefined,
     maxRedirects: 0,
   });
   expect(denied.status()).toBe(303);
   expect(denied.headers()["location"]).toMatch(/\/manage\/beveiliging\/controle$/);
-  await page.goto("/manage");
-  await expect(page).toHaveURL(/\/manage\/beveiliging\/instellen$/);
 
-  // Enrolment: a wrong code first, then the real one.
-  await page.getByRole("button", { name: "Start met instellen" }).click();
-  await expect(page.getByRole("img", { name: /QR-code/ })).toBeVisible();
-  const secret = (await page.getByTestId("totp-secret").innerText()).replace(/\s/g, "");
+  // A real browser navigation is turned away the same way. A second tab, so
+  // this doesn't reset the enrolment already in progress above.
+  const probeTab = await page.context().newPage();
+  await probeTab.goto("/manage");
+  await expect(probeTab).toHaveURL(/\/manage\/beveiliging\/instellen$/);
+  await probeTab.close();
+
   await page.getByLabel("Code uit je app").fill("000000");
   await page.getByRole("button", { name: "Bevestig en ga verder" }).click();
   // Local GoTrue can take several seconds for a TOTP challenge.
