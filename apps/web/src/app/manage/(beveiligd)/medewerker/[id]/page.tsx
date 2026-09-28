@@ -246,7 +246,14 @@ export default async function ManageEmployeeDetailPage({
                       }
                     />
                   }
-                  value={shift.open ? formatDurationMs(workedMs(shift, now)) : row.net}
+                  value={
+                    !shift.open
+                      ? row.net
+                      : brusselsDayKey(shift.start) === todayKey
+                        ? formatDurationMs(workedMs(shift, now))
+                        : // Left open since an earlier day: no running total.
+                          t("common.none")
+                  }
                 />
               );
             })

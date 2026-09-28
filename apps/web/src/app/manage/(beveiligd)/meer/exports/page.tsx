@@ -72,9 +72,10 @@ export default async function ManageExportsPage() {
     return siteIds.map((id) => siteNames.get(id) ?? "—").join(", ");
   }
 
-  // Plain links, never <Link>: a prefetch would count as a download.
+  // Plain links, never <Link>: a prefetch would count as a download. On
+  // `track`, not `paper`: paper is black in dark mode, a black button on grey.
   const DOWNLOAD =
-    "focus-ring inline-flex min-h-touch-target min-w-16 pressable items-center justify-center rounded-full bg-paper px-4 text-subhead font-semibold text-ink";
+    "focus-ring inline-flex min-h-touch-target min-w-16 pressable items-center justify-center rounded-full bg-track px-4 text-subhead font-semibold text-ink";
 
   return (
     <PageTransition>
