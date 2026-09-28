@@ -181,6 +181,7 @@ export default async function ManageEmployeeDetailPage({
                   date: formatBrusselsDate(new Date(`${employee.left_at}T12:00:00Z`)),
                 })}
               </p>
+              <p className="text-lg">{t("manageEmployee.reinstateNote")}</p>
               <ReinstateForm action={reinstateEmployeeAction.bind(null, employee.id)} />
             </>
           ) : (
@@ -194,6 +195,7 @@ export default async function ManageEmployeeDetailPage({
                   lines={offboardConfirmLines({
                     name: employee.display_name,
                     hasLogin: employee.user_id !== null,
+                    hasPin: pinRow !== null,
                     retentionYears: effectiveRetentionYears(organization?.settings),
                   })}
                   action={offboardEmployeeAction.bind(null, employee.id)}

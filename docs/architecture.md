@@ -259,7 +259,7 @@ everything from the earliest affected event to the latest one, under the same lo
   readable through `rpc_record_export_download`, which writes `export.downloaded` first.
 - Employee self-exports are built on the fly from their own rows and audited as
   `export.self_downloaded`; they are not stored or signed.
-- `private.purge_exports` runs daily from `private.run_retention` (ADR 007).
+- Old exports are purged daily per organization by `private.run_retention` (ADR 007).
 
 ## Retention and data-subject access (ADR 007)
 

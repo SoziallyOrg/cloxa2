@@ -16,11 +16,17 @@ function render(lines: ReturnType<typeof offboardConfirmLines>): string[] {
 describe("offboardConfirmLines", () => {
   it("tells a person with a login they are signed out, and what stays", () => {
     const text = render(
-      offboardConfirmLines({ name: "Jan", hasLogin: true, retentionYears: 7 }),
+      offboardConfirmLines({
+        name: "Jan",
+        hasLogin: true,
+        hasPin: true,
+        retentionYears: 7,
+      }),
     );
     expect(text).toEqual([
       "Jan kan niet meer inloggen en wordt op alle toestellen afgemeld.",
       "Jan kan niet meer klokken, ook niet op de kiosk.",
+      "De kiosk-pincode van Jan wordt gewist.",
       "Alle geregistreerde uren blijven bewaard.",
       "Na 7 jaar maakt Cloxa de gegevens automatisch anoniem: de naam verdwijnt, de uren blijven.",
       'Vergist? Met de knop "Terug in dienst" draai je dit terug.',
@@ -31,9 +37,11 @@ describe("offboardConfirmLines", () => {
     const keys = offboardConfirmLines({
       name: "Els",
       hasLogin: false,
+      hasPin: false,
       retentionYears: 5,
     }).map((line) => line.key);
     expect(keys).not.toContain("manageEmployee.offboardConsequenceLogin");
+    expect(keys).not.toContain("manageEmployee.offboardConsequencePin");
     expect(keys[0]).toBe("manageEmployee.offboardConsequenceClock");
   });
 
@@ -41,6 +49,7 @@ describe("offboardConfirmLines", () => {
     const retention = offboardConfirmLines({
       name: "Els",
       hasLogin: false,
+      hasPin: false,
       retentionYears: 2,
     }).find((line) => line.key === "manageEmployee.offboardConsequenceRetention");
     expect(retention?.values).toEqual({ years: 5 });
@@ -73,6 +82,12 @@ describe("mapOffboardError", () => {
     );
     expect(mapOffboardError(rpc("not_authorized"))).toBe(
       "manageEmployee.errorNotAllowed",
+    );
+    expect(mapOffboardError(rpc("membership_suspended"))).toBe(
+      "manageEmployee.errorMembershipSuspended",
+    );
+    expect(mapOffboardError(rpc("left_at_before_last_event"))).toBe(
+      "manageEmployee.errorLeftAtBeforeLastEvent",
     );
     expect(mapOffboardError(new Error("boom"))).toBe("manageEmployee.errorGeneric");
   });

@@ -18,6 +18,8 @@ export interface OffboardCopyInput {
   readonly name: string;
   /** False for kiosk-only workers: there is no login to end. */
   readonly hasLogin: boolean;
+  /** Offboarding deletes the kiosk PIN; say so only when there is one. */
+  readonly hasPin: boolean;
   readonly retentionYears: number;
 }
 
@@ -38,6 +40,9 @@ export function offboardConfirmLines(input: OffboardCopyInput): CopyLine[] {
       ? [{ key: "manageEmployee.offboardConsequenceLogin" as const, values: name }]
       : []),
     { key: "manageEmployee.offboardConsequenceClock", values: name },
+    ...(input.hasPin
+      ? [{ key: "manageEmployee.offboardConsequencePin" as const, values: name }]
+      : []),
     { key: "manageEmployee.offboardConsequenceRecords" },
     {
       key: "manageEmployee.offboardConsequenceRetention",
@@ -54,6 +59,8 @@ export type OffboardErrorKey =
   | "manageEmployee.errorAlreadyLeft"
   | "manageEmployee.errorNotLeft"
   | "manageEmployee.errorAnonymised"
+  | "manageEmployee.errorMembershipSuspended"
+  | "manageEmployee.errorLeftAtBeforeLastEvent"
   | "manageEmployee.errorGeneric";
 
 export function mapOffboardError(error: unknown): OffboardErrorKey {
@@ -69,6 +76,10 @@ export function mapOffboardError(error: unknown): OffboardErrorKey {
       return "manageEmployee.errorAlreadyLeft";
     case "not_left":
       return "manageEmployee.errorNotLeft";
+    case "membership_suspended":
+      return "manageEmployee.errorMembershipSuspended";
+    case "left_at_before_last_event":
+      return "manageEmployee.errorLeftAtBeforeLastEvent";
     case "employee_anonymised":
       return "manageEmployee.errorAnonymised";
     default:

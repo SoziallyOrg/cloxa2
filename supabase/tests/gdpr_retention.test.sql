@@ -181,7 +181,7 @@ insert into run select private.run_retention();
 
 select is(
   (select result from run),
-  '{"employees_anonymised": 2, "exports_purged": 1}'::jsonb,
+  '{"employees_anonymised": 2, "exports_purged": 1, "organizations_failed": 0}'::jsonb,
   'one run anonymises the two eligible leavers and purges the old export'
 );
 select is(
@@ -278,7 +278,7 @@ select is(
 );
 select is(
   private.run_retention(),
-  '{"employees_anonymised": 0, "exports_purged": 0}'::jsonb,
+  '{"employees_anonymised": 0, "exports_purged": 0, "organizations_failed": 0}'::jsonb,
   'a second run finds nothing'
 );
 select is(
@@ -424,8 +424,9 @@ select results_eq(
   'clock events carry their effective flag'
 );
 select ok(
-  (select value -> 'pin' ? 'set_at' and not (value -> 'pin' ? 'pin_hash') and value::text !~ '\$2a\$' from doc),
-  'PIN metadata only, never the hash'
+  (select value -> 'pin' = 'null'::jsonb and value::text !~ '\$2a\$'
+     and not (value -> 'clock_events' -> 0 ? 'hash') from doc),
+  'the PIN went with the offboarding; no PIN or chain hash in the export'
 );
 select ok(
   (select value -> 'audit_log' @> '[{"action": "employee.offboarded"}]'

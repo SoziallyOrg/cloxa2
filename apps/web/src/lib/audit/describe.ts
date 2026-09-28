@@ -38,6 +38,7 @@ export const ACTION_DESCRIPTIONS: Readonly<Record<string, CatalogKey>> = {
   "member.signed_out_everywhere": "audit.action.memberSignedOutEverywhere",
   "organization.created": "audit.action.organizationCreated",
   "organization.retention_applied": "audit.action.organizationRetentionApplied",
+  "organization.retention_failed": "audit.action.organizationRetentionFailed",
   "organization.settings_updated": "audit.action.organizationSettingsUpdated",
   "schedule.set": "audit.action.scheduleSet",
 };

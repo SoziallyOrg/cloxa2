@@ -486,6 +486,8 @@ export const catalog = {
       memberLinked: "Uitnodiging gekoppeld aan account",
       memberSignedOutEverywhere: "Overal uitgelogd",
       organizationCreated: "Organisatie aangemaakt",
+      organizationRetentionFailed:
+        "Bewaartermijn toepassen mislukt (wordt opnieuw geprobeerd)",
       organizationRetentionApplied:
         "Bewaartermijn toegepast: oude gegevens zonder naam gemaakt",
       organizationSettingsUpdated: "Instellingen aangepast",
@@ -581,6 +583,7 @@ export const catalog = {
       "{name} kan niet meer inloggen en wordt op alle toestellen afgemeld.",
     offboardConsequenceClock: "{name} kan niet meer klokken, ook niet op de kiosk.",
     offboardConsequenceRecords: "Alle geregistreerde uren blijven bewaard.",
+    offboardConsequencePin: "De kiosk-pincode van {name} wordt gewist.",
     offboardConsequenceRetention:
       "Na {years} jaar maakt Cloxa de gegevens automatisch anoniem: de naam verdwijnt, de uren blijven.",
     offboardConsequenceUndo:
@@ -588,11 +591,17 @@ export const catalog = {
     offboardConfirm: "Ja, zet uit dienst",
     offboardCancel: "Annuleren",
     reinstateButton: "Terug in dienst",
+    reinstateNote:
+      'Klokt deze persoon op de kiosk? Stel na "Terug in dienst" een nieuwe pincode in: de oude is gewist.',
     errorNotAllowed: "Je mag dit niet doen voor deze persoon.",
     errorOwner: "De eigenaar kan niet uit dienst gezet worden.",
     errorSelf: "Je kunt jezelf niet uit dienst zetten.",
     errorAlreadyLeft: "Deze persoon is al uit dienst. Ververs de pagina.",
     errorNotLeft: "Deze persoon is al in dienst. Ververs de pagina.",
+    errorMembershipSuspended:
+      "Dit account is al geschorst. Vraag de eigenaar om dit na te kijken.",
+    errorLeftAtBeforeLastEvent:
+      "De laatste werkdag kan niet voor de laatste registratie liggen.",
     errorAnonymised:
       "Deze persoon is anoniem gemaakt en kan niet meer terug in dienst.",
     errorGeneric: "Er ging iets mis. Probeer het opnieuw.",
