@@ -32,6 +32,8 @@ export interface QueueStorage {
   /** Replaces the entry with the same key, keeping its place. */
   update(entry: QueueEntry): Promise<void>;
   remove(idempotencyKey: string): Promise<void>;
+  /** Removes every entry of one employee. */
+  clear(employeeId: string): Promise<void>;
 }
 
 /** For tests and for browsers where IndexedDB fails to open. */
@@ -53,6 +55,10 @@ export function memoryQueueStorage(initial: readonly QueueEntry[] = []): QueueSt
     },
     remove(idempotencyKey) {
       entries = entries.filter((e) => e.idempotencyKey !== idempotencyKey);
+      return Promise.resolve();
+    },
+    clear(employeeId) {
+      entries = entries.filter((e) => e.employeeId !== employeeId);
       return Promise.resolve();
     },
   };
@@ -130,6 +136,17 @@ export function indexedDbQueueStorage(
         const key = await request(store.index(KEY_INDEX).getKey(idempotencyKey));
         if (key !== undefined) await request(store.delete(key));
       }),
+    clear: (employeeId) =>
+      withStore("readwrite", async (store) => {
+        const keys = await request(store.getAllKeys());
+        const entries = await request(store.getAll() as IDBRequest<QueueEntry[]>);
+        for (const [index, entry] of entries.entries()) {
+          const key = keys[index];
+          if (entry.employeeId === employeeId && key !== undefined) {
+            await request(store.delete(key));
+          }
+        }
+      }),
   };
 }
 
@@ -144,9 +161,23 @@ export type SyncOutcome =
 
 export type SettledOutcome = Exclude<SyncOutcome, { outcome: "retry" }>;
 
+/**
+ * An entry this old can never be recorded: the server refuses anything
+ * beyond the organization's correction max age, at most 365 days. Only this
+ * bound is safe to apply on the device: anything younger than it may still
+ * become a correction request, even past the 72-hour window (ADR 006).
+ */
+export const STALE_AFTER_MS = 365 * 24 * 3600 * 1000;
+
+export function isStale(entry: QueueEntry, now: number): boolean {
+  return now - Date.parse(entry.capturedAt) > STALE_AFTER_MS;
+}
+
 export interface SyncReport {
   /** Entries the server answered, in queue order. They are gone from the queue. */
   settled: { entry: QueueEntry; result: SettledOutcome }[];
+  /** This employee's entries dropped unsent because they are stale. */
+  dropped: QueueEntry[];
   /** A transient failure stopped the run; the rest waits for the next one. */
   stopped: boolean;
 }
@@ -167,9 +198,22 @@ export async function syncQueue(
   storage: QueueStorage,
   employeeId: string,
   send: (entry: QueueEntry) => Promise<SyncOutcome>,
+  now: number = Date.now(),
 ): Promise<SyncReport> {
   const settled: SyncReport["settled"] = [];
-  for (const entry of pendingFor(await storage.list(), employeeId)) {
+  const dropped: QueueEntry[] = [];
+  const pending: QueueEntry[] = [];
+  // Stale entries of anyone (a shared phone) go; only this employee's are reported.
+  for (const entry of await storage.list()) {
+    if (isStale(entry, now)) {
+      await storage.remove(entry.idempotencyKey);
+      if (entry.employeeId === employeeId) dropped.push(entry);
+    } else if (entry.employeeId === employeeId) {
+      pending.push(entry);
+    }
+  }
+
+  for (const entry of pending) {
     let result: SyncOutcome;
     try {
       result = await send(entry);
@@ -178,12 +222,20 @@ export async function syncQueue(
     }
     if (result.outcome === "retry") {
       await storage.update({ ...entry, attempts: entry.attempts + 1 });
-      return { settled, stopped: true };
+      return { settled, dropped, stopped: true };
     }
     await storage.remove(entry.idempotencyKey);
     settled.push({ entry, result });
   }
-  return { settled, stopped: false };
+
+  // Everything was answered: purge the employee's synced entries (e.g. a
+  // remove another tab raced). Never when something new was queued meanwhile.
+  const settledKeys = new Set(settled.map(({ entry }) => entry.idempotencyKey));
+  const left = pendingFor(await storage.list(), employeeId);
+  if (left.length > 0 && left.every((entry) => settledKeys.has(entry.idempotencyKey))) {
+    await storage.clear(employeeId);
+  }
+  return { settled, dropped, stopped: false };
 }
 
 // Optimistic state ------------------------------------------------------------------------------

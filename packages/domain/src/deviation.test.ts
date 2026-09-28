@@ -19,6 +19,7 @@ function shift(
     overnight: false,
     edited: false,
     hasOffline: false,
+    offlineSkewMs: null,
     ...overrides,
   };
 }

@@ -9,6 +9,7 @@ import {
 } from "@cloxa/domain";
 import { formatBrusselsTime, t } from "@cloxa/i18n";
 
+import { brusselsWeekRange } from "@/components/clock/week-total";
 import { AutoRefresh } from "@/components/manage/AutoRefresh";
 import { ManageShell } from "@/components/manage/ManageShell";
 import { SiteFilter } from "@/components/manage/SiteFilter";
@@ -99,27 +100,38 @@ export default async function ManagePage({
       : await supabase
           .from("clock_events")
           .select(
-            "id, type, occurred_at, employee_id, site_id, source, supersedes_event_id, correction_id, offline, server_at",
+            "id, type, occurred_at, employee_id, site_id, source, supersedes_event_id, correction_id, offline",
           )
           .in("employee_id", employeeIds)
           .gte("occurred_at", new Date(now - EVENTS_LOOKBACK_MS).toISOString())
           .order("occurred_at");
   if (eventsError) throw new Error(`clock_events_unavailable:${eventsError.code}`);
 
+  // This week's offline events by sync time: an event backdated up to 72
+  // hours still counts on the day it arrived (ADR 006).
+  const { data: offlineRows, error: offlineError } =
+    employeeIds.length === 0
+      ? { data: [], error: null }
+      : await supabase
+          .from("clock_events")
+          .select("employee_id, occurred_at, server_at")
+          .eq("offline", true)
+          .in("employee_id", employeeIds)
+          .gte("server_at", new Date(brusselsWeekRange(now).start).toISOString())
+          .order("server_at");
+  if (offlineError) throw new Error(`clock_events_unavailable:${offlineError.code}`);
   const employeeNames = new Map(
     visibleEmployees.map((employee) => [employee.id, employee.display_name]),
   );
+  const offlineEvents: OfflineEvent[] = offlineRows.map((row) => ({
+    employeeId: row.employee_id,
+    employeeName: employeeNames.get(row.employee_id) ?? "",
+    occurredAt: Date.parse(row.occurred_at),
+    serverAt: Date.parse(row.server_at),
+  }));
+
   const eventsByEmployee = new Map<string, ClockEvent[]>();
-  const offlineEvents: OfflineEvent[] = [];
   for (const row of eventRows) {
-    if (row.offline) {
-      offlineEvents.push({
-        employeeId: row.employee_id,
-        employeeName: employeeNames.get(row.employee_id) ?? "",
-        occurredAt: Date.parse(row.occurred_at),
-        serverAt: Date.parse(row.server_at),
-      });
-    }
     const event: ClockEvent = {
       id: row.id,
       type: row.type as ClockEventType,
@@ -240,6 +252,7 @@ export default async function ManagePage({
     longBreak: "manage.longBreak",
     notStarted: "manage.notStarted",
     offlineDelayed: "offline.attentionDelayed",
+    offlineWeekly: "offline.weeklyCount",
     pendingQuestions: "manage.pendingQuestions",
   } as const;
 
@@ -247,7 +260,7 @@ export default async function ManagePage({
     id: item.id,
     name: item.employeeName,
     reason:
-      item.reason === "pendingQuestions"
+      item.reason === "pendingQuestions" || item.reason === "offlineWeekly"
         ? t(ATTENTION_LABEL_KEY[item.reason], { count: item.count ?? 0 })
         : t(ATTENTION_LABEL_KEY[item.reason]),
     href:

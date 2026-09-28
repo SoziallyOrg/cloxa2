@@ -70,7 +70,7 @@ export default async function ManageEmployeeDetailPage({
   const { data: eventRows, error: eventsError } = await supabase
     .from("clock_events")
     .select(
-      "id, type, occurred_at, employee_id, site_id, source, supersedes_event_id, correction_id, offline",
+      "id, type, occurred_at, employee_id, site_id, source, supersedes_event_id, correction_id, offline, server_at",
     )
     .eq("employee_id", employee.id)
     .gte("occurred_at", new Date(windowStart - FETCH_BUFFER_MS).toISOString())
@@ -86,7 +86,7 @@ export default async function ManageEmployeeDetailPage({
     source: row.source as ClockEventSource,
     ...(row.supersedes_event_id ? { supersedesEventId: row.supersedes_event_id } : {}),
     ...(row.correction_id ? { correctionId: row.correction_id } : {}),
-    ...(row.offline ? { offline: true } : {}),
+    ...(row.offline ? { offline: true, serverAt: Date.parse(row.server_at) } : {}),
   }));
   const shifts = deriveShifts(effectiveEvents(events))
     .filter((shift) => shift.start >= windowStart)
@@ -134,7 +134,7 @@ export default async function ManageEmployeeDetailPage({
 
         <section className="flex flex-col gap-3">
           <Heading level={2}>{t("manageEmployee.shiftsHeading")}</Heading>
-          <ShiftList shifts={shifts} />
+          <ShiftList shifts={shifts} showOfflineSkew />
         </section>
 
         <section className="flex flex-col gap-3">

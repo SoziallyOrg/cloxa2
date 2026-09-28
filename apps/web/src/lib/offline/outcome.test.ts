@@ -2,7 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import { RpcError } from "@cloxa/db";
 
-import { messageFor, outcomeFromError, outcomeFromResult } from "./outcome";
+import {
+  messageFor,
+  outcomeFromError,
+  outcomeFromResult,
+  staleMessage,
+} from "./outcome";
 import type { QueueEntry } from "./queue";
 
 const ENTRY: QueueEntry = {
@@ -102,5 +107,15 @@ describe("messageFor", () => {
     expect(key("captured_too_old")).toBe("offline.rejectedTooOld");
     expect(key("site_inactive")).toBe("offline.rejectedGeneric");
     expect(messageFor(ENTRY, { outcome: "rejected", reason: "x" })?.tone).toBe("error");
+  });
+});
+
+describe("staleMessage", () => {
+  it("names the date and time of the dropped entry", () => {
+    expect(staleMessage(ENTRY)).toEqual({
+      tone: "error",
+      key: "offline.staleDropped",
+      values: { date: "ma 28 sep", time: "08:02" },
+    });
   });
 });

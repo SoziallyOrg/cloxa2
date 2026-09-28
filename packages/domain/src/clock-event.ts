@@ -25,4 +25,6 @@ export interface ClockEvent {
    * device time, recorded later. Absent means false.
    */
   readonly offline?: boolean;
+  /** Epoch milliseconds the server received it, when the caller loaded it. */
+  readonly serverAt?: number;
 }

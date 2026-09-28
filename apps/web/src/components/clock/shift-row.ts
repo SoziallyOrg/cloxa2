@@ -13,6 +13,8 @@ export interface ShiftRow {
   readonly edited: boolean;
   /** Contains an event that was queued offline and synced later. */
   readonly offline: boolean;
+  /** "2 u 10 min": how late the offline events reached the server, if known. */
+  readonly offlineSkew: string | null;
 }
 
 export function formatShiftRow(shift: Shift): ShiftRow {
@@ -27,5 +29,9 @@ export function formatShiftRow(shift: Shift): ShiftRow {
     net: formatDurationMs(shift.netMs),
     edited: shift.edited,
     offline: shift.hasOffline,
+    offlineSkew:
+      shift.hasOffline && shift.offlineSkewMs !== null
+        ? formatDurationMs(Math.max(0, shift.offlineSkewMs))
+        : null,
   };
 }

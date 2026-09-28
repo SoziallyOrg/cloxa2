@@ -35,6 +35,11 @@ export interface Shift {
   readonly edited: boolean;
   /** Any event in this shift was queued offline and synced later. */
   readonly hasOffline: boolean;
+  /**
+   * The longest delay between an offline event and its arrival at the server
+   * (`serverAt - occurredAt`), or null when unknown or there is none.
+   */
+  readonly offlineSkewMs: number | null;
 }
 
 interface OpenShift {
@@ -42,6 +47,7 @@ interface OpenShift {
   breaks: { start: number; end: number | null }[];
   edited: boolean;
   hasOffline: boolean;
+  offlineSkewMs: number | null;
   cursor: number;
 }
 
@@ -52,6 +58,10 @@ export function deriveShifts(events: readonly ClockEvent[]): Shift[] {
   for (const event of events) {
     const edited = event.source === "correction";
     const offline = event.offline === true;
+    const skew =
+      offline && event.serverAt !== undefined
+        ? event.serverAt - event.occurredAt
+        : null;
 
     switch (event.type) {
       case "clock_in": {
@@ -60,6 +70,7 @@ export function deriveShifts(events: readonly ClockEvent[]): Shift[] {
           breaks: [],
           edited,
           hasOffline: offline,
+          offlineSkewMs: skew,
           cursor: event.occurredAt,
         };
         break;
@@ -69,6 +80,7 @@ export function deriveShifts(events: readonly ClockEvent[]): Shift[] {
         open.breaks.push({ start: event.occurredAt, end: null });
         open.edited = open.edited || edited;
         open.hasOffline = open.hasOffline || offline;
+        open.offlineSkewMs = maxSkew(open.offlineSkewMs, skew);
         open.cursor = event.occurredAt;
         break;
       }
@@ -80,6 +92,7 @@ export function deriveShifts(events: readonly ClockEvent[]): Shift[] {
         }
         open.edited = open.edited || edited;
         open.hasOffline = open.hasOffline || offline;
+        open.offlineSkewMs = maxSkew(open.offlineSkewMs, skew);
         open.cursor = event.occurredAt;
         break;
       }
@@ -87,6 +100,7 @@ export function deriveShifts(events: readonly ClockEvent[]): Shift[] {
         if (open === null) break;
         open.edited = open.edited || edited;
         open.hasOffline = open.hasOffline || offline;
+        open.offlineSkewMs = maxSkew(open.offlineSkewMs, skew);
         open.cursor = event.occurredAt;
         shifts.push(finalizeShift(open, event.occurredAt));
         open = null;
@@ -104,6 +118,11 @@ export function deriveShifts(events: readonly ClockEvent[]): Shift[] {
   }
 
   return shifts;
+}
+
+function maxSkew(current: number | null, next: number | null): number | null {
+  if (next === null) return current;
+  return current === null ? next : Math.max(current, next);
 }
 
 function finalizeShift(open: OpenShift, end: number | null): Shift {
@@ -126,5 +145,6 @@ function finalizeShift(open: OpenShift, end: number | null): Shift {
     overnight: brusselsDayKey(open.start) !== brusselsDayKey(referenceEnd),
     edited: open.edited,
     hasOffline: open.hasOffline,
+    offlineSkewMs: open.offlineSkewMs,
   };
 }

@@ -4,6 +4,7 @@ import {
   displayedState,
   memoryQueueStorage,
   pendingFor,
+  STALE_AFTER_MS,
   syncQueue,
   type QueueEntry,
   type SyncOutcome,
@@ -43,6 +44,80 @@ describe("memoryQueueStorage", () => {
     await storage.update({ ...IN, attempts: 2 });
     await storage.remove("k2");
     expect(await storage.list()).toEqual([{ ...IN, attempts: 2 }]);
+  });
+});
+
+describe("clear", () => {
+  it("removes one employee's entries only", async () => {
+    const other = entry("k9", "clock_in", "2026-09-28T06:00:00.000Z", "emp-2");
+    const storage = memoryQueueStorage([IN, other, BREAK]);
+    await storage.clear("emp-1");
+    expect(await storage.list()).toEqual([other]);
+  });
+});
+
+describe("stale entries", () => {
+  const now = Date.parse("2026-09-28T12:00:00.000Z");
+  const old = entry(
+    "k0",
+    "clock_in",
+    new Date(now - STALE_AFTER_MS - 1000).toISOString(),
+  );
+  const othersOld = { ...old, idempotencyKey: "k8", employeeId: "emp-2" };
+
+  it("drops entries that can never be recorded, reports only the employee's own, sends the rest", async () => {
+    const storage = memoryQueueStorage([old, othersOld, IN]);
+    const sent: string[] = [];
+    const report = await syncQueue(
+      storage,
+      "emp-1",
+      (queued) => {
+        sent.push(queued.idempotencyKey);
+        return Promise.resolve<SyncOutcome>({ outcome: "recorded" });
+      },
+      now,
+    );
+    expect(report.dropped).toEqual([old]);
+    expect(sent).toEqual(["k1"]);
+    expect(await storage.list()).toEqual([]);
+  });
+
+  it("keeps an entry older than 72 hours: the server turns it into a correction request", async () => {
+    const threeDaysAgo = entry(
+      "k4",
+      "clock_in",
+      new Date(now - 4 * 86_400_000).toISOString(),
+    );
+    const storage = memoryQueueStorage([threeDaysAgo]);
+    const report = await syncQueue(
+      storage,
+      "emp-1",
+      () => Promise.resolve<SyncOutcome>({ outcome: "retry" }),
+      now,
+    );
+    expect(report.dropped).toEqual([]);
+    expect(await storage.list()).toEqual([{ ...threeDaysAgo, attempts: 1 }]);
+  });
+});
+
+describe("purge after a full sync", () => {
+  it("clears the employee's leftovers when every entry was answered", async () => {
+    const base = memoryQueueStorage([IN]);
+    // A remove that silently fails (e.g. another tab held the store).
+    const storage = { ...base, remove: () => Promise.resolve() };
+    await syncQueue(storage, "emp-1", () =>
+      Promise.resolve<SyncOutcome>({ outcome: "recorded" }),
+    );
+    expect(await base.list()).toEqual([]);
+  });
+
+  it("never clears an action queued while the sync ran", async () => {
+    const storage = memoryQueueStorage([IN]);
+    await syncQueue(storage, "emp-1", async () => {
+      await storage.add(OUT);
+      return { outcome: "recorded" };
+    });
+    expect(await storage.list()).toEqual([OUT]);
   });
 });
 
@@ -94,7 +169,7 @@ describe("syncQueue", () => {
     const report = await syncQueue(storage, "emp-1", () =>
       Promise.reject(new TypeError("Failed to fetch")),
     );
-    expect(report).toEqual({ settled: [], stopped: true });
+    expect(report).toEqual({ settled: [], dropped: [], stopped: true });
     expect(await storage.list()).toEqual([{ ...IN, attempts: 1 }]);
   });
 

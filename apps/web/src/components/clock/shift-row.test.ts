@@ -17,6 +17,7 @@ function shift(overrides: Partial<Shift> = {}): Shift {
     overnight: false,
     edited: false,
     hasOffline: false,
+    offlineSkewMs: null,
     ...overrides,
   };
 }
@@ -30,6 +31,7 @@ describe("formatShiftRow", () => {
       net: "4 u",
       edited: false,
       offline: false,
+      offlineSkew: null,
     });
   });
 
@@ -42,7 +44,11 @@ describe("formatShiftRow", () => {
     expect(formatShiftRow(shift({ edited: true })).edited).toBe(true);
   });
 
-  it("carries the offline flag through", () => {
-    expect(formatShiftRow(shift({ hasOffline: true })).offline).toBe(true);
+  it("carries the offline flag and the sync delay through", () => {
+    const row = formatShiftRow(
+      shift({ hasOffline: true, offlineSkewMs: 130 * 60_000 }),
+    );
+    expect(row.offline).toBe(true);
+    expect(row.offlineSkew).toBe("2 u 10 min");
   });
 });

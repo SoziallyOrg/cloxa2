@@ -10,6 +10,12 @@ export interface AuditCursor {
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/**
+ * Exactly the UTC form PostgREST returns for `created_at`. The string goes
+ * verbatim into an `.or()` filter, so nothing else (spaces, commas,
+ * parentheses) may pass: `Date.parse` alone would accept `2026-09-28 (x,y)`.
+ */
+const CREATED_AT_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,6})?(Z|\+00:00)$/;
 
 export function encodeAuditCursor(cursor: AuditCursor): string {
   return Buffer.from(`${cursor.createdAt}|${cursor.id}`, "utf8").toString("base64url");
@@ -30,7 +36,13 @@ export function decodeAuditCursor(
   if (separator < 0) return null;
   const createdAt = decoded.slice(0, separator);
   const id = decoded.slice(separator + 1);
-  if (Number.isNaN(Date.parse(createdAt)) || !UUID_RE.test(id)) return null;
+  if (
+    !CREATED_AT_RE.test(createdAt) ||
+    Number.isNaN(Date.parse(createdAt)) ||
+    !UUID_RE.test(id)
+  ) {
+    return null;
+  }
   return { createdAt, id };
 }
 

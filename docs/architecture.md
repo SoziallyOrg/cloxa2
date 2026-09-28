@@ -19,13 +19,13 @@ ADR.
 
 ## Tenancy and identity
 
-| Table              | Key columns                                                                                     | Notes                                                                                                                  |
-| ------------------ | ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `organizations`    | id, name, timezone (default `Europe/Brussels`), settings jsonb                                  | settings: `location_capture` (off/clock_points), `retention_years` (≥5), `offline_clocking` (boolean, default on)      |
-| `sites`            | id, organization_id, name, address, timezone, active                                            | multi-site from day one                                                                                                |
-| `memberships`      | id, organization_id, user_id → auth.users, role, status                                         | role: `owner`/`admin`/`manager`/`employee`; status: `invited`/`active`/`suspended`; unique (org, user)                 |
-| `employees`        | id, organization_id, user_id (nullable), display_name, employee_code, statute, language, active | a worker **without a login** (kiosk-only) is valid; statute: `bediende`/`arbeider`/`student`/`flexi`/`interim`/`other` |
-| `site_assignments` | organization_id, site_id, employee_id or membership_id                                          | employees → sites they clock at; managers → sites they manage                                                          |
+| Table              | Key columns                                                                                     | Notes                                                                                                                                                               |
+| ------------------ | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `organizations`    | id, name, timezone (default `Europe/Brussels`), settings jsonb                                  | settings: `location_capture` (off/clock_points), `retention_years` (≥5), `offline_clocking` (boolean, default on), `offline_max_skew_minutes` (1–4320, default 240) |
+| `sites`            | id, organization_id, name, address, timezone, active                                            | multi-site from day one                                                                                                                                             |
+| `memberships`      | id, organization_id, user_id → auth.users, role, status                                         | role: `owner`/`admin`/`manager`/`employee`; status: `invited`/`active`/`suspended`; unique (org, user)                                                              |
+| `employees`        | id, organization_id, user_id (nullable), display_name, employee_code, statute, language, active | a worker **without a login** (kiosk-only) is valid; statute: `bediende`/`arbeider`/`student`/`flexi`/`interim`/`other`                                              |
+| `site_assignments` | organization_id, site_id, employee_id or membership_id                                          | employees → sites they clock at; managers → sites they manage                                                                                                       |
 
 Every tenant table carries `organization_id`. Composite foreign keys
 `(organization_id, id)` keep cross-tenant references impossible. Organization and site
@@ -146,12 +146,13 @@ everything from the earliest affected event to the latest one, under the same lo
   → 1002 → 1001). Returns `{outcome, event_id, correction_id, reason}`; a replay of the
   key returns the original `recorded` or `correction_requested` answer.
 - `recorded` (`occurred_at = captured`, `offline = true`) when the time is in the
-  72-hour window (5 minutes of margin for the chain lock), strictly after the latest
-  effective event, the transition is valid and the site is assigned.
+  72-hour window (5 minutes of margin for the chain lock), no more than
+  `settings.offline_max_skew_minutes` (default 240) before the sync, strictly after the
+  latest effective event, the transition is valid and the site is assigned.
 - Otherwise a pending `add` request, reason "Offline geregistreerd", `offline = true`,
-  `offline_reason` (`outside_window`, `later_event_exists`, `invalid_transition`,
-  `site_not_assigned`), when the time is not in the future and within
-  `correction_max_age_days`.
+  `offline_reason` (`outside_window`, `offline_skew`, `later_event_exists`,
+  `invalid_transition`, `site_not_assigned`), when the time is not in the future and
+  within `correction_max_age_days`.
 - `rejected` (not stored): `offline_disabled`, `captured_in_future`, `captured_too_old`,
   `site_inactive`, `time_conflict` (the instant of an effective event),
   `too_many_pending`.

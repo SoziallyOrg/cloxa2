@@ -11,10 +11,16 @@ export interface ShiftListProps {
   shifts: readonly Shift[];
   /** When given, each row gets a "Klopt er iets niet?" link, e.g. to start a correction. */
   correctionHref?: (shift: Shift, index: number) => string;
+  /** Managers: show how late offline events reached the server. */
+  showOfflineSkew?: boolean;
 }
 
 /** Day rows: date, start-end, pause, net, and "aangepast" / "offline" badges. */
-export function ShiftList({ shifts, correctionHref }: ShiftListProps) {
+export function ShiftList({
+  shifts,
+  correctionHref,
+  showOfflineSkew = false,
+}: ShiftListProps) {
   if (shifts.length === 0) {
     return <EmptyState title={t("shifts.emptyTitle")} body={t("shifts.emptyBody")} />;
   }
@@ -48,6 +54,11 @@ export function ShiftList({ shifts, correctionHref }: ShiftListProps) {
               {row.offline ? (
                 <span className="rounded-md bg-status-off-bg px-2 py-1 text-base font-semibold text-status-off">
                   {t("offline.shiftBadge")}
+                </span>
+              ) : null}
+              {showOfflineSkew && row.offlineSkew ? (
+                <span className="whitespace-nowrap">
+                  {t("offline.skewLabel", { value: row.offlineSkew })}
                 </span>
               ) : null}
               {correctionHref ? (

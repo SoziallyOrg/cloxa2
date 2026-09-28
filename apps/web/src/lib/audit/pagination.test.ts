@@ -30,6 +30,23 @@ describe("encodeAuditCursor / decodeAuditCursor", () => {
     expect(decodeAuditCursor(bogus)).toBeNull();
   });
 
+  it("keeps the PostgREST timestamp verbatim", () => {
+    const cursor = { createdAt: "2026-09-28T10:00:00.123456+00:00", id: ID_A };
+    expect(decodeAuditCursor(encodeAuditCursor(cursor))).toEqual(cursor);
+  });
+
+  it("returns null for a date that parses but could inject into the filter", () => {
+    for (const createdAt of [
+      "2026-09-28 (x,y)",
+      "2026-09-28T10:00:00Z,id.gt.0",
+      "2026-09-28T10:00:00+02:00",
+      "2026-09-28",
+    ]) {
+      const bogus = Buffer.from(`${createdAt}|${ID_A}`, "utf8").toString("base64url");
+      expect(decodeAuditCursor(bogus)).toBeNull();
+    }
+  });
+
   it("returns null when the decoded date doesn't parse", () => {
     const bogus = Buffer.from(`not-a-date|${ID_A}`, "utf8").toString("base64url");
     expect(decodeAuditCursor(bogus)).toBeNull();

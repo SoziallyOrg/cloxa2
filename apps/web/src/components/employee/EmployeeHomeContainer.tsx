@@ -10,7 +10,7 @@ import { t } from "@cloxa/i18n";
 
 import { clockAction, syncOfflineClockAction } from "@/app/app/actions";
 import { mapClockError, type ClockErrorKey } from "@/lib/clock/errors";
-import { messageFor, type OfflineMessage } from "@/lib/offline/outcome";
+import { messageFor, staleMessage, type OfflineMessage } from "@/lib/offline/outcome";
 import { displayedState, type QueueEntry, type SyncReport } from "@/lib/offline/queue";
 import { useOfflineQueue } from "@/lib/offline/use-offline-queue";
 
@@ -84,10 +84,13 @@ export function EmployeeHomeContainer({
   const keysRef = useRef<Partial<Record<ClockInput["type"], string>>>({});
 
   const onReport = useCallback((report: SyncReport) => {
-    const settled = report.settled
-      .map(({ entry, result }) => messageFor(entry, result))
-      .filter((message): message is OfflineMessage => message !== null);
-    if (settled.length > 0) setMessages((current) => [...current, ...settled]);
+    const next = [
+      ...report.dropped.map(staleMessage),
+      ...report.settled
+        .map(({ entry, result }) => messageFor(entry, result))
+        .filter((message): message is OfflineMessage => message !== null),
+    ];
+    if (next.length > 0) setMessages((current) => [...current, ...next]);
   }, []);
 
   const queue = useOfflineQueue(employeeId, sendQueued, onReport);
@@ -181,7 +184,7 @@ export function EmployeeHomeContainer({
           >
             {t("kiosk.menuLink")}
           </Link>
-          <SessionActions everywhere />
+          <SessionActions everywhere pendingCount={queue.pending.length} />
         </Stack>
       }
       notice={
@@ -194,7 +197,7 @@ export function EmployeeHomeContainer({
           ) : null}
           {messages.map((message, index) => (
             <Alert
-              key={`${message.key}-${message.values.time}-${index}`}
+              key={`${message.key}-${index}`}
               tone={message.tone}
               onDismiss={() =>
                 setMessages((current) => current.filter((_, i) => i !== index))

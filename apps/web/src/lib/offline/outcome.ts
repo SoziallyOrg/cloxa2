@@ -4,7 +4,7 @@
  * translate the returned key.
  */
 import { RpcError, type ClockOfflineResult } from "@cloxa/db";
-import { formatBrusselsTime } from "@cloxa/i18n";
+import { formatBrusselsShortDate, formatBrusselsTime } from "@cloxa/i18n";
 
 import type { QueueEntry, SettledOutcome, SyncOutcome } from "./queue";
 
@@ -41,12 +41,13 @@ export type OfflineMessageKey =
   | "offline.rejectedDisabled"
   | "offline.rejectedDeviceClock"
   | "offline.rejectedTooOld"
-  | "offline.rejectedGeneric";
+  | "offline.rejectedGeneric"
+  | "offline.staleDropped";
 
 export interface OfflineMessage {
   readonly tone: "info" | "error";
   readonly key: OfflineMessageKey;
-  readonly values: { time: string };
+  readonly values: Readonly<Record<string, string>>;
 }
 
 /** What to tell the employee about a settled entry; recorded needs no words. */
@@ -63,6 +64,16 @@ export function messageFor(
     case "rejected":
       return { tone: "error", key: rejectedKey(result.reason), values };
   }
+}
+
+/** For an entry dropped on the device because it can never be sent. */
+export function staleMessage(entry: QueueEntry): OfflineMessage {
+  const at = new Date(entry.capturedAt);
+  return {
+    tone: "error",
+    key: "offline.staleDropped",
+    values: { date: formatBrusselsShortDate(at), time: formatBrusselsTime(at) },
+  };
 }
 
 function rejectedKey(reason: string): OfflineMessageKey {

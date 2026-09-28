@@ -666,6 +666,14 @@ export const catalog = {
     shiftBadge: "offline",
     attentionDelayed: "Offline geregistreerd met vertraging",
     requestLabel: "Offline geregistreerd",
+    skewLabel: "verstuurd {value} later",
+    weeklyCount: "{count} offline registraties deze week",
+    signOutWarning:
+      "Je hebt nog {count} registraties die niet verstuurd zijn. Als je nu afmeldt, blijven ze op dit toestel tot je opnieuw aanmeldt.",
+    signOutAnyway: "Toch afmelden",
+    signOutCancel: "Annuleren",
+    staleDropped:
+      "Je registratie van {date} om {time} is te oud om nog te versturen en is verwijderd van dit toestel. Vraag een correctie aan.",
   },
   employeeHome: {
     todayHeading: "Vandaag",

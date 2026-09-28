@@ -26,6 +26,12 @@ would be recorded two hours late. The law asks for an objective, reliable system
 - Managers see offline events marked "offline" in the shift lists. A skew above 15
   minutes shows up in "Aandacht nodig".
 
+**Hardening (after review).** An offline event synced more than
+`settings.offline_max_skew_minutes` (default 240) after its captured time also becomes a
+correction request (`offline_skew`), within the 72 h cap. "Aandacht nodig" keys the
+delay item on the sync day (threshold 5 minutes) and lists employees with 3 or more
+offline events in the week; managers see the delay on each offline shift.
+
 **Consequences.** A determined employee could set their phone clock back while offline.
 Every such event is marked and shows its sync delay, and the manager can correct it. For
 orgs that want none of this, offline clocking can be switched off per organisation

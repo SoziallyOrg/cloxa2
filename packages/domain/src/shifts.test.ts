@@ -37,6 +37,7 @@ describe("deriveShifts", () => {
         overnight: false,
         edited: false,
         hasOffline: false,
+        offlineSkewMs: null,
       },
     ]);
   });
@@ -86,6 +87,7 @@ describe("deriveShifts", () => {
       overnight: false,
       edited: false,
       hasOffline: false,
+      offlineSkewMs: null,
     });
   });
 
@@ -248,5 +250,36 @@ describe("deriveShifts", () => {
     expect(online?.hasOffline).toBe(false);
     expect(offline?.hasOffline).toBe(true);
     expect(offline?.edited).toBe(false);
+  });
+
+  it("keeps the longest offline sync delay of a shift", () => {
+    const start = Date.UTC(2026, 5, 1, 9, 0);
+
+    const [shift, noServerTime] = deriveShifts([
+      makeEvent({
+        id: "1",
+        type: "clock_in",
+        occurredAt: start,
+        offline: true,
+        serverAt: start + 10 * MINUTE,
+      }),
+      makeEvent({
+        id: "2",
+        type: "clock_out",
+        occurredAt: start + HOUR,
+        offline: true,
+        serverAt: start + 3 * HOUR,
+      }),
+      makeEvent({
+        id: "3",
+        type: "clock_in",
+        occurredAt: start + 4 * HOUR,
+        offline: true,
+      }),
+    ]);
+
+    expect(shift?.offlineSkewMs).toBe(2 * HOUR);
+    expect(noServerTime?.hasOffline).toBe(true);
+    expect(noServerTime?.offlineSkewMs).toBeNull();
   });
 });

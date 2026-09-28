@@ -39,7 +39,10 @@ select ('00000000-0000-4000-8000-00000000070' || n)::uuid, 'offline-u' || n || '
 from generate_series(1, 4) as n;
 
 insert into public.organizations (id, name, settings) values
-  ('10000000-0000-4000-8000-00000000070a', 'Offline Org A', '{"location_capture": "off", "retention_years": 5}'),
+  -- The skew threshold (offline_hardening.test.sql) at its maximum, so this
+  -- file tests the other rules on their own.
+  ('10000000-0000-4000-8000-00000000070a', 'Offline Org A',
+    '{"location_capture": "off", "retention_years": 5, "offline_max_skew_minutes": 4320}'),
   ('10000000-0000-4000-8000-00000000070b', 'Offline Org B',
     '{"location_capture": "off", "retention_years": 5, "offline_clocking": false}');
 

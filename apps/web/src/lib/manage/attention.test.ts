@@ -6,6 +6,7 @@ import {
   longBreaks,
   notStartedAttention,
   offlineDelayedAttention,
+  offlineWeeklyAttention,
   pendingQuestionsAttention,
   type OpenShiftStatus,
   type ScheduledStart,
@@ -129,10 +130,10 @@ describe("offlineDelayedAttention", () => {
     serverAt: Date.parse(server),
   });
 
-  it("flags today's offline events that arrived more than 15 minutes late, once per employee", () => {
+  it("flags events synced today more than 5 minutes late, once per employee", () => {
     const result = offlineDelayedAttention(
       [
-        event("2026-09-28T08:00:00+02:00", "2026-09-28T09:00:00+02:00"),
+        event("2026-09-28T08:00:00+02:00", "2026-09-28T08:06:00+02:00"),
         event("2026-09-28T10:00:00+02:00", "2026-09-28T11:00:00+02:00"),
       ],
       now,
@@ -147,16 +148,53 @@ describe("offlineDelayedAttention", () => {
     ]);
   });
 
-  it("ignores a delay of 15 minutes or less and events of other days", () => {
+  it("flags an event dated yesterday that was synced today", () => {
+    expect(
+      offlineDelayedAttention(
+        [event("2026-09-27T16:00:00+02:00", "2026-09-28T07:00:00+02:00")],
+        now,
+      ).map((item) => item.reason),
+    ).toEqual(["offlineDelayed"]);
+  });
+
+  it("ignores a delay of 5 minutes or less and events synced on other days", () => {
     expect(
       offlineDelayedAttention(
         [
-          event("2026-09-28T08:00:00+02:00", "2026-09-28T08:15:00+02:00"),
-          event("2026-09-27T08:00:00+02:00", "2026-09-28T08:00:00+02:00", "emp-2"),
+          event("2026-09-28T08:00:00+02:00", "2026-09-28T08:05:00+02:00"),
+          event("2026-09-26T08:00:00+02:00", "2026-09-27T08:00:00+02:00", "emp-2"),
         ],
         now,
       ),
     ).toEqual([]);
+  });
+});
+
+describe("offlineWeeklyAttention", () => {
+  const event = (employeeId: string) => ({
+    employeeId,
+    employeeName: employeeId === "emp-1" ? "Jan Jansen" : "Els Maes",
+    occurredAt: 0,
+    serverAt: 0,
+  });
+
+  it("lists employees with 3 or more offline events, with the count", () => {
+    const result = offlineWeeklyAttention([
+      event("emp-1"),
+      event("emp-2"),
+      event("emp-1"),
+      event("emp-2"),
+      event("emp-1"),
+    ]);
+    expect(result).toEqual([
+      {
+        id: "offline-week-emp-1",
+        employeeId: "emp-1",
+        employeeName: "Jan Jansen",
+        reason: "offlineWeekly",
+        count: 3,
+      },
+    ]);
   });
 });
 

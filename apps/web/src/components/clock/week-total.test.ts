@@ -20,6 +20,7 @@ function shift(partial: Partial<Shift>): Shift {
     overnight: false,
     edited: false,
     hasOffline: false,
+    offlineSkewMs: null,
     ...partial,
   };
 }

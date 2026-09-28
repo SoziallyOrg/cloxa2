@@ -7,6 +7,14 @@
  * Never cached: API calls, auth, server actions, RSC payloads, other pages.
  * Everything is network-first, so a connected device always gets fresh
  * pages and code; the cache is only the fallback.
+ *
+ * XSS persistence: a script injected into /app could register or poison this
+ * worker's cache and keep running offline after the bug is fixed. Limits:
+ * the worker only caches same-origin 200 responses from the network (never
+ * anything a page writes), it is network-first so a connected device replaces
+ * a poisoned copy on the next visit, the nonce CSP (worker-src 'self') stops
+ * foreign worker scripts, and bumping CACHE drops every old cache on
+ * activate. If an XSS in /app is ever found, bump CACHE as part of the fix.
  */
 // Keep in sync with SHELL_CACHE in src/lib/offline/browser.ts (the login page
 // clears it after sign-out).
