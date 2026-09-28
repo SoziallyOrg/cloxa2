@@ -102,8 +102,11 @@ test("manager sets today's schedule block, employee sees it", async ({ browser }
   await expect(
     employeePage.getByRole("heading", { name: "Mijn rooster" }),
   ).toBeVisible();
+  // Earlier runs on other weekdays leave the same block on those days too
+  // (versions keep the previous pattern), so this week can list it more than
+  // once. Today's block is already proven by "Gepland …" on the clock screen.
   await expect(
-    employeePage.getByTestId("schedule-this-week").getByText("08:00–16:00"),
+    employeePage.getByTestId("schedule-this-week").getByText("08:00–16:00").first(),
   ).toBeVisible();
 
   expect(managerErrors).toEqual([]);
