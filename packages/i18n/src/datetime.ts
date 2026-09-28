@@ -33,6 +33,17 @@ export function formatBrusselsShortDate(date: Date): string {
     .replace(/\./g, "");
 }
 
+/** A Brussels weekday and date for page subtitles, e.g. "Maandag 28 september". */
+export function formatBrusselsLongDay(date: Date): string {
+  const text = new Intl.DateTimeFormat(LOCALE, {
+    timeZone: BRUSSELS_TIME_ZONE,
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  }).format(date);
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
 const OFFSET_PROBE_FORMATTER = new Intl.DateTimeFormat("en-US", {
   timeZone: BRUSSELS_TIME_ZONE,
   hour12: false,

@@ -10,8 +10,8 @@ import type { InviteFormInput } from "@/lib/manage/invite-form";
 import { Alert } from "../ui/Alert";
 import { Button } from "../ui/Button";
 import { Field } from "../ui/Field";
-import { Heading } from "../ui/Heading";
-import { Stack } from "../ui/Stack";
+import { GroupedList, ListCheckboxRow } from "../ui/GroupedList";
+import { Select } from "../ui/Select";
 import { TextInput } from "../ui/TextInput";
 
 export interface InviteFormSite {
@@ -96,10 +96,8 @@ export function InviteForm({
   return (
     <form
       onSubmit={(event) => void handleSubmit(event)}
-      className="flex flex-col gap-4"
+      className="flex flex-col gap-6"
     >
-      <Heading level={2}>{t("manageTeam.inviteHeading")}</Heading>
-
       {done ? (
         <Alert tone="success" onDismiss={() => setDone(false)}>
           {t("manageTeam.invited")}
@@ -149,9 +147,8 @@ export function InviteForm({
       </Field>
 
       <Field id="invite-statute" label={t("manageTeam.statuteLabel")}>
-        <select
+        <Select
           id="invite-statute"
-          className="focus-ring min-h-touch-target rounded-md border-2 border-line bg-paper px-4 text-lg text-ink"
           value={statute}
           onChange={(event) => setStatute(event.target.value)}
         >
@@ -160,46 +157,42 @@ export function InviteForm({
               {t(option.labelKey as Parameters<typeof t>[0])}
             </option>
           ))}
-        </select>
+        </Select>
       </Field>
 
       {canInvitePrivilegedRoles ? (
         <Field id="invite-role" label={t("manageTeam.roleLabel")}>
-          <select
+          <Select
             id="invite-role"
-            className="focus-ring min-h-touch-target rounded-md border-2 border-line bg-paper px-4 text-lg text-ink"
             value={role}
             onChange={(event) => setRole(event.target.value)}
           >
             <option value="employee">{t("manageTeam.roleEmployee")}</option>
             <option value="manager">{t("manageTeam.roleManager")}</option>
             <option value="admin">{t("manageTeam.roleAdmin")}</option>
-          </select>
+          </Select>
         </Field>
       ) : null}
 
       <fieldset className="flex flex-col gap-2">
-        <legend className="text-lg font-semibold">{t("manageTeam.sitesLabel")}</legend>
-        <Stack gap="sm">
+        <legend className="mb-2 text-body font-semibold">
+          {t("manageTeam.sitesLabel")}
+        </legend>
+        <GroupedList>
           {sites.map((site) => (
-            <label key={site.id} className="flex items-center gap-3 text-lg">
-              <input
-                type="checkbox"
-                className="size-6"
-                checked={siteIds.includes(site.id)}
-                onChange={() => toggleSite(site.id)}
-              />
-              {site.name}
-            </label>
+            <ListCheckboxRow
+              key={site.id}
+              title={site.name}
+              checked={siteIds.includes(site.id)}
+              onChange={() => toggleSite(site.id)}
+            />
           ))}
-        </Stack>
+        </GroupedList>
       </fieldset>
 
-      <div>
-        <Button type="submit" variant="primary" size="md" loading={submitting}>
-          {t("manageTeam.submit")}
-        </Button>
-      </div>
+      <Button type="submit" variant="primary" wide loading={submitting}>
+        {t("manageTeam.submit")}
+      </Button>
     </form>
   );
 }

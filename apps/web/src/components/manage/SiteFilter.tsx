@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 
 import { t } from "@cloxa/i18n";
 
+import { Select } from "../ui/Select";
+
 export interface SiteFilterOption {
   readonly id: string;
   readonly name: string;
@@ -14,15 +16,15 @@ export interface SiteFilterProps {
   selectedSiteId: string | null;
 }
 
-/** Only rendered by the caller when there is more than one visible site. */
+/** A quiet select; only rendered by the caller when there is more than one site. */
 export function SiteFilter({ sites, selectedSiteId }: SiteFilterProps) {
   const router = useRouter();
 
   return (
-    <label className="flex items-center gap-3 text-lg font-semibold">
+    <label className="flex items-center gap-3 text-callout text-ink-2">
       {t("manage.siteFilterLabel")}
-      <select
-        className="focus-ring min-h-touch-target rounded-md border-2 border-line bg-paper px-4 text-lg text-ink"
+      <Select
+        quiet
         value={selectedSiteId ?? ""}
         onChange={(event) => {
           const value = event.target.value;
@@ -35,7 +37,7 @@ export function SiteFilter({ sites, selectedSiteId }: SiteFilterProps) {
             {site.name}
           </option>
         ))}
-      </select>
+      </Select>
     </label>
   );
 }

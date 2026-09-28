@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { t, type CatalogKey } from "@cloxa/i18n";
@@ -9,39 +9,40 @@ import type { CopyLine } from "@/lib/manage/offboarding";
 
 import { Alert } from "../ui/Alert";
 import { Button } from "../ui/Button";
-import { Heading } from "../ui/Heading";
+import { ListButtonRow } from "../ui/GroupedList";
+import { Sheet } from "../ui/Sheet";
 
 type ActionResult = { readonly ok: boolean; readonly errorKey?: CatalogKey };
 
-export interface OffboardFormProps {
-  employeeName: string;
-  /** From `offboardConfirmLines`: what happens, in plain Dutch. */
-  lines: readonly CopyLine[];
+interface ConfirmRowProps {
+  /** The row's label, also what the sheet is about. */
+  rowTitle: string;
+  danger: boolean;
+  sheetTitle: string;
+  /** Plain-language consequences, one per line. */
+  lines: readonly string[];
+  intro?: string;
+  confirmLabel: string;
   action: () => Promise<ActionResult>;
 }
 
 /**
- * "Uit dienst" in two steps: the first button only shows what will happen;
- * nothing changes until "Ja, zet uit dienst".
+ * A grouped-list row that opens a sheet with the consequences; nothing
+ * changes until the confirm button in the sheet.
  */
-export function OffboardForm({ employeeName, lines, action }: OffboardFormProps) {
+function ConfirmRow({
+  rowTitle,
+  danger,
+  sheetTitle,
+  lines,
+  intro,
+  confirmLabel,
+  action,
+}: ConfirmRowProps) {
   const router = useRouter();
-  const [confirming, setConfirming] = useState(false);
+  const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [errorKey, setErrorKey] = useState<CatalogKey | null>(null);
-  const panelRef = useRef<HTMLElement>(null);
-  const startRef = useRef<HTMLDivElement>(null);
-  const opened = useRef(false);
-
-  // Move focus with the step, so keyboard and screen-reader users follow it.
-  useEffect(() => {
-    if (confirming) {
-      opened.current = true;
-      panelRef.current?.focus();
-    } else if (opened.current) {
-      startRef.current?.querySelector("button")?.focus();
-    }
-  }, [confirming]);
 
   async function confirm() {
     setSubmitting(true);
@@ -52,110 +53,127 @@ export function OffboardForm({ employeeName, lines, action }: OffboardFormProps)
       setErrorKey(result.errorKey ?? "manageEmployee.errorGeneric");
       return;
     }
-    setConfirming(false);
+    setOpen(false);
     router.refresh();
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      {errorKey ? (
-        <Alert tone="error" onDismiss={() => setErrorKey(null)}>
-          {t(errorKey)}
-        </Alert>
-      ) : null}
-      {confirming ? (
-        <section
-          ref={panelRef}
-          tabIndex={-1}
-          aria-label={t("manageEmployee.offboardConfirmTitle", { name: employeeName })}
-          className="focus-ring flex flex-col gap-4 rounded-lg border-2 border-danger p-4"
-        >
-          <Heading level={3}>
-            {t("manageEmployee.offboardConfirmTitle", { name: employeeName })}
-          </Heading>
-          <p className="text-lg">{t("manageEmployee.offboardConfirmIntro")}</p>
-          <ul className="flex list-disc flex-col gap-2 pl-6 text-lg">
-            {lines.map((line) => (
-              <li key={line.key}>{t(line.key, line.values)}</li>
-            ))}
-          </ul>
-          <div className="flex flex-wrap gap-3">
-            <Button
-              type="button"
-              variant="destructive"
-              size="md"
-              loading={submitting}
-              onClick={() => void confirm()}
-            >
-              {t("manageEmployee.offboardConfirm")}
-            </Button>
-            <Button
-              type="button"
-              variant="plain"
-              size="md"
-              disabled={submitting}
-              onClick={() => setConfirming(false)}
-            >
-              {t("manageEmployee.offboardCancel")}
-            </Button>
-          </div>
-        </section>
-      ) : (
-        <div ref={startRef}>
+    <ListButtonRow
+      title={rowTitle}
+      tone={danger ? "danger" : "default"}
+      aria-haspopup="dialog"
+      onClick={() => setOpen(true)}
+      sheet={
+      <Sheet
+        open={open}
+        onClose={() => {
+          setOpen(false);
+          setErrorKey(null);
+        }}
+        title={sheetTitle}
+        description={intro}
+      >
+        <ul className="flex list-disc flex-col gap-2 pl-6 text-body">
+          {lines.map((line) => (
+            <li key={line}>{line}</li>
+          ))}
+        </ul>
+        {errorKey ? <Alert tone="error">{t(errorKey)}</Alert> : null}
+        <div className="flex flex-col gap-3">
           <Button
             type="button"
-            variant="destructive"
-            size="md"
-            onClick={() => setConfirming(true)}
+            variant={danger ? "destructive" : "primary"}
+            wide
+            loading={submitting}
+            onClick={() => void confirm()}
           >
-            {t("manageEmployee.offboardButton")}
+            {confirmLabel}
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            wide
+            disabled={submitting}
+            onClick={() => setOpen(false)}
+          >
+            {t("manageEmployee.offboardCancel")}
           </Button>
         </div>
-      )}
-    </div>
+      </Sheet>
+      }
+    />
   );
 }
 
-export interface ReinstateFormProps {
+export interface OffboardRowProps {
+  employeeName: string;
+  /** From `offboardConfirmLines`: what happens, in plain Dutch. */
+  lines: readonly CopyLine[];
   action: () => Promise<ActionResult>;
 }
 
-/** "Terug in dienst": one button, the database refuses once anonymised. */
-export function ReinstateForm({ action }: ReinstateFormProps) {
-  const router = useRouter();
-  const [submitting, setSubmitting] = useState(false);
-  const [errorKey, setErrorKey] = useState<CatalogKey | null>(null);
-
-  async function reinstate() {
-    setSubmitting(true);
-    setErrorKey(null);
-    const result = await action();
-    setSubmitting(false);
-    if (!result.ok) {
-      setErrorKey(result.errorKey ?? "manageEmployee.errorGeneric");
-      return;
-    }
-    router.refresh();
-  }
-
+/** "Uit dienst": a red row; the sheet lists what happens first. */
+export function OffboardRow({ employeeName, lines, action }: OffboardRowProps) {
   return (
-    <div className="flex flex-col gap-4">
-      {errorKey ? (
-        <Alert tone="error" onDismiss={() => setErrorKey(null)}>
-          {t(errorKey)}
-        </Alert>
-      ) : null}
-      <div>
-        <Button
-          type="button"
-          variant="secondary"
-          size="md"
-          loading={submitting}
-          onClick={() => void reinstate()}
-        >
-          {t("manageEmployee.reinstateButton")}
-        </Button>
-      </div>
-    </div>
+    <ConfirmRow
+      rowTitle={t("manageEmployee.offboardButton")}
+      danger
+      sheetTitle={t("manageEmployee.offboardConfirmTitle", { name: employeeName })}
+      intro={t("manageEmployee.offboardConfirmIntro")}
+      lines={lines.map((line) => t(line.key, line.values))}
+      confirmLabel={t("manageEmployee.offboardConfirm")}
+      action={action}
+    />
+  );
+}
+
+export interface ReinstateRowProps {
+  employeeName: string;
+  action: () => Promise<ActionResult>;
+}
+
+/** "Terug in dienst": the database refuses once anonymised. */
+export function ReinstateRow({ employeeName, action }: ReinstateRowProps) {
+  return (
+    <ConfirmRow
+      rowTitle={t("manageEmployee.reinstateButton")}
+      danger={false}
+      sheetTitle={t("manageEmployee.reinstateTitle", { name: employeeName })}
+      lines={[
+        t("manageEmployee.reinstateConsequenceLogin", { name: employeeName }),
+        t("manageEmployee.reinstateNote"),
+      ]}
+      confirmLabel={t("manageEmployee.reinstateConfirm")}
+      action={action}
+    />
+  );
+}
+
+export interface SignOutEverywhereRowProps {
+  employeeId: string;
+  employeeName: string;
+  action: (formData: FormData) => Promise<void>;
+}
+
+/** Signs an employee out of every device; a sheet explains it first. */
+export function SignOutEverywhereRow({
+  employeeId,
+  employeeName,
+  action,
+}: SignOutEverywhereRowProps) {
+  return (
+    <ConfirmRow
+      rowTitle={t("manageTeam.signOutEverywhere")}
+      danger
+      sheetTitle={t("manageTeam.signOutTitle", { name: employeeName })}
+      lines={[t("manageTeam.signOutBody", { name: employeeName })]}
+      confirmLabel={t("manageTeam.signOutConfirmButton")}
+      action={async () => {
+        const formData = new FormData();
+        formData.set("employeeId", employeeId);
+        await action(formData);
+        return { ok: true };
+      }}
+    />
   );
 }

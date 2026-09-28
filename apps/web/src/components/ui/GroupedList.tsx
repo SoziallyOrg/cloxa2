@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Route } from "next";
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode } from "react";
 
 import { cx } from "./cx";
 
@@ -148,7 +148,10 @@ export function ListLinkRow({ href, download = false, ...content }: ListLinkRowP
 export interface ListButtonRowProps
   extends
     RowContentProps,
-    Omit<ButtonHTMLAttributes<HTMLButtonElement>, "className" | "title" | "value"> {}
+    Omit<ButtonHTMLAttributes<HTMLButtonElement>, "className" | "title" | "value"> {
+  /** Rendered inside the row's `<li>`, e.g. the sheet the row opens. */
+  sheet?: ReactNode;
+}
 
 /** A row that acts (opens a sheet, submits a form, picks a choice). */
 export function ListButtonRow({
@@ -158,6 +161,7 @@ export function ListButtonRow({
   chevron,
   tone,
   type = "button",
+  sheet,
   ...button
 }: ListButtonRowProps) {
   return (
@@ -171,6 +175,30 @@ export function ListButtonRow({
           tone={tone}
         />
       </button>
+      {sheet}
+    </li>
+  );
+}
+
+export interface ListCheckboxRowProps extends Omit<
+  InputHTMLAttributes<HTMLInputElement>,
+  "className" | "type" | "title"
+> {
+  title: ReactNode;
+  detail?: ReactNode;
+}
+
+/** A row that is one big label for a checkbox (e.g. a site in a form). */
+export function ListCheckboxRow({ title, detail, ...input }: ListCheckboxRowProps) {
+  return (
+    <li className={ROW_ITEM}>
+      <label className="flex min-h-row w-full cursor-pointer items-center gap-3 py-3 pr-4 group-not-first/row:border-t group-not-first/row:border-line">
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="text-body text-ink">{title}</span>
+          {detail ? <span className="text-callout text-ink-2">{detail}</span> : null}
+        </span>
+        <input {...input} type="checkbox" className="focus-ring size-6 shrink-0 accent-ink" />
+      </label>
     </li>
   );
 }

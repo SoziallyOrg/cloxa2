@@ -7,19 +7,26 @@ import {
   type ClockEventSource,
   type ClockEventType,
 } from "@cloxa/domain";
-import { formatBrusselsTime, t } from "@cloxa/i18n";
+import {
+  brusselsLocalToInstant,
+  formatBrusselsLongDay,
+  formatBrusselsShortDate,
+  formatBrusselsTime,
+  t,
+} from "@cloxa/i18n";
 
+import { formatDurationMs } from "@/components/clock/format";
 import { brusselsWeekRange } from "@/components/clock/week-total";
 import { AutoRefresh } from "@/components/manage/AutoRefresh";
 import { ManageShell } from "@/components/manage/ManageShell";
 import { SiteFilter } from "@/components/manage/SiteFilter";
 import {
-  TodayBoard,
-  type TodayBoardAttentionItem,
-  type TodayBoardPerson,
-} from "@/components/manage/TodayBoard";
-import type { StatusTone } from "@/components/ui/StatusLine";
-import { Heading } from "@/components/ui/Heading";
+  TeamTimeline,
+  type TeamTimelinePerson,
+} from "@/components/manage/TeamTimeline";
+import { GroupedList, ListLinkRow } from "@/components/ui/GroupedList";
+import { NumbersRow } from "@/components/ui/NumbersRow";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { requireManager } from "@/lib/auth/context";
 import { nowMs } from "@/lib/clock/now";
 import {
@@ -28,6 +35,15 @@ import {
   type OpenShiftStatus,
   type ScheduledStart,
 } from "@/lib/manage/attention";
+import {
+  netUntil,
+  nowPct,
+  positionPct,
+  TIMELINE_AXIS_HOURS,
+  TIMELINE_START_HOUR,
+  timelineRow,
+  timelineWindow,
+} from "@/lib/manage/timeline";
 import { createClient } from "@/lib/supabase/server";
 
 // Wide enough to still catch a shift forgotten open from the previous
@@ -40,7 +56,7 @@ export default async function ManagePage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   // Layouts don't re-run on client navigation, so every page checks too.
-  const context = await requireManager();
+  await requireManager();
   const supabase = await createClient();
   const now = nowMs();
   const todayKey = brusselsDayKey(now);
@@ -159,10 +175,14 @@ export default async function ManagePage({
     visibleEmployees.map((employee, index) => [employee.id, scheduleResults[index]!]),
   );
 
+  const dayWindow = timelineWindow(todayKey);
+  const midnight = brusselsLocalToInstant(todayKey, "00:00").getTime();
   const openShifts: OpenShiftStatus[] = [];
   const scheduledStarts: ScheduledStart[] = [];
   const clockedInEmployeeIds = new Set<string>();
-  const people: TodayBoardPerson[] = [];
+  const rows: (Omit<TeamTimelinePerson, "notes" | "fixHref"> & {
+    staleOpenSince: number | null;
+  })[] = [];
   let workingCount = 0;
   let onBreakCount = 0;
 
@@ -186,13 +206,6 @@ export default async function ManagePage({
       });
     }
 
-    let tone: StatusTone = "off";
-    let statusLabelKey:
-      | "manage.statusWorkingLabel"
-      | "manage.statusBreakLabel"
-      | "manage.statusOffLabel" = "manage.statusOffLabel";
-    let sinceLabel: string | null = null;
-
     if (last && last.open) {
       openShifts.push({
         employeeId: employee.id,
@@ -200,35 +213,61 @@ export default async function ManagePage({
         startedAt: last.start,
         openBreakStartedAt: last.openBreak ? (last.breaks.at(-1)?.start ?? null) : null,
       });
-
-      if (last.openBreak) {
-        onBreakCount += 1;
-        tone = "break";
-        statusLabelKey = "manage.statusBreakLabel";
-        const breakStart = last.breaks.at(-1)?.start ?? last.start;
-        sinceLabel = t("manage.sinceLabel", {
-          time: formatBrusselsTime(new Date(breakStart)),
-        });
-      } else {
-        workingCount += 1;
-        tone = "working";
-        statusLabelKey = "manage.statusWorkingLabel";
-        sinceLabel = t("manage.sinceLabel", {
-          time: formatBrusselsTime(new Date(last.start)),
-        });
-      }
     }
 
-    people.push({
+    // Left open since an earlier day: not work done today, so it is neither
+    // drawn nor counted as "aan het werk". It shows as a note instead.
+    const staleOpen = last !== null && last.open && last.start < midnight;
+    const drawn = shifts.filter(
+      (shift) =>
+        !(shift.open && shift.start < midnight) &&
+        shift.start < dayWindow.end &&
+        (shift.end ?? now) > dayWindow.start,
+    );
+    const workedToday = shifts.filter(
+      (shift) => brusselsDayKey(shift.start) === todayKey,
+    );
+    const netMs = workedToday.reduce((total, shift) => total + netUntil(shift, now), 0);
+    const lastToday = workedToday.at(-1);
+
+    let status: string;
+    if (last && last.open && !staleOpen && last.openBreak) {
+      onBreakCount += 1;
+      status = t("manage.statusBreakSince", {
+        time: formatBrusselsTime(new Date(last.breaks.at(-1)?.start ?? last.start)),
+      });
+    } else if (last && last.open && !staleOpen) {
+      workingCount += 1;
+      status = t("manage.sinceLabel", { time: formatBrusselsTime(new Date(last.start)) });
+    } else if (staleOpen) {
+      status = "";
+    } else if (lastToday && lastToday.end !== null) {
+      status = t("manage.statusStoppedAt", {
+        time: formatBrusselsTime(new Date(lastToday.end)),
+      });
+    } else if (firstBlock) {
+      status = t("manage.statusStartAt", {
+        time: formatBrusselsTime(new Date(firstBlock.start_at)),
+      });
+    } else {
+      status = t("manage.statusFree");
+    }
+
+    rows.push({
       id: employee.id,
       name: employee.display_name,
-      tone,
-      statusLabel: t(statusLabelKey),
-      sinceLabel,
-      offline:
-        last !== null &&
-        last.hasOffline &&
-        (last.open || brusselsDayKey(last.start) === todayKey),
+      status,
+      net: workedToday.length > 0 ? formatDurationMs(netMs) : null,
+      track: timelineRow({
+        shifts: drawn,
+        planned: scheduleToday.map((block) => ({
+          start: Date.parse(block.start_at),
+          end: Date.parse(block.end_at),
+        })),
+        now,
+        window: dayWindow,
+      }),
+      staleOpenSince: staleOpen ? last.start : null,
     });
   }
 
@@ -247,59 +286,130 @@ export default async function ManagePage({
     now,
   });
 
-  const ATTENTION_LABEL_KEY = {
-    forgotClockOut: "manage.forgotClockOut",
-    longBreak: "manage.longBreak",
-    notStarted: "manage.notStarted",
-    offlineDelayed: "offline.attentionDelayed",
-    offlineWeekly: "offline.weeklyCount",
-    pendingQuestions: "manage.pendingQuestions",
-  } as const;
+  // How late today's offline actions arrived, per person ("2 u later verstuurd").
+  const offlineLateMs = new Map<string, number>();
+  for (const event of offlineEvents) {
+    if (brusselsDayKey(event.serverAt) !== todayKey) continue;
+    offlineLateMs.set(
+      event.employeeId,
+      Math.max(event.serverAt - event.occurredAt, offlineLateMs.get(event.employeeId) ?? 0),
+    );
+  }
 
-  const attention: TodayBoardAttentionItem[] = attentionItems.map((item) => ({
-    id: item.id,
-    name: item.employeeName,
-    reason:
-      item.reason === "pendingQuestions" || item.reason === "offlineWeekly"
-        ? t(ATTENTION_LABEL_KEY[item.reason], { count: item.count ?? 0 })
-        : t(ATTENTION_LABEL_KEY[item.reason]),
-    href:
-      item.reason === "pendingQuestions"
-        ? "/manage/vragen"
-        : `/manage/medewerker/${item.employeeId}`,
-  }));
+  const yesterdayKey = brusselsDayKey(midnight - 12 * 3600 * 1000);
+  function openSinceLabel(startedAt: number): string {
+    const time = formatBrusselsTime(new Date(startedAt));
+    const day = brusselsDayKey(startedAt);
+    if (day === todayKey) return time;
+    if (day === yesterdayKey) return t("manage.yesterdayAt", { time });
+    return `${formatBrusselsShortDate(new Date(startedAt))} ${time}`;
+  }
 
-  const deviationEmployees = new Set(
-    attentionItems
-      .filter((item) => item.reason === "forgotClockOut" || item.reason === "longBreak")
-      .map((item) => item.employeeId),
-  );
+  function noteFor(item: (typeof attentionItems)[number]): string {
+    switch (item.reason) {
+      case "forgotClockOut": {
+        const open = openShifts.find((shift) => shift.employeeId === item.employeeId);
+        return t("manage.noteForgotClockOut", {
+          when: openSinceLabel(open?.startedAt ?? now),
+        });
+      }
+      case "longBreak":
+        return t("manage.noteLongBreak");
+      case "notStarted":
+        return t("manage.noteNotStarted");
+      case "offlineDelayed":
+        return t("manage.noteOfflineLate", {
+          value: formatDurationMs(offlineLateMs.get(item.employeeId) ?? 0),
+        });
+      default:
+        return t("manage.noteOfflineWeekly", { count: item.count ?? 0 });
+    }
+  }
+
+  const notesByEmployee = new Map<string, string[]>();
+  for (const item of attentionItems) {
+    // The pending requests have their own line below the timeline.
+    if (item.reason === "pendingQuestions") continue;
+    const list = notesByEmployee.get(item.employeeId) ?? [];
+    list.push(noteFor(item));
+    notesByEmployee.set(item.employeeId, list);
+  }
+
+  const people: TeamTimelinePerson[] = rows.map(({ staleOpenSince, ...row }) => {
+    const notes = notesByEmployee.get(row.id) ?? [];
+    return {
+      ...row,
+      notes,
+      fixHref: notes.length > 0 ? `/manage/medewerker/${row.id}` : null,
+      // Without its note, a stale shift's row would say nothing at all.
+      status:
+        row.status === "" && staleOpenSince !== null && notes.length === 0
+          ? t("manage.noteForgotClockOut", { when: openSinceLabel(staleOpenSince) })
+          : row.status,
+    };
+  });
+  const attentionCount = people.filter((person) => person.notes.length > 0).length;
+
+  const selectedSite = siteRows.find((site) => site.id === selectedSiteId);
+  const siteLabel =
+    selectedSite?.name ??
+    (siteRows.length > 1 ? t("manage.allSites") : (siteRows[0]?.name ?? null));
+  const subtitle = [formatBrusselsLongDay(new Date(now)), siteLabel]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
-    <ManageShell
-      active="today"
-      pendingQuestionsCount={pendingCorrectionsCount}
-      showSwitchToEmployee={context.employeeId !== null}
-    >
+    <ManageShell active="today" wide>
       <AutoRefresh />
-      <div className="flex flex-col gap-6">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <Heading level={1}>{t("manage.todayHeading")}</Heading>
-          {siteRows.length > 1 ? (
+      <PageHeader
+        title={t("manage.todayHeading")}
+        subtitle={subtitle}
+        trailing={
+          siteRows.length > 1 ? (
             <SiteFilter sites={siteRows} selectedSiteId={selectedSiteId} />
-          ) : null}
-        </div>
-        <TodayBoard
-          counters={{
-            working: workingCount,
-            onBreak: onBreakCount,
-            notStarted: notStartedCount,
-            deviations: deviationEmployees.size,
-          }}
-          people={people}
-          attention={attention}
-        />
-      </div>
+          ) : null
+        }
+      />
+      <NumbersRow
+        label={t("manage.numbersLabel")}
+        items={[
+          { key: "working", label: t("manage.counterWorking"), value: workingCount },
+          { key: "break", label: t("manage.counterBreak"), value: onBreakCount },
+          {
+            key: "notStarted",
+            label: t("manage.counterNotStarted"),
+            value: notStartedCount,
+          },
+          {
+            key: "attention",
+            label: t("manage.counterAttention"),
+            value: attentionCount,
+            attention: true,
+          },
+        ]}
+      />
+      <TeamTimeline
+        people={people}
+        axis={TIMELINE_AXIS_HOURS.map(
+          (hour) =>
+            [
+              hour,
+              positionPct(
+                dayWindow.start + (hour - TIMELINE_START_HOUR) * 3600 * 1000,
+                dayWindow,
+              ),
+            ] as const,
+        )}
+        nowPct={nowPct(now, dayWindow)}
+      />
+      {pendingCorrectionsCount > 0 ? (
+        <GroupedList>
+          <ListLinkRow
+            href="/manage/vragen"
+            title={t("manage.pendingLink", { count: pendingCorrectionsCount })}
+          />
+        </GroupedList>
+      ) : null}
     </ManageShell>
   );
 }

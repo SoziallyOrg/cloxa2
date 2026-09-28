@@ -1,5 +1,3 @@
-import Link from "next/link";
-import type { Route } from "next";
 import { notFound } from "next/navigation";
 
 import { scheduleFor } from "@cloxa/db";
@@ -13,19 +11,27 @@ import {
 } from "@cloxa/domain";
 import {
   formatBrusselsDate,
+  formatBrusselsShortDate,
   formatBrusselsTime,
   t,
   type CatalogKey,
 } from "@cloxa/i18n";
 
-import { OffboardForm, ReinstateForm } from "@/components/manage/EmploymentActions";
-import { ManageShell } from "@/components/manage/ManageShell";
 import { ShiftList } from "@/components/clock/ShiftList";
-import { PinForm } from "@/components/kiosk/PinForm";
-import { buttonClassName } from "@/components/ui/Button";
-import { Heading } from "@/components/ui/Heading";
+import {
+  OffboardRow,
+  ReinstateRow,
+  SignOutEverywhereRow,
+} from "@/components/manage/EmploymentActions";
+import { ManageShell } from "@/components/manage/ManageShell";
+import { PinRow } from "@/components/manage/PinRow";
+import { BackLink } from "@/components/ui/BackLink";
+import { GroupedList, ListLinkRow, ListRow } from "@/components/ui/GroupedList";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { StatusLine } from "@/components/ui/StatusLine";
 import { requireManager } from "@/lib/auth/context";
 import { nowMs } from "@/lib/clock/now";
+import { STATUTE_LABEL_KEY } from "@/lib/manage/labels";
 import {
   effectiveRetentionYears,
   offboardConfirmLines,
@@ -33,6 +39,7 @@ import {
 import { formatWeeklyHours } from "@/lib/schedule/hours";
 import { createClient } from "@/lib/supabase/server";
 
+import { signOutEverywhereAction } from "../../team/actions";
 import {
   offboardEmployeeAction,
   reinstateEmployeeAction,
@@ -68,10 +75,25 @@ export default async function ManageEmployeeDetailPage({
   if (employeeError) throw new Error(`employee_unavailable:${employeeError.code}`);
   if (!employee) notFound();
 
-  const { count: pendingCount } = await supabase
-    .from("correction_requests")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "pending");
+  const { data: assignmentRows, error: assignmentsError } = await supabase
+    .from("site_assignments")
+    .select("site_id")
+    .eq("employee_id", employee.id);
+  if (assignmentsError) {
+    throw new Error(`site_assignments_unavailable:${assignmentsError.code}`);
+  }
+  const { data: siteRows, error: sitesError } =
+    assignmentRows.length === 0
+      ? { data: [], error: null }
+      : await supabase
+          .from("sites")
+          .select("name")
+          .in(
+            "id",
+            assignmentRows.map((row) => row.site_id),
+          )
+          .order("name");
+  if (sitesError) throw new Error(`sites_unavailable:${sitesError.code}`);
 
   const isOrgAdmin =
     context.membership.role === "owner" || context.membership.role === "admin";
@@ -152,162 +174,163 @@ export default async function ManageEmployeeDetailPage({
     to: toKey,
   });
 
+  const name = employee.display_name;
+  const plannedMinutes = scheduleRows.reduce(
+    (total, row) => total + (Date.parse(row.end_at) - Date.parse(row.start_at)) / 60_000,
+    0,
+  );
+  const inService = employee.left_at === null && employee.anonymised_at === null;
+  const subtitle = [
+    employee.employee_code ?? t("manageEmployee.noCode"),
+    t(STATUTE_LABEL_KEY[employee.statute] ?? "manageTeam.statuteOther"),
+    siteRows.map((site) => site.name).join(", ") || null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
   return (
-    <ManageShell
-      active="team"
-      pendingQuestionsCount={pendingCount ?? 0}
-      showSwitchToEmployee={context.employeeId !== null}
-    >
-      <div className="flex flex-col gap-8">
-        <Link
-          href={"/manage/team" as Route}
-          className="focus-ring self-start font-semibold text-ink underline"
-        >
-          {t("manageEmployee.backLink")}
-        </Link>
-        <Heading level={1}>{employee.display_name}</Heading>
-        <p className="text-ink-2">
-          {employee.employee_code ?? t("manageEmployee.noCode")}
-        </p>
+    <ManageShell active="team">
+      <PageHeader
+        back={<BackLink href="/manage/team" label={t("manageTeam.heading")} />}
+        title={name}
+        subtitle={
+          <span className="flex flex-col gap-2">
+            <span>{subtitle}</span>
+            <StatusLine
+              size="sm"
+              tone={inService ? "working" : "off"}
+              label={
+                inService
+                  ? t("manageEmployee.statusInService")
+                  : t("manageTeam.statusLeft")
+              }
+            />
+          </span>
+        }
+      />
 
-        <section className="flex flex-col gap-3">
-          <Heading level={2}>{t("manageEmployee.employmentHeading")}</Heading>
-          {employee.anonymised_at ? (
-            <p className="text-lg">{t("manageEmployee.anonymised")}</p>
-          ) : employee.left_at ? (
-            <>
-              <p className="text-lg">
-                {t("manageEmployee.leftSince", {
-                  date: formatBrusselsDate(new Date(`${employee.left_at}T12:00:00Z`)),
-                })}
-              </p>
-              <p className="text-lg">{t("manageEmployee.reinstateNote")}</p>
-              <ReinstateForm action={reinstateEmployeeAction.bind(null, employee.id)} />
-            </>
-          ) : (
-            <>
-              <p className="text-lg">
-                {t("manageEmployee.inService", { name: employee.display_name })}
-              </p>
-              {canOffboard ? (
-                <OffboardForm
-                  employeeName={employee.display_name}
-                  lines={offboardConfirmLines({
-                    name: employee.display_name,
-                    hasLogin: employee.user_id !== null,
-                    hasPin: pinRow !== null,
-                    retentionYears: effectiveRetentionYears(organization?.settings),
-                  })}
-                  action={offboardEmployeeAction.bind(null, employee.id)}
-                />
-              ) : null}
-            </>
-          )}
-        </section>
+      <section className="flex flex-col gap-3">
+        <h2 className="text-headline">{t("manageEmployee.shiftsHeading")}</h2>
+        <ShiftList shifts={shifts} showOfflineSkew />
+      </section>
 
-        {isOrgAdmin ? (
-          <section className="flex flex-col gap-3">
-            <Heading level={2}>{t("manageEmployee.subjectExportHeading")}</Heading>
-            <p className="text-lg">{t("manageEmployee.subjectExportIntro")}</p>
-            <a
-              href={`/manage/medewerker/${employee.id}/inzage`}
-              download
-              className={`${buttonClassName("secondary", "md")} self-start`}
-            >
-              {t("manageEmployee.subjectExportLink")}
-            </a>
-          </section>
-        ) : null}
-
-        <section className="flex flex-col gap-3">
-          <Heading level={2}>{t("manageEmployee.shiftsHeading")}</Heading>
-          <ShiftList shifts={shifts} showOfflineSkew />
-        </section>
-
-        <section className="flex flex-col gap-3">
-          <Heading level={2}>{t("manageEmployee.correctionsHeading")}</Heading>
-          {correctionRows.length === 0 ? (
-            <p className="text-ink-2">{t("manageEmployee.noCorrections")}</p>
-          ) : (
-            <ul className="flex flex-col gap-2">
-              {correctionRows.map((row) => (
-                <li key={row.id} className="rounded-lg border border-line p-4">
-                  <p className="font-semibold">
-                    {formatBrusselsDate(new Date(row.created_at))} ·{" "}
-                    {t(STATUS_LABEL_KEY[row.status] ?? "questions.statusPending")}
-                  </p>
-                  {row.reason ? <p className="text-ink-2">{row.reason}</p> : null}
-                  {row.decision_note ? (
-                    <p className="text-ink-2">
-                      {t("questions.managerNote", { note: row.decision_note })}
-                    </p>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-
-        <section className="flex flex-col gap-3">
-          <Heading level={2}>{t("manageEmployee.scheduleHeading")}</Heading>
-          {scheduleRows.length > 0 ? (
-            <p className="font-semibold">
-              {t("manageEmployee.scheduleSummaryHours", {
-                hours: formatWeeklyHours(
-                  scheduleRows.reduce(
-                    (total, row) =>
-                      total +
-                      (Date.parse(row.end_at) - Date.parse(row.start_at)) / 60_000,
-                    0,
-                  ),
-                ),
-              })}
-            </p>
-          ) : null}
-          <Link
-            href={`/manage/medewerker/${employee.id}/rooster` as Route}
-            className={buttonClassName("secondary", "md")}
-          >
-            {t("manageEmployee.scheduleEditLink")}
-          </Link>
-          {scheduleRows.length === 0 ? (
-            <p className="text-ink-2">{t("manageEmployee.noSchedule")}</p>
-          ) : (
-            <ul className="flex flex-col gap-1">
-              {scheduleRows.map((row, index) => {
-                const range = `${formatBrusselsTime(new Date(row.start_at))}–${formatBrusselsTime(new Date(row.end_at))}`;
-                return (
-                  <li key={index} className="text-ink-2">
-                    {t("manageEmployee.scheduleRow", {
-                      date: formatBrusselsDate(new Date(row.start_at)),
-                      range,
-                    })}
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </section>
-
-        <section className="flex flex-col gap-3">
-          <Heading level={2}>{t("kiosk.pinSettingsHeading")}</Heading>
-          <p className="text-ink-2">
-            {pinRow
-              ? t("kiosk.managerPinSetAt", {
-                  date: formatBrusselsDate(new Date(pinRow.set_at)),
+      <section className="flex flex-col gap-3">
+        <h2 className="text-headline">{t("manageEmployee.scheduleHeading")}</h2>
+        <GroupedList
+          heading={t("manageEmployee.upcomingHeading")}
+          headingLevel={3}
+          footer={
+            scheduleRows.length > 0
+              ? t("manageEmployee.scheduleSummaryHours", {
+                  hours: formatWeeklyHours(plannedMinutes),
                 })
-              : t("kiosk.managerPinNone")}
-          </p>
-          <div className="max-w-md">
-            <PinForm
-              id="employee-pin"
-              submitLabel={t("kiosk.managerPinSubmit")}
-              savedMessage={t("kiosk.managerPinSaved")}
+              : t("manageEmployee.noSchedule")
+          }
+        >
+          {scheduleRows.map((row, index) => (
+            <ListRow
+              key={index}
+              title={formatBrusselsShortDate(new Date(row.start_at))}
+              value={`${formatBrusselsTime(new Date(row.start_at))}–${formatBrusselsTime(new Date(row.end_at))}`}
+            />
+          ))}
+          <ListLinkRow
+            href={`/manage/medewerker/${employee.id}/rooster`}
+            title={t("manageEmployee.scheduleEditLink")}
+          />
+        </GroupedList>
+      </section>
+
+      <section className="flex flex-col gap-3">
+        <h2 className="text-headline">{t("manageEmployee.correctionsHeading")}</h2>
+        {correctionRows.length === 0 ? (
+          <p className="text-body text-ink-2">{t("manageEmployee.noCorrections")}</p>
+        ) : (
+          <GroupedList>
+            {correctionRows.map((row) => (
+              <ListRow
+                key={row.id}
+                title={formatBrusselsDate(new Date(row.created_at))}
+                detail={[
+                  row.reason,
+                  row.decision_note
+                    ? t("questions.managerNote", { note: row.decision_note })
+                    : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+                value={t(STATUS_LABEL_KEY[row.status] ?? "questions.statusPending")}
+              />
+            ))}
+          </GroupedList>
+        )}
+      </section>
+
+      {inService || isOrgAdmin ? (
+        <GroupedList
+          heading={t("kiosk.pinSettingsHeading")}
+          footer={isOrgAdmin ? t("manageEmployee.subjectExportIntro") : undefined}
+        >
+          {inService ? (
+            <PinRow
+              employeeName={name}
+              state={
+                pinRow
+                  ? t("kiosk.managerPinSetAt", {
+                      date: formatBrusselsDate(new Date(pinRow.set_at)),
+                    })
+                  : t("kiosk.managerPinNone")
+              }
               action={setEmployeePinAction.bind(null, employee.id)}
             />
-          </div>
-        </section>
-      </div>
+          ) : null}
+          {isOrgAdmin ? (
+            <ListLinkRow
+              href={`/manage/medewerker/${employee.id}/inzage`}
+              download
+              title={t("manageEmployee.subjectExportLink")}
+            />
+          ) : null}
+        </GroupedList>
+      ) : null}
+
+      <GroupedList
+        heading={t("manageEmployee.employmentHeading")}
+        footer={
+          employee.anonymised_at
+            ? t("manageEmployee.anonymised")
+            : employee.left_at
+              ? t("manageEmployee.leftSince", {
+                  date: formatBrusselsDate(new Date(`${employee.left_at}T12:00:00Z`)),
+                })
+              : t("manageEmployee.inService", { name })
+        }
+      >
+        {inService && employee.user_id ? (
+          <SignOutEverywhereRow
+            employeeId={employee.id}
+            employeeName={name}
+            action={signOutEverywhereAction}
+          />
+        ) : null}
+        {employee.anonymised_at ? null : employee.left_at ? (
+          <ReinstateRow
+            employeeName={name}
+            action={reinstateEmployeeAction.bind(null, employee.id)}
+          />
+        ) : canOffboard ? (
+          <OffboardRow
+            employeeName={name}
+            lines={offboardConfirmLines({
+              name,
+              hasLogin: employee.user_id !== null,
+              hasPin: pinRow !== null,
+              retentionYears: effectiveRetentionYears(organization?.settings),
+            })}
+            action={offboardEmployeeAction.bind(null, employee.id)}
+          />
+        ) : null}
+      </GroupedList>
     </ManageShell>
   );
 }
