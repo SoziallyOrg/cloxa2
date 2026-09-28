@@ -331,16 +331,15 @@ test("the confirmation after clocking", async ({ page }) => {
 
   // A question sent for real (this account's list is never photographed
   // otherwise), then withdrawn again so reruns stay under the pending cap.
+  // Removing today's last clock-out always fits the sequence.
   await page.goto("/app/vragen/nieuw");
-  await button(page, "Ik vergat in te klokken").click();
+  await button(page, "Deze registratie hoort er niet bij").click();
   await button(page, "Volgende").click();
-  // A day without hours, so the added clock-in always fits.
+  await page.getByRole("button", { name: /^Vandaag, / }).click();
   await page
-    .getByRole("button", { name: /, Geen uren$/ })
+    .getByRole("button", { name: /^Gestopt met werken om / })
     .last()
     .click();
-  await button(page, "Begonnen met werken").click();
-  await page.getByLabel("Tijdstip").fill("08:00");
   await button(page, "Volgende").click();
   await page.getByLabel(/^Reden/).fill(REASON);
   await button(page, "Versturen").click();
