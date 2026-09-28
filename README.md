@@ -18,9 +18,16 @@ architecture, security and legal notes.
 
 ```sh
 pnpm install
-cp apps/web/.env.example apps/web/.env.local   # fill in local Supabase values
-pnpm db:start
-pnpm dev
+pnpm db:start                              # needs Docker Desktop running
+pnpm --filter @cloxa/web setup:env         # writes apps/web/.env.local (local only)
+pnpm --filter @cloxa/web dev:seed          # fictional demo org and accounts
+pnpm dev                                   # http://localhost:3000/login
+```
+
+Login codes arrive in the local Mailpit inbox: http://127.0.0.1:54324
+
+```sh
+
 ```
 
 ## Common commands
