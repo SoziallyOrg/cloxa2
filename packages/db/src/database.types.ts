@@ -88,6 +88,7 @@ export type Database = {
           id: string;
           idempotency_key: string;
           occurred_at: string;
+          offline: boolean;
           organization_id: string;
           prev_hash: string;
           server_at: string;
@@ -107,6 +108,7 @@ export type Database = {
           id?: string;
           idempotency_key: string;
           occurred_at: string;
+          offline?: boolean;
           organization_id: string;
           prev_hash: string;
           server_at?: string;
@@ -126,6 +128,7 @@ export type Database = {
           id?: string;
           idempotency_key?: string;
           occurred_at?: string;
+          offline?: boolean;
           organization_id?: string;
           prev_hash?: string;
           server_at?: string;
@@ -173,7 +176,10 @@ export type Database = {
           decision_note: string | null;
           employee_id: string;
           id: string;
+          idempotency_key: string | null;
           kind: string;
+          offline: boolean;
+          offline_reason: string | null;
           organization_id: string;
           proposed: Json;
           reason: string;
@@ -188,7 +194,10 @@ export type Database = {
           decision_note?: string | null;
           employee_id: string;
           id?: string;
+          idempotency_key?: string | null;
           kind: string;
+          offline?: boolean;
+          offline_reason?: string | null;
           organization_id: string;
           proposed?: Json;
           reason: string;
@@ -203,7 +212,10 @@ export type Database = {
           decision_note?: string | null;
           employee_id?: string;
           id?: string;
+          idempotency_key?: string | null;
           kind?: string;
+          offline?: boolean;
+          offline_reason?: string | null;
           organization_id?: string;
           proposed?: Json;
           reason?: string;
@@ -768,6 +780,7 @@ export type Database = {
           id: string;
           idempotency_key: string;
           occurred_at: string;
+          offline: boolean;
           organization_id: string;
           prev_hash: string;
           server_at: string;
@@ -782,6 +795,20 @@ export type Database = {
           isOneToOne: true;
           isSetofReturn: false;
         };
+      };
+      rpc_clock_offline: {
+        Args: {
+          p_client_captured_at: string;
+          p_idempotency_key: string;
+          p_site_id: string;
+          p_type: string;
+        };
+        Returns: {
+          correction_id: string;
+          event_id: string;
+          outcome: string;
+          reason: string;
+        }[];
       };
       rpc_create_export: {
         Args: {
@@ -805,7 +832,10 @@ export type Database = {
           decision_note: string | null;
           employee_id: string;
           id: string;
+          idempotency_key: string | null;
           kind: string;
+          offline: boolean;
+          offline_reason: string | null;
           organization_id: string;
           proposed: Json;
           reason: string;
@@ -963,7 +993,10 @@ export type Database = {
           decision_note: string | null;
           employee_id: string;
           id: string;
+          idempotency_key: string | null;
           kind: string;
+          offline: boolean;
+          offline_reason: string | null;
           organization_id: string;
           proposed: Json;
           reason: string;
@@ -1032,7 +1065,10 @@ export type Database = {
           decision_note: string | null;
           employee_id: string;
           id: string;
+          idempotency_key: string | null;
           kind: string;
+          offline: boolean;
+          offline_reason: string | null;
           organization_id: string;
           proposed: Json;
           reason: string;

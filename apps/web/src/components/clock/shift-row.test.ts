@@ -16,6 +16,7 @@ function shift(overrides: Partial<Shift> = {}): Shift {
     openBreak: false,
     overnight: false,
     edited: false,
+    hasOffline: false,
     ...overrides,
   };
 }
@@ -28,6 +29,7 @@ describe("formatShiftRow", () => {
       pause: "30 min",
       net: "4 u",
       edited: false,
+      offline: false,
     });
   });
 
@@ -38,5 +40,9 @@ describe("formatShiftRow", () => {
 
   it("carries the edited flag through", () => {
     expect(formatShiftRow(shift({ edited: true })).edited).toBe(true);
+  });
+
+  it("carries the offline flag through", () => {
+    expect(formatShiftRow(shift({ hasOffline: true })).offline).toBe(true);
   });
 });

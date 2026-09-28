@@ -19,6 +19,7 @@ function shift(partial: Partial<Shift>): Shift {
     openBreak: false,
     overnight: false,
     edited: false,
+    hasOffline: false,
     ...partial,
   };
 }

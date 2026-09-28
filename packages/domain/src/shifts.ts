@@ -33,12 +33,15 @@ export interface Shift {
   readonly overnight: boolean;
   /** Any event in this shift has source "correction". */
   readonly edited: boolean;
+  /** Any event in this shift was queued offline and synced later. */
+  readonly hasOffline: boolean;
 }
 
 interface OpenShift {
   start: number;
   breaks: { start: number; end: number | null }[];
   edited: boolean;
+  hasOffline: boolean;
   cursor: number;
 }
 
@@ -48,6 +51,7 @@ export function deriveShifts(events: readonly ClockEvent[]): Shift[] {
 
   for (const event of events) {
     const edited = event.source === "correction";
+    const offline = event.offline === true;
 
     switch (event.type) {
       case "clock_in": {
@@ -55,6 +59,7 @@ export function deriveShifts(events: readonly ClockEvent[]): Shift[] {
           start: event.occurredAt,
           breaks: [],
           edited,
+          hasOffline: offline,
           cursor: event.occurredAt,
         };
         break;
@@ -63,6 +68,7 @@ export function deriveShifts(events: readonly ClockEvent[]): Shift[] {
         if (open === null) break; // invalid sequence: caller validates separately.
         open.breaks.push({ start: event.occurredAt, end: null });
         open.edited = open.edited || edited;
+        open.hasOffline = open.hasOffline || offline;
         open.cursor = event.occurredAt;
         break;
       }
@@ -73,12 +79,14 @@ export function deriveShifts(events: readonly ClockEvent[]): Shift[] {
           lastBreak.end = event.occurredAt;
         }
         open.edited = open.edited || edited;
+        open.hasOffline = open.hasOffline || offline;
         open.cursor = event.occurredAt;
         break;
       }
       case "clock_out": {
         if (open === null) break;
         open.edited = open.edited || edited;
+        open.hasOffline = open.hasOffline || offline;
         open.cursor = event.occurredAt;
         shifts.push(finalizeShift(open, event.occurredAt));
         open = null;
@@ -117,5 +125,6 @@ function finalizeShift(open: OpenShift, end: number | null): Shift {
     openBreak: open.breaks.some((brk) => brk.end === null),
     overnight: brusselsDayKey(open.start) !== brusselsDayKey(referenceEnd),
     edited: open.edited,
+    hasOffline: open.hasOffline,
   };
 }

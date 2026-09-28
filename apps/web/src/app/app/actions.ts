@@ -4,11 +4,18 @@ import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
-import { clock, type ClockInput } from "@cloxa/db";
+import {
+  clock,
+  clockOffline,
+  type ClockInput,
+  type ClockOfflineInput,
+} from "@cloxa/db";
 
 import { requireEmployeeArea } from "@/lib/auth/context";
 import { mapClockError, type ClockErrorKey } from "@/lib/clock/errors";
 import { setChosenSiteId } from "@/lib/clock/site-cookie";
+import { outcomeFromError, outcomeFromResult } from "@/lib/offline/outcome";
+import type { SyncOutcome } from "@/lib/offline/queue";
 import { createClient } from "@/lib/supabase/server";
 
 export interface ClockActionResult {
@@ -33,6 +40,26 @@ export async function clockAction(input: ClockInput): Promise<ClockActionResult>
   // the old one after the confirmation (a separate client refresh could race).
   refresh();
   return { ok: true };
+}
+
+/**
+ * Syncs one queued offline clock action (ADR 006). Like `clockAction`, it
+ * never throws: the queue keeps the entry on `retry` and drops it otherwise.
+ */
+export async function syncOfflineClockAction(
+  input: ClockOfflineInput,
+): Promise<SyncOutcome> {
+  await requireEmployeeArea();
+  const supabase = await createClient();
+  let outcome: SyncOutcome;
+  try {
+    outcome = outcomeFromResult(await clockOffline(supabase, input));
+  } catch (error) {
+    return outcomeFromError(error);
+  }
+  // A recorded event or a new request changes what the screen shows.
+  if (outcome.outcome !== "rejected") refresh();
+  return outcome;
 }
 
 const siteIdSchema = z.uuid();

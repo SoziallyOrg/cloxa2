@@ -20,4 +20,9 @@ export interface ClockEvent {
   /** The event this one replaces. That event stops being effective. */
   readonly supersedesEventId?: string;
   readonly correctionId?: string;
+  /**
+   * Queued on the device while offline (ADR 006): occurredAt is the captured
+   * device time, recorded later. Absent means false.
+   */
+  readonly offline?: boolean;
 }

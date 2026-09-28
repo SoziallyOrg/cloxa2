@@ -8,9 +8,10 @@ import { brusselsDayKey } from "@cloxa/domain";
 const FORGOT_CLOCK_OUT_MS = 12 * 3600 * 1000;
 const LONG_BREAK_MS = 60 * 60 * 1000;
 const NOT_STARTED_GRACE_MS = 15 * 60 * 1000;
+const OFFLINE_DELAY_MS = 15 * 60 * 1000;
 
 export type AttentionReason =
-  "forgotClockOut" | "longBreak" | "notStarted" | "pendingQuestions";
+  "forgotClockOut" | "longBreak" | "notStarted" | "offlineDelayed" | "pendingQuestions";
 
 export interface AttentionItem {
   readonly id: string;
@@ -95,6 +96,45 @@ export function notStartedAttention(
     }));
 }
 
+export interface OfflineEvent {
+  readonly employeeId: string;
+  readonly employeeName: string;
+  /** Epoch ms the fact refers to (the captured device time). */
+  readonly occurredAt: number;
+  /** Epoch ms the server received it. */
+  readonly serverAt: number;
+}
+
+/**
+ * Offline events of today (Brussels) that reached the server more than 15
+ * minutes after they happened (ADR 006). One item per employee.
+ */
+export function offlineDelayedAttention(
+  events: readonly OfflineEvent[],
+  now: number,
+): AttentionItem[] {
+  const today = brusselsDayKey(now);
+  const seen = new Set<string>();
+  const items: AttentionItem[] = [];
+  for (const event of events) {
+    if (
+      seen.has(event.employeeId) ||
+      brusselsDayKey(event.occurredAt) !== today ||
+      event.serverAt - event.occurredAt <= OFFLINE_DELAY_MS
+    ) {
+      continue;
+    }
+    seen.add(event.employeeId);
+    items.push({
+      id: `offline-${event.employeeId}`,
+      employeeId: event.employeeId,
+      employeeName: event.employeeName,
+      reason: "offlineDelayed",
+    });
+  }
+  return items;
+}
+
 /** One summary item for the pending correction requests, when there are any. */
 export function pendingQuestionsAttention(count: number): AttentionItem[] {
   if (count <= 0) return [];
@@ -113,6 +153,7 @@ export interface BuildAttentionInput {
   readonly openShifts: readonly OpenShiftStatus[];
   readonly scheduledStarts: readonly ScheduledStart[];
   readonly clockedInEmployeeIds: ReadonlySet<string>;
+  readonly offlineEvents: readonly OfflineEvent[];
   readonly pendingCorrectionsCount: number;
   readonly now: number;
 }
@@ -127,6 +168,7 @@ export function buildAttention(input: BuildAttentionInput): AttentionItem[] {
       input.clockedInEmployeeIds,
       input.now,
     ),
+    ...offlineDelayedAttention(input.offlineEvents, input.now),
     ...pendingQuestionsAttention(input.pendingCorrectionsCount),
   ];
 }

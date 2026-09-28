@@ -43,6 +43,7 @@ interface CorrectionRow {
   id: string;
   employee_id: string;
   kind: string;
+  offline: boolean;
   status: string;
   target_event_ids: string[];
   proposed: unknown;
@@ -90,14 +91,14 @@ export default async function ManageVragenPage({
       ? await supabase
           .from("correction_requests")
           .select(
-            "id, employee_id, kind, status, target_event_ids, proposed, reason, decision_note, created_at",
+            "id, employee_id, kind, status, target_event_ids, proposed, reason, decision_note, created_at, offline",
           )
           .eq("status", "pending")
           .order("created_at", { ascending: true })
       : await supabase
           .from("correction_requests")
           .select(
-            "id, employee_id, kind, status, target_event_ids, proposed, reason, decision_note, created_at",
+            "id, employee_id, kind, status, target_event_ids, proposed, reason, decision_note, created_at, offline",
           )
           .in("status", ["approved", "rejected"])
           .order("decided_at", { ascending: false })
@@ -246,7 +247,12 @@ export default async function ManageVragenPage({
                   id={request.id}
                   employeeName={employeeNames.get(request.employee_id) ?? "?"}
                   dateLabel={formatBrusselsDate(new Date(anchorMs))}
-                  kindLabel={t(KIND_LABEL_KEY[request.kind] ?? "manageVragen.kindAdd")}
+                  kindLabel={
+                    // Queued offline and did not fit: say so, not "vergeten".
+                    request.offline
+                      ? t("offline.requestLabel")
+                      : t(KIND_LABEL_KEY[request.kind] ?? "manageVragen.kindAdd")
+                  }
                   changes={changes}
                   resultingShiftLabel={resultingShiftLabel}
                   reason={request.reason}

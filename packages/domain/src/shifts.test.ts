@@ -36,6 +36,7 @@ describe("deriveShifts", () => {
         openBreak: false,
         overnight: false,
         edited: false,
+        hasOffline: false,
       },
     ]);
   });
@@ -84,6 +85,7 @@ describe("deriveShifts", () => {
       openBreak: false,
       overnight: false,
       edited: false,
+      hasOffline: false,
     });
   });
 
@@ -227,5 +229,24 @@ describe("deriveShifts", () => {
       makeEvent({ id: "1", type: "clock_out", occurredAt: Date.UTC(2026, 5, 1, 9, 0) }),
     ]);
     expect(shifts).toEqual([]);
+  });
+  it("flags a shift that contains an offline event", () => {
+    const start = Date.UTC(2026, 5, 1, 9, 0);
+
+    const [online, offline] = deriveShifts([
+      makeEvent({ id: "1", type: "clock_in", occurredAt: start }),
+      makeEvent({ id: "2", type: "clock_out", occurredAt: start + HOUR }),
+      makeEvent({ id: "3", type: "clock_in", occurredAt: start + 2 * HOUR }),
+      makeEvent({
+        id: "4",
+        type: "break_start",
+        occurredAt: start + 3 * HOUR,
+        offline: true,
+      }),
+    ]);
+
+    expect(online?.hasOffline).toBe(false);
+    expect(offline?.hasOffline).toBe(true);
+    expect(offline?.edited).toBe(false);
   });
 });

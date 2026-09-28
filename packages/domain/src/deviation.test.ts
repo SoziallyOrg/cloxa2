@@ -18,6 +18,7 @@ function shift(
     openBreak: false,
     overnight: false,
     edited: false,
+    hasOffline: false,
     ...overrides,
   };
 }

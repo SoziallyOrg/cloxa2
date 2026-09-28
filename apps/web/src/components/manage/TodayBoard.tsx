@@ -20,6 +20,8 @@ export interface TodayBoardPerson {
   readonly statusLabel: string;
   /** Already-formatted time, e.g. "sinds 08:02", or `null` when off all day. */
   readonly sinceLabel: string | null;
+  /** Today's shift contains an event queued offline and synced later. */
+  readonly offline?: boolean;
 }
 
 export interface TodayBoardAttentionItem {
@@ -33,6 +35,14 @@ export interface TodayBoardProps {
   counters: TodayBoardCounters;
   people: readonly TodayBoardPerson[];
   attention: readonly TodayBoardAttentionItem[];
+}
+
+function OfflineBadge() {
+  return (
+    <span className="rounded-md bg-status-off-bg px-2 py-1 text-base font-semibold text-status-off">
+      {t("offline.shiftBadge")}
+    </span>
+  );
 }
 
 function Counter({ label, value }: { label: string; value: number }) {
@@ -106,7 +116,15 @@ export function TodayBoard({ counters, people, attention }: TodayBoardProps) {
                     <td className="py-3">
                       <StatusBadge tone={person.tone} label={person.statusLabel} />
                     </td>
-                    <td className="py-3 text-ink/70">{person.sinceLabel}</td>
+                    <td className="py-3 text-ink/70">
+                      {person.sinceLabel}
+                      {person.offline ? (
+                        <>
+                          {" "}
+                          <OfflineBadge />
+                        </>
+                      ) : null}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -123,6 +141,11 @@ export function TodayBoard({ counters, people, attention }: TodayBoardProps) {
                   <StatusBadge tone={person.tone} label={person.statusLabel} />
                   {person.sinceLabel ? (
                     <span className="text-ink/70">{person.sinceLabel}</span>
+                  ) : null}
+                  {person.offline ? (
+                    <span>
+                      <OfflineBadge />
+                    </span>
                   ) : null}
                 </li>
               ))}

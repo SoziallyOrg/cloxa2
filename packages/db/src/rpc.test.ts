@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   authAttempt,
   authLinkFailure,
+  clockOffline,
   inviteMember,
   kioskClock,
   kioskPair,
@@ -529,5 +530,81 @@ describe("kiosk RPCs", () => {
     expect(calls).toEqual([
       { fn: "rpc_set_employee_pin", args: { p_employee_id: ID_A, p_pin: "1234" } },
     ]);
+  });
+});
+
+describe("clockOffline", () => {
+  const input = {
+    type: "clock_in" as const,
+    idempotencyKey: ID_A,
+    siteId: ID_B,
+    capturedAt: "2026-09-28T06:02:00.000Z",
+  };
+
+  it("sends the captured time and maps a recorded event", async () => {
+    const { client, calls } = fakeClient({
+      data: [
+        { outcome: "recorded", event_id: ID_B, correction_id: null, reason: null },
+      ],
+      error: null,
+    });
+    await expect(clockOffline(client, input)).resolves.toEqual({
+      outcome: "recorded",
+      eventId: ID_B,
+    });
+    expect(calls).toEqual([
+      {
+        fn: "rpc_clock_offline",
+        args: {
+          p_type: "clock_in",
+          p_idempotency_key: ID_A,
+          p_site_id: ID_B,
+          p_client_captured_at: "2026-09-28T06:02:00.000Z",
+        },
+      },
+    ]);
+  });
+
+  it("returns a correction request and a refusal as values", async () => {
+    const requested = fakeClient({
+      data: [
+        {
+          outcome: "correction_requested",
+          event_id: null,
+          correction_id: ID_B,
+          reason: "later_event_exists",
+        },
+      ],
+      error: null,
+    });
+    await expect(clockOffline(requested.client, input)).resolves.toEqual({
+      outcome: "correction_requested",
+      correctionId: ID_B,
+      reason: "later_event_exists",
+    });
+
+    const rejected = fakeClient({
+      data: [
+        {
+          outcome: "rejected",
+          event_id: null,
+          correction_id: null,
+          reason: "offline_disabled",
+        },
+      ],
+      error: null,
+    });
+    await expect(clockOffline(rejected.client, input)).resolves.toEqual({
+      outcome: "rejected",
+      reason: "offline_disabled",
+    });
+  });
+
+  it("rejects a local time before calling", async () => {
+    const { client, calls } = fakeClient({ data: [], error: null });
+    await expect(
+      clockOffline(client, { ...input, capturedAt: "2026-09-28T08:02:00" }),
+    ).rejects.toThrow();
+    expect(calls).toEqual([]);
   });
 });

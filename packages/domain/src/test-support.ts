@@ -10,6 +10,7 @@ export function makeEvent(overrides: {
   source?: ClockEventSource;
   supersedesEventId?: string;
   correctionId?: string;
+  offline?: boolean;
 }): ClockEvent {
   const event: ClockEvent = {
     id: overrides.id,
@@ -28,5 +29,6 @@ export function makeEvent(overrides: {
     ...(overrides.correctionId !== undefined
       ? { correctionId: overrides.correctionId }
       : {}),
+    ...(overrides.offline !== undefined ? { offline: overrides.offline } : {}),
   };
 }

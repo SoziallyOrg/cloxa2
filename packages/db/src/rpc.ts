@@ -109,6 +109,76 @@ export async function myStatus(client: CloxaClient): Promise<Returns<"rpc_my_sta
   return unwrap("rpc_my_status", await client.rpc("rpc_my_status"));
 }
 
+// Offline clocking (ADR 006) ---------------------------------------------------------------
+
+export const clockOfflineInput = z.strictObject({
+  type: liveClockType,
+  idempotencyKey: uuid,
+  siteId: uuid,
+  capturedAt: instant,
+});
+export type ClockOfflineInput = z.input<typeof clockOfflineInput>;
+
+export type ClockOfflineResult =
+  | { outcome: "recorded"; eventId: string }
+  | {
+      outcome: "correction_requested";
+      correctionId: string;
+      /** outside_window, later_event_exists, invalid_transition or site_not_assigned. */
+      reason: string | null;
+    }
+  | {
+      outcome: "rejected";
+      /** offline_disabled, captured_in_future, captured_too_old, site_inactive, time_conflict or too_many_pending. */
+      reason: string;
+    };
+
+/** The row with the SQL nulls the generated types leave out. */
+interface ClockOfflineRow {
+  outcome: string;
+  event_id: string | null;
+  correction_id: string | null;
+  reason: string | null;
+}
+
+/**
+ * Syncs one queued clock action. Outcomes are values; bad input, foreign
+ * sites and a reused key still throw an RpcError.
+ */
+export async function clockOffline(
+  client: CloxaClient,
+  input: ClockOfflineInput,
+): Promise<ClockOfflineResult> {
+  const parsed = clockOfflineInput.parse(input);
+  const rows: readonly ClockOfflineRow[] = unwrap(
+    "rpc_clock_offline",
+    await client.rpc("rpc_clock_offline", {
+      p_type: parsed.type,
+      p_idempotency_key: parsed.idempotencyKey,
+      p_site_id: parsed.siteId,
+      p_client_captured_at: parsed.capturedAt,
+    }),
+  );
+  const row = first("rpc_clock_offline", rows);
+  if (row.outcome === "recorded" && row.event_id) {
+    return { outcome: "recorded", eventId: row.event_id };
+  }
+  if (row.outcome === "correction_requested" && row.correction_id) {
+    return {
+      outcome: "correction_requested",
+      correctionId: row.correction_id,
+      reason: row.reason,
+    };
+  }
+  if (row.outcome === "rejected") {
+    return { outcome: "rejected", reason: row.reason ?? "rejected" };
+  }
+  throw new RpcError("rpc_clock_offline", {
+    message: "unexpected_outcome",
+    code: "PGRST",
+  });
+}
+
 export const verifyChainsInput = z.strictObject({ organizationId: uuid });
 export type VerifyChainsInput = z.input<typeof verifyChainsInput>;
 

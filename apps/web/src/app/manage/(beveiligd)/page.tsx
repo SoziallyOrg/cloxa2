@@ -23,6 +23,7 @@ import { requireManager } from "@/lib/auth/context";
 import { nowMs } from "@/lib/clock/now";
 import {
   buildAttention,
+  type OfflineEvent,
   type OpenShiftStatus,
   type ScheduledStart,
 } from "@/lib/manage/attention";
@@ -98,15 +99,27 @@ export default async function ManagePage({
       : await supabase
           .from("clock_events")
           .select(
-            "id, type, occurred_at, employee_id, site_id, source, supersedes_event_id, correction_id",
+            "id, type, occurred_at, employee_id, site_id, source, supersedes_event_id, correction_id, offline, server_at",
           )
           .in("employee_id", employeeIds)
           .gte("occurred_at", new Date(now - EVENTS_LOOKBACK_MS).toISOString())
           .order("occurred_at");
   if (eventsError) throw new Error(`clock_events_unavailable:${eventsError.code}`);
 
+  const employeeNames = new Map(
+    visibleEmployees.map((employee) => [employee.id, employee.display_name]),
+  );
   const eventsByEmployee = new Map<string, ClockEvent[]>();
+  const offlineEvents: OfflineEvent[] = [];
   for (const row of eventRows) {
+    if (row.offline) {
+      offlineEvents.push({
+        employeeId: row.employee_id,
+        employeeName: employeeNames.get(row.employee_id) ?? "",
+        occurredAt: Date.parse(row.occurred_at),
+        serverAt: Date.parse(row.server_at),
+      });
+    }
     const event: ClockEvent = {
       id: row.id,
       type: row.type as ClockEventType,
@@ -118,6 +131,7 @@ export default async function ManagePage({
         ? { supersedesEventId: row.supersedes_event_id }
         : {}),
       ...(row.correction_id ? { correctionId: row.correction_id } : {}),
+      ...(row.offline ? { offline: true } : {}),
     };
     const list = eventsByEmployee.get(row.employee_id) ?? [];
     list.push(event);
@@ -199,6 +213,10 @@ export default async function ManagePage({
       tone,
       statusLabel: t(statusLabelKey),
       sinceLabel,
+      offline:
+        last !== null &&
+        last.hasOffline &&
+        (last.open || brusselsDayKey(last.start) === todayKey),
     });
   }
 
@@ -212,6 +230,7 @@ export default async function ManagePage({
     openShifts,
     scheduledStarts,
     clockedInEmployeeIds,
+    offlineEvents,
     pendingCorrectionsCount,
     now,
   });
@@ -220,6 +239,7 @@ export default async function ManagePage({
     forgotClockOut: "manage.forgotClockOut",
     longBreak: "manage.longBreak",
     notStarted: "manage.notStarted",
+    offlineDelayed: "offline.attentionDelayed",
     pendingQuestions: "manage.pendingQuestions",
   } as const;
 

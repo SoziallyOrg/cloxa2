@@ -4,6 +4,7 @@ import { t } from "@cloxa/i18n";
 
 import { AuthShell } from "@/components/auth/AuthShell";
 import { LoginForm } from "@/components/auth/LoginForm";
+import { ClearShellCache } from "@/components/offline/ShellWorker";
 import { getAuthContext } from "@/lib/auth/context";
 import { safeNextPath } from "@/lib/auth/redirects";
 import { turnstileSiteKey } from "@/lib/auth/turnstile";
@@ -22,6 +23,7 @@ export default async function LoginPage({
 
   return (
     <AuthShell title={t("login.title")}>
+      <ClearShellCache />
       {linkFailed ? (
         <p role="alert" className="text-lg font-semibold text-status-error">
           {t("login.linkInvalid")}

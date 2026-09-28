@@ -158,6 +158,7 @@ select is(
     'private.export_scope_ok(uuid,uuid[])',
     'private.is_privileged(uuid)',
     'rpc_accept_membership()',
+    'rpc_clock_offline(text,uuid,uuid,timestamp with time zone)',
     'rpc_clock(text,uuid,uuid,timestamp with time zone)',
     'rpc_create_export(uuid,date,date,uuid[],integer,text,bytea,text)',
     'rpc_decide_correction(uuid,text,text)',

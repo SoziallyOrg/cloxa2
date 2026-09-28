@@ -29,6 +29,7 @@ export const FAKE_TODAY_SHIFTS: readonly Shift[] = [
     openBreak: false,
     overnight: false,
     edited: false,
+    hasOffline: false,
   },
 ];
 
@@ -49,6 +50,7 @@ export const FAKE_PAST_SHIFTS: readonly Shift[] = [
     openBreak: false,
     overnight: false,
     edited: true,
+    hasOffline: true,
   },
 ];
 

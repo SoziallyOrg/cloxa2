@@ -13,7 +13,7 @@ export interface ShiftListProps {
   correctionHref?: (shift: Shift, index: number) => string;
 }
 
-/** Day rows: date, start-end, pause, net, and an "aangepast" badge when edited. */
+/** Day rows: date, start-end, pause, net, and "aangepast" / "offline" badges. */
 export function ShiftList({ shifts, correctionHref }: ShiftListProps) {
   if (shifts.length === 0) {
     return <EmptyState title={t("shifts.emptyTitle")} body={t("shifts.emptyBody")} />;
@@ -43,6 +43,11 @@ export function ShiftList({ shifts, correctionHref }: ShiftListProps) {
               {row.edited ? (
                 <span className="rounded-md bg-status-off-bg px-2 py-1 text-base font-semibold text-status-off">
                   {t("shifts.edited")}
+                </span>
+              ) : null}
+              {row.offline ? (
+                <span className="rounded-md bg-status-off-bg px-2 py-1 text-base font-semibold text-status-off">
+                  {t("offline.shiftBadge")}
                 </span>
               ) : null}
               {correctionHref ? (

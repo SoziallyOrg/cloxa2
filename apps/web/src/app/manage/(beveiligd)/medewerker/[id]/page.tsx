@@ -70,7 +70,7 @@ export default async function ManageEmployeeDetailPage({
   const { data: eventRows, error: eventsError } = await supabase
     .from("clock_events")
     .select(
-      "id, type, occurred_at, employee_id, site_id, source, supersedes_event_id, correction_id",
+      "id, type, occurred_at, employee_id, site_id, source, supersedes_event_id, correction_id, offline",
     )
     .eq("employee_id", employee.id)
     .gte("occurred_at", new Date(windowStart - FETCH_BUFFER_MS).toISOString())
@@ -86,6 +86,7 @@ export default async function ManageEmployeeDetailPage({
     source: row.source as ClockEventSource,
     ...(row.supersedes_event_id ? { supersedesEventId: row.supersedes_event_id } : {}),
     ...(row.correction_id ? { correctionId: row.correction_id } : {}),
+    ...(row.offline ? { offline: true } : {}),
   }));
   const shifts = deriveShifts(effectiveEvents(events))
     .filter((shift) => shift.start >= windowStart)

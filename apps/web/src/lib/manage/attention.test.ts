@@ -5,6 +5,7 @@ import {
   forgottenClockOuts,
   longBreaks,
   notStartedAttention,
+  offlineDelayedAttention,
   pendingQuestionsAttention,
   type OpenShiftStatus,
   type ScheduledStart,
@@ -119,6 +120,46 @@ describe("pendingQuestionsAttention", () => {
   });
 });
 
+describe("offlineDelayedAttention", () => {
+  const now = Date.parse("2026-09-28T12:00:00+02:00");
+  const event = (occurred: string, server: string, employeeId = "emp-1") => ({
+    employeeId,
+    employeeName: "Jan Jansen",
+    occurredAt: Date.parse(occurred),
+    serverAt: Date.parse(server),
+  });
+
+  it("flags today's offline events that arrived more than 15 minutes late, once per employee", () => {
+    const result = offlineDelayedAttention(
+      [
+        event("2026-09-28T08:00:00+02:00", "2026-09-28T09:00:00+02:00"),
+        event("2026-09-28T10:00:00+02:00", "2026-09-28T11:00:00+02:00"),
+      ],
+      now,
+    );
+    expect(result).toEqual([
+      {
+        id: "offline-emp-1",
+        employeeId: "emp-1",
+        employeeName: "Jan Jansen",
+        reason: "offlineDelayed",
+      },
+    ]);
+  });
+
+  it("ignores a delay of 15 minutes or less and events of other days", () => {
+    expect(
+      offlineDelayedAttention(
+        [
+          event("2026-09-28T08:00:00+02:00", "2026-09-28T08:15:00+02:00"),
+          event("2026-09-27T08:00:00+02:00", "2026-09-28T08:00:00+02:00", "emp-2"),
+        ],
+        now,
+      ),
+    ).toEqual([]);
+  });
+});
+
 describe("buildAttention", () => {
   it("combines every rule in a stable order", () => {
     const now = Date.parse("2026-09-28T20:01:00+02:00");
@@ -126,11 +167,20 @@ describe("buildAttention", () => {
       openShifts: [shift({ startedAt: Date.parse("2026-09-28T08:00:00+02:00") })],
       scheduledStarts: [],
       clockedInEmployeeIds: new Set(),
+      offlineEvents: [
+        {
+          employeeId: "emp-2",
+          employeeName: "Els Maes",
+          occurredAt: Date.parse("2026-09-28T09:00:00+02:00"),
+          serverAt: Date.parse("2026-09-28T10:00:00+02:00"),
+        },
+      ],
       pendingCorrectionsCount: 2,
       now,
     });
     expect(result.map((item) => item.reason)).toEqual([
       "forgotClockOut",
+      "offlineDelayed",
       "pendingQuestions",
     ]);
   });

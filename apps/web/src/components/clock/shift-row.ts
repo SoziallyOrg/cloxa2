@@ -11,6 +11,8 @@ export interface ShiftRow {
   readonly pause: string;
   readonly net: string;
   readonly edited: boolean;
+  /** Contains an event that was queued offline and synced later. */
+  readonly offline: boolean;
 }
 
 export function formatShiftRow(shift: Shift): ShiftRow {
@@ -24,5 +26,6 @@ export function formatShiftRow(shift: Shift): ShiftRow {
     pause: formatDurationMs(shift.breakMs),
     net: formatDurationMs(shift.netMs),
     edited: shift.edited,
+    offline: shift.hasOffline,
   };
 }

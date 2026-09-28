@@ -21,7 +21,7 @@ ADR.
 
 | Table              | Key columns                                                                                     | Notes                                                                                                                  |
 | ------------------ | ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `organizations`    | id, name, timezone (default `Europe/Brussels`), settings jsonb                                  | settings: `location_capture` (off/clock_points), `retention_years` (≥5)                                                |
+| `organizations`    | id, name, timezone (default `Europe/Brussels`), settings jsonb                                  | settings: `location_capture` (off/clock_points), `retention_years` (≥5), `offline_clocking` (boolean, default on)      |
 | `sites`            | id, organization_id, name, address, timezone, active                                            | multi-site from day one                                                                                                |
 | `memberships`      | id, organization_id, user_id → auth.users, role, status                                         | role: `owner`/`admin`/`manager`/`employee`; status: `invited`/`active`/`suspended`; unique (org, user)                 |
 | `employees`        | id, organization_id, user_id (nullable), display_name, employee_code, statute, language, active | a worker **without a login** (kiosk-only) is valid; statute: `bediende`/`arbeider`/`student`/`flexi`/`interim`/`other` |
@@ -54,12 +54,16 @@ fresh MFA a privileged member sees only their own rows, like an employee.
   `void`.
 - **Timing:**
   - `occurred_at` is the time the fact refers to. It equals `server_at` for live
-    clocking and the approved time for corrections. The append trigger enforces
-    `occurred_at = server_at` for every non-`correction` source.
+    clocking, the captured device time for offline events and the approved time for
+    corrections. The append trigger enforces `occurred_at = server_at` for every
+    non-`correction` source, except `offline` app events, whose `occurred_at` must lie
+    in `[server_at − 72 h, server_at]` (refused otherwise, never moved).
   - `server_at` is the insert time, stamped by the append trigger.
   - `client_captured_at` is nullable.
 - **Provenance:**
   - `source` is one of `app`, `kiosk`, `mobile` or `correction`.
+  - `offline` (boolean, default false): queued on the device and synced later (ADR 006).
+    Only for `source='app'`, with `client_captured_at = occurred_at`.
   - `device_id` is nullable.
   - `geo` is nullable: one point, only when the org setting allows it.
 - **Links:**
@@ -81,7 +85,8 @@ fresh MFA a privileged member sees only their own rows, like an employee.
   type, `occurred_at` and `server_at` (both as epoch µs), `client_captured_at` (epoch
   µs), source, `supersedes_event_id`, `correction_id`, `actor_user_id`, `device_id`,
   `geo` (jsonb text). Every null is an empty field (`concat_ws` skips nulls, so each
-  nullable value is coalesced).
+  nullable value is coalesced). Offline rows append `|offline`; all other rows keep
+  exactly these 14 fields, so hashes from before the column existed stay valid.
 - Canonical bytes (`audit_log`): id, org, `actor_user_id`, action, entity, `entity_id`,
   `metadata` (jsonb text) and `created_at` (epoch µs), same rules.
 - Appends take `pg_advisory_xact_lock` on the org, so the chain is linear; unique
@@ -134,13 +139,31 @@ everything from the earliest affected event to the latest one, under the same lo
 - It is the baseline for deviation reporting. Part-time schedule notices must be given
   at least 7 working days ahead (`legal-notes.md` §1.2).
 
+**Offline clocking (ADR 006)**
+
+- `rpc_clock_offline(type, key, site, captured_at)`: the caller's own record, if
+  `settings.offline_clocking` is not false. Same locks and order as live clocking (1003
+  → 1002 → 1001). Returns `{outcome, event_id, correction_id, reason}`; a replay of the
+  key returns the original `recorded` or `correction_requested` answer.
+- `recorded` (`occurred_at = captured`, `offline = true`) when the time is in the
+  72-hour window (5 minutes of margin for the chain lock), strictly after the latest
+  effective event, the transition is valid and the site is assigned.
+- Otherwise a pending `add` request, reason "Offline geregistreerd", `offline = true`,
+  `offline_reason` (`outside_window`, `later_event_exists`, `invalid_transition`,
+  `site_not_assigned`), when the time is not in the future and within
+  `correction_max_age_days`.
+- `rejected` (not stored): `offline_disabled`, `captured_in_future`, `captured_too_old`,
+  `site_inactive`, `time_conflict` (the instant of an effective event),
+  `too_many_pending`.
+
 **`correction_requests`**
 
 - Columns: `employee_id`, `requested_by`, `kind` (`add`, `adjust` or `remove`),
   `target_event_ids`, `proposed` jsonb, `reason` (≤280 chars, UI warns: no medical
   details), status (`pending`, `approved`, `rejected` or `withdrawn`), `decided_by`,
-  `decided_at`, `decision_note` (≤280). Only the decision of a pending request may
-  change, once; rows are never deleted.
+  `decided_at`, `decision_note` (≤280), `offline`, `idempotency_key` and
+  `offline_reason` (set only by `rpc_clock_offline`). Only the decision of a pending
+  request may change, once; rows are never deleted.
 - `proposed = {"events": [...]}`: `add` 1–8 `{type, occurred_at, site_id}` at assigned,
   active sites; `adjust` one `{target_event_id, occurred_at}` per target (type and site
   kept); `remove` none. Times are ISO 8601 with an explicit offset, strictly increasing

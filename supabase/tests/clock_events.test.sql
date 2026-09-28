@@ -83,7 +83,7 @@ select columns_are(
   array[
     'id', 'organization_id', 'site_id', 'employee_id', 'type', 'occurred_at', 'server_at',
     'client_captured_at', 'source', 'device_id', 'geo', 'supersedes_event_id', 'correction_id',
-    'actor_user_id', 'idempotency_key', 'prev_hash', 'hash'
+    'actor_user_id', 'idempotency_key', 'prev_hash', 'hash', 'offline'
   ],
   'clock_events has exactly the contract columns'
 );
@@ -438,18 +438,18 @@ select is(
   (select length(c) - length(replace(c, '|', ''))
    from (select private.clock_event_canonical(row(
      gen_random_uuid(), '10000000-0000-4000-8000-00000000020a', gen_random_uuid(), gen_random_uuid(), 'clock_in', now(), now(),
-     null, 'app', null, null, null, null, gen_random_uuid(), gen_random_uuid(), null, null
+     null, 'app', null, null, null, null, gen_random_uuid(), gen_random_uuid(), null, null, false
    )::public.clock_events) as c) as canonical),
   13, 'canonical bytes keep all 14 fields (13 separators) when nullable fields are null'
 );
 select isnt(
   private.clock_event_canonical((select row(e.id, e.organization_id, e.site_id, e.employee_id, e.type, e.occurred_at, e.server_at,
     e.client_captured_at, e.source, '60000000-0000-4000-8000-000000000001'::uuid, '{"lat": 51.2, "lng": 4.4}'::jsonb,
-    e.supersedes_event_id, e.correction_id, e.actor_user_id, e.idempotency_key, e.prev_hash, e.hash)::public.clock_events
+    e.supersedes_event_id, e.correction_id, e.actor_user_id, e.idempotency_key, e.prev_hash, e.hash, e.offline)::public.clock_events
     from chain_a as e where position = 1)),
   private.clock_event_canonical((select row(e.id, e.organization_id, e.site_id, e.employee_id, e.type, e.occurred_at, e.server_at,
     e.client_captured_at, e.source, e.device_id, e.geo, e.supersedes_event_id, e.correction_id, e.actor_user_id,
-    e.idempotency_key, e.prev_hash, e.hash)::public.clock_events from chain_a as e where position = 1)),
+    e.idempotency_key, e.prev_hash, e.hash, e.offline)::public.clock_events from chain_a as e where position = 1)),
   'device_id and geo are part of the canonical bytes'
 );
 

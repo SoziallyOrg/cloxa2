@@ -72,7 +72,7 @@ export default async function NewCorrectionPage({
   const { data: eventRows, error: eventsError } = await supabase
     .from("clock_events")
     .select(
-      "id, type, occurred_at, employee_id, site_id, source, supersedes_event_id, correction_id",
+      "id, type, occurred_at, employee_id, site_id, source, supersedes_event_id, correction_id, offline",
     )
     .eq("employee_id", context.employeeId)
     .gte("occurred_at", new Date(dayStart).toISOString())
@@ -89,6 +89,7 @@ export default async function NewCorrectionPage({
     source: row.source as ClockEventSource,
     ...(row.supersedes_event_id ? { supersedesEventId: row.supersedes_event_id } : {}),
     ...(row.correction_id ? { correctionId: row.correction_id } : {}),
+    ...(row.offline ? { offline: true } : {}),
   }));
 
   const targets: CorrectionTargetOption[] = effectiveEvents(events)

@@ -248,7 +248,7 @@ function PreviewContent() {
 
         <Stack gap="md">
           <Heading level={3}>{t("preview.demoOfflineHeading")}</Heading>
-          <OfflineBanner />
+          <OfflineBanner queueing />
         </Stack>
       </section>
 

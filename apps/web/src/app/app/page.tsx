@@ -81,7 +81,7 @@ export default async function EmployeeAppPage() {
     supabase
       .from("clock_events")
       .select(
-        "id, type, occurred_at, employee_id, site_id, source, supersedes_event_id, correction_id",
+        "id, type, occurred_at, employee_id, site_id, source, supersedes_event_id, correction_id, offline",
       )
       .eq("employee_id", context.employeeId)
       .gte("occurred_at", new Date(now - RECENT_EVENTS_WINDOW_MS).toISOString())
@@ -107,6 +107,7 @@ export default async function EmployeeAppPage() {
     source: row.source as ClockEventSource,
     ...(row.supersedes_event_id ? { supersedesEventId: row.supersedes_event_id } : {}),
     ...(row.correction_id ? { correctionId: row.correction_id } : {}),
+    ...(row.offline ? { offline: true } : {}),
   }));
   const shifts = deriveShifts(effectiveEvents(events));
   const todayKey = brusselsDayKey(now);
@@ -134,6 +135,7 @@ export default async function EmployeeAppPage() {
 
   return (
     <EmployeeHomeContainer
+      employeeId={context.employeeId}
       firstName={firstName}
       initialShiftState={initialShiftState}
       initialSince={initialSince}

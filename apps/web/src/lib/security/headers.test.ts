@@ -43,6 +43,15 @@ describe("buildSecurityHeaders", () => {
     );
   });
 
+  it("allows only same-origin workers, for the /app service worker", () => {
+    const csp = buildSecurityHeaders({ nonce: "n", isDev: false, supabaseUrl })[
+      "Content-Security-Policy"
+    ];
+    expect(csp).toContain("worker-src 'self';");
+    expect(csp).toContain("frame-ancestors 'none'");
+    expect(csp).toMatch(/script-src 'self' 'nonce-n' 'strict-dynamic';/);
+  });
+
   it("sets the remaining fixed headers", () => {
     const headers = buildSecurityHeaders({ nonce: "n", isDev: false, supabaseUrl });
     expect(headers["X-Content-Type-Options"]).toBe("nosniff");

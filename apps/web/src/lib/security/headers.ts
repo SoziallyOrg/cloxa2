@@ -45,6 +45,9 @@ export function buildSecurityHeaders({
     `style-src 'self' 'nonce-${nonce}'`,
     "img-src 'self' data: blob:",
     `connect-src 'self' ${supabaseUrl}`,
+    // The /app service worker (public/sw.js). Without this, worker-src falls
+    // back to script-src, where 'strict-dynamic' ignores 'self'.
+    "worker-src 'self'",
     ...(turnstile ? [`frame-src ${TURNSTILE_ORIGIN}`] : []),
     "frame-ancestors 'none'",
     "base-uri 'none'",

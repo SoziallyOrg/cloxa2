@@ -23,9 +23,11 @@ const SUCCESS_KEY: Record<
 
 const SUCCESS_DISPLAY_MS = 2500;
 
-/** `true` on success; `false` leaves the button idle without celebrating (the
- * caller is expected to show its own error). */
-export type ClockActionCallback = () => boolean | Promise<boolean>;
+/** `true` on success; `"queued"` when kept on the device to send later (offline);
+ * `false` leaves the button idle without celebrating (the caller is expected to
+ * show its own error). */
+export type ClockActionResult = boolean | "queued";
+export type ClockActionCallback = () => ClockActionResult | Promise<ClockActionResult>;
 
 export interface ClockActionsProps {
   state: ShiftState;
@@ -43,6 +45,12 @@ export interface ClockActionsProps {
   previewSuccess?: { action: ActionKind; time: string };
 }
 
+interface Success {
+  action: ActionKind;
+  time: string;
+  queued?: boolean;
+}
+
 /**
  * The clock action(s) for the current state, plus pending and success
  * feedback. Callbacks only — no data fetching, so this stays reusable
@@ -58,9 +66,7 @@ export function ClockActions({
   previewSuccess,
 }: ClockActionsProps) {
   const [pending, setPending] = useState<ActionKind | null>(null);
-  const [success, setSuccess] = useState<{ action: ActionKind; time: string } | null>(
-    previewSuccess ?? null,
-  );
+  const [success, setSuccess] = useState<Success | null>(previewSuccess ?? null);
 
   useEffect(() => {
     if (success === null) return;
@@ -71,11 +77,15 @@ export function ClockActions({
 
   async function run(action: ActionKind, callback: ClockActionCallback) {
     setPending(action);
-    const ok = await callback();
+    const result = await callback();
     setPending(null);
-    if (!ok) return;
+    if (!result) return;
 
-    setSuccess({ action, time: formatBrusselsTime(new Date()) });
+    setSuccess({
+      action,
+      time: formatBrusselsTime(new Date()),
+      queued: result === "queued",
+    });
     if (typeof navigator !== "undefined" && navigator.vibrate) {
       navigator.vibrate(50);
     }
@@ -88,6 +98,9 @@ export function ClockActions({
         <p className="text-xl font-semibold">
           {t(`actions.${SUCCESS_KEY[success.action]}`, { time: success.time })}
         </p>
+        {success.queued ? (
+          <p className="text-lg">{t("offline.savedOnDevice")}</p>
+        ) : null}
       </div>
     );
   }
