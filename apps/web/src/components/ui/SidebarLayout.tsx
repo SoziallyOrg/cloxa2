@@ -42,14 +42,14 @@ export function SidebarLayout({
             "pb-[calc(var(--spacing-tab-bar)+env(safe-area-inset-bottom))] md:pb-0",
         )}
       >
-        <div
+        <main
           className={cx(
             "flex w-full flex-1 flex-col",
             !wide && "mx-auto max-w-readable",
           )}
         >
           {children}
-        </div>
+        </main>
       </div>
       {tabBar ? (
         <div className="fixed inset-x-0 bottom-0 z-30 md:hidden">{tabBar}</div>

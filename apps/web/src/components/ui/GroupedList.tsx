@@ -101,7 +101,7 @@ function RowContent({
 
 const ROW_ITEM = "group/row pl-4";
 const INTERACTIVE =
-  "focus-ring -ml-4 flex w-[calc(100%+1rem)] rounded-none pl-4 transition-colors hover:bg-line/40 active:bg-line/70 focus-visible:-outline-offset-3";
+  "focus-ring -ml-4 flex w-[calc(100%+1rem)] rounded-none pl-4 transition-colors duration-200 active:bg-pressed active:duration-0 focus-visible:-outline-offset-3";
 
 export interface ListRowProps extends RowContentProps {
   /** Row actions, right-aligned in a footer under the row text. */

@@ -115,3 +115,8 @@ body {
     animation-delay: 0s !important;
   }
 }
+
+/* An open modal (sheet, alert) keeps the page behind it still. */
+html:has(dialog:modal) {
+  overflow: hidden;
+}

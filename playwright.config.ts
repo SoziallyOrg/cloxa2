@@ -81,6 +81,8 @@ export default defineConfig({
       FLOW_COOKIE_SECRET: secret(),
       EXPORT_SIGNING_KEY: exportSigningKey(),
       EXPORT_SIGNING_KEY_ID: "e2e",
+      // The dev-only /preview route, for `pnpm screens` (404 in real production).
+      CLOXA_PREVIEW: "1",
       PORT: String(PORT),
       HOSTNAME: "127.0.0.1",
     },

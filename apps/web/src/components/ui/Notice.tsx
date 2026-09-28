@@ -48,7 +48,7 @@ export function Notice({ tone, children, onDismiss }: NoticeProps) {
           type="button"
           onClick={onDismiss}
           aria-label={t("ui.dismiss")}
-          className="focus-ring min-h-touch-target shrink-0 rounded-control px-3 text-subhead font-normal text-ink-2 hover:text-ink"
+          className="focus-ring min-h-touch-target shrink-0 rounded-control px-3 text-subhead font-normal text-ink-2 pressable"
         >
           {t("common.close")}
         </button>
