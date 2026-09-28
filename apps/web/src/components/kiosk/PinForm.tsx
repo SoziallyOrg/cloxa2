@@ -127,7 +127,7 @@ export function PinForm({
             accessory={input(`${id}-repeat`, confirmation, setConfirmation)}
           />
         </Section>
-        <div className="mt-auto">
+        <div className="mt-auto md:mt-0">
           <Button type="submit" size="lg" loading={submitting}>
             {submitLabel}
           </Button>

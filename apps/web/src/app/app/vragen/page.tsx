@@ -108,7 +108,7 @@ export default async function QuestionsPage() {
             <List className="pb-6">
               <RequestsList rows={rows} withdrawAction={withdrawCorrectionAction} />
             </List>
-            <div className="sticky bottom-[calc(var(--spacing-tab-bar)+env(safe-area-inset-bottom))] mt-auto bg-grouped/85 px-inset pt-2 pb-4 backdrop-blur-md md:static md:bg-transparent md:pb-10 md:backdrop-blur-none">
+            <div className="sticky bottom-[calc(var(--spacing-tab-bar)+env(safe-area-inset-bottom))] mt-auto bg-grouped/85 px-inset pt-2 pb-4 backdrop-blur-md md:static md:mt-0 md:bg-transparent md:pb-10 md:backdrop-blur-none">
               {newRequest}
             </div>
           </>

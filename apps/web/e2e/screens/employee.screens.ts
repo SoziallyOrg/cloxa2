@@ -292,11 +292,19 @@ test("the email link, choosing an organization, and no access", async ({ page })
 
   await loginWithEmailCode(page, TWO_ORGS);
   await expect(page).toHaveURL(/\/kies-organisatie$/, SETTLED);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "Kies je organisatie",
+    SETTLED,
+  );
   await capture(page, "kies-organisatie");
 
   await page.context().clearCookies();
   await loginWithEmailCode(page, NO_ACCESS);
   await expect(page).toHaveURL(/\/geen-toegang$/, SETTLED);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "Geen toegang",
+    SETTLED,
+  );
   await capture(page, "geen-toegang");
 });
 
