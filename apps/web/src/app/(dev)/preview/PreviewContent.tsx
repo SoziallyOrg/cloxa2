@@ -92,11 +92,9 @@ function Group({
 }) {
   return (
     <section id={id} className="flex scroll-mt-24 flex-col">
-      <h2 className="px-4 pb-1.5 text-footnote tracking-wide text-ink-2 uppercase">
-        {header}
-      </h2>
+      <h2 className="px-4 pb-2 text-subhead text-ink-2">{header}</h2>
       <div className="flex flex-col gap-4 rounded-list bg-surface p-4">{children}</div>
-      {footer ? <p className="px-4 pt-1.5 text-footnote text-ink-2">{footer}</p> : null}
+      {footer ? <p className="px-4 pt-2 text-subhead text-ink-2">{footer}</p> : null}
     </section>
   );
 }
@@ -248,9 +246,7 @@ export function PreviewContent() {
       </Group>
 
       <section id="laden" className="flex scroll-mt-24 flex-col gap-4">
-        <h2 className="px-4 text-footnote tracking-wide text-ink-2 uppercase">
-          {t("preview.sectionLoading")}
-        </h2>
+        <h2 className="px-4 text-subhead text-ink-2">{t("preview.sectionLoading")}</h2>
         <div className="-mx-inset">
           <SkeletonTitle />
         </div>
@@ -273,9 +269,7 @@ export function PreviewContent() {
       </Group>
 
       <section id="navigatie" className="flex scroll-mt-24 flex-col gap-4">
-        <h2 className="px-4 text-footnote tracking-wide text-ink-2 uppercase">
-          {t("preview.sectionNav")}
-        </h2>
+        <h2 className="px-4 text-subhead text-ink-2">{t("preview.sectionNav")}</h2>
         <p className="px-4 text-footnote text-ink-2">{t("preview.tabBarHeading")}</p>
         <div className="overflow-hidden rounded-list">
           <TabBar items={NAV_DEMO} label={t("preview.tabBarHeading")} />

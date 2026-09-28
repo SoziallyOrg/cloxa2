@@ -21,9 +21,8 @@ export interface SitePickerProps {
  * one (remembered in a cookie). One row per site: no dropdown, no typing.
  */
 export function SitePicker({ sites, action }: SitePickerProps) {
-  // Klok's frame is plain white; this list needs the grouped background.
   return (
-    <div className="flex flex-1 flex-col bg-grouped">
+    <div className="flex flex-1 flex-col">
       <NavBar
         title={t("sitePicker.title")}
         trailing={<AccountButton placement="bar" />}
