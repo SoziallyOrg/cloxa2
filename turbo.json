@@ -3,7 +3,13 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": [".next/**", "!.next/cache/**", "dist/**"]
+      "outputs": [".next/**", "!.next/cache/**", "dist/**"],
+      "env": [
+        "SUPABASE_SECRET_KEY",
+        "CLOXA_SITE_URL",
+        "AUTH_HASH_PEPPER",
+        "FLOW_COOKIE_SECRET"
+      ]
     },
     "dev": {
       "cache": false,

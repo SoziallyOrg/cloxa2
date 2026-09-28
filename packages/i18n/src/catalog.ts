@@ -20,6 +20,65 @@ export const catalog = {
   },
   app: {
     heading: "Mijn tijdsregistratie",
+    placeholder: "Hier zie je binnenkort je uren.",
+  },
+  login: {
+    title: "Inloggen bij Cloxa",
+    intro: "Vul je e-mailadres in. Je krijgt een e-mail met een code om in te loggen.",
+    emailLabel: "Je e-mailadres",
+    emailHint: "Het adres dat je werkgever van je heeft.",
+    emailInvalid: "Dit e-mailadres klopt niet. Kijk het even na.",
+    submit: "Stuur mij een code",
+    linkInvalid: "Deze link werkt niet meer. Vraag hieronder een nieuwe code aan.",
+    unavailable:
+      "Inloggen lukt nu even niet. Probeer het over een paar minuten opnieuw.",
+  },
+  loginCode: {
+    title: "Vul je code in",
+    sent: "Als dit adres bij ons bekend is, kreeg je een e-mail met een code.",
+    label: "Code uit de e-mail",
+    hint: "De code heeft 6 cijfers. Je kunt ook op de knop in de e-mail tikken.",
+    submit: "Inloggen",
+    format: "De code heeft 6 cijfers. Kijk de code na.",
+    invalid:
+      "Deze code klopt niet of is verlopen. Kijk de code na of vraag een nieuwe code aan.",
+    blocked:
+      "Te veel pogingen. Wacht {minutes, plural, one {# minuut} other {# minuten}} en probeer dan opnieuw.",
+    noMail: "Geen e-mail gekregen? Kijk ook bij ongewenste e-mail (spam).",
+    restart: "Nieuwe code of ander e-mailadres",
+  },
+  session: {
+    logout: "Afmelden",
+    logoutEverywhere: "Overal afmelden",
+    logoutEverywhereHint:
+      "Meld je af op al je toestellen. Doe dit als je je telefoon kwijt bent.",
+  },
+  access: {
+    noAccessTitle: "Geen toegang",
+    noAccessBody:
+      "Je bent ingelogd, maar je hebt nog geen toegang tot Cloxa. Vraag je werkgever om je uit te nodigen.",
+  },
+  chooseOrg: {
+    title: "Kies je organisatie",
+    intro: "Je werkt voor meer dan één organisatie. Waar wil je nu verder?",
+  },
+  mfa: {
+    setupTitle: "Extra beveiliging instellen",
+    setupIntro:
+      "Als beheerder zie je gegevens van je team. Daarom log je ook in met een code uit een app op je telefoon, zoals Google Authenticator of Microsoft Authenticator.",
+    setupStart: "Start met instellen",
+    scanStep: "Open de app en scan deze QR-code.",
+    qrAlt: "QR-code om Cloxa toe te voegen aan je app",
+    secretLabel: "Lukt scannen niet? Typ dan deze sleutel over in de app:",
+    codeLabel: "Code uit je app",
+    codeHint: "6 cijfers. De code verandert elke 30 seconden.",
+    setupSubmit: "Bevestig en ga verder",
+    setupFailed: "Instellen lukte niet. Probeer het opnieuw.",
+    verifyTitle: "Bevestig dat jij het bent",
+    verifyIntro:
+      "Open je app en vul de code in. Dit vragen we opnieuw na 30 minuten zonder activiteit en na 12 uur.",
+    verifySubmit: "Bevestig",
+    invalid: "Deze code klopt niet. Vul de nieuwste code uit je app in.",
   },
   kiosk: {
     heading: "Kiosk",
@@ -32,6 +91,7 @@ export const catalog = {
   },
   manage: {
     heading: "Beheer",
+    placeholder: "Hier komt binnenkort het overzicht van je team.",
     todayHeading: "Vandaag",
     counterWorking: "Aan het werk",
     counterBreak: "Met pauze",

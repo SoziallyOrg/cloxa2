@@ -1,0 +1,56 @@
+import { execSync } from "node:child_process";
+import { randomBytes } from "node:crypto";
+
+import { defineConfig, devices } from "@playwright/test";
+
+/**
+ * E2E against the local Supabase stack. Needs `pnpm db:start` and
+ * `pnpm --filter @cloxa/web dev:seed`; see apps/web/e2e. Not in CI yet.
+ */
+const PORT = 3100;
+// localhost, not 127.0.0.1: browsers accept `Secure` cookies over http only there.
+const BASE_URL = `http://localhost:${PORT}`;
+
+function localSupabase(): Record<string, string> {
+  const status = JSON.parse(
+    execSync("supabase status -o json", {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }),
+  ) as Record<string, string>;
+  return {
+    NEXT_PUBLIC_SUPABASE_URL: status["API_URL"] ?? "",
+    NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: status["PUBLISHABLE_KEY"] ?? "",
+    SUPABASE_SECRET_KEY: status["SECRET_KEY"] ?? "",
+  };
+}
+
+// Fresh per run: nothing here outlives the test server.
+const secret = () => randomBytes(32).toString("base64url");
+
+export default defineConfig({
+  testDir: "apps/web/e2e",
+  fullyParallel: false,
+  workers: 1,
+  retries: 0,
+  reporter: "list",
+  use: {
+    baseURL: BASE_URL,
+    trace: "retain-on-failure",
+  },
+  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  webServer: {
+    // A production build: exercises the real CSP and Secure cookies, and does
+    // not clash with a `next dev` that may already run for this app.
+    command: `pnpm --filter @cloxa/web build && pnpm --filter @cloxa/web start --port ${PORT}`,
+    url: `${BASE_URL}/login`,
+    reuseExistingServer: false,
+    timeout: 300_000,
+    env: {
+      ...localSupabase(),
+      CLOXA_SITE_URL: BASE_URL,
+      AUTH_HASH_PEPPER: secret(),
+      FLOW_COOKIE_SECRET: secret(),
+    },
+  },
+});

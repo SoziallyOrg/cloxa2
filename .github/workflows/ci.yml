@@ -57,6 +57,8 @@ jobs:
           NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_dummy00000000000000000000
           CLOXA_SITE_URL: http://localhost:3000
           SUPABASE_SECRET_KEY: dummy-ci-only
+          AUTH_HASH_PEPPER: dummy-ci-only-pepper-000000000000000000
+          FLOW_COOKIE_SECRET: dummy-ci-only-cookie-secret-0000000000000
         run: pnpm build
 
       - name: Audit production dependencies

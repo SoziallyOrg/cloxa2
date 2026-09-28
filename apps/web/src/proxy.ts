@@ -1,6 +1,11 @@
-import { NextResponse, type NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 
 import { buildSecurityHeaders } from "./lib/security/headers";
+import {
+  applySecurityHeaders,
+  forwardedRequestHeaders,
+} from "./lib/security/proxy-headers";
+import { updateSession } from "./lib/supabase/proxy";
 
 function generateNonce(): string {
   const bytes = new Uint8Array(16);
@@ -8,31 +13,20 @@ function generateNonce(): string {
   return btoa(String.fromCharCode(...bytes));
 }
 
-export function proxy(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const nonce = generateNonce();
   const isDev = process.env["NODE_ENV"] !== "production";
   const supabaseUrl = process.env["NEXT_PUBLIC_SUPABASE_URL"] ?? "";
 
   const securityHeaders = buildSecurityHeaders({ nonce, isDev, supabaseUrl });
+  const csp = securityHeaders["Content-Security-Policy"] ?? "";
 
-  // Next.js reads the nonce from the *request* CSP header to stamp it on its own
-  // inline scripts; without this, 'strict-dynamic' blocks them in production.
-  const requestHeaders = new Headers(request.headers);
-  requestHeaders.set("x-nonce", nonce);
-  requestHeaders.set(
-    "Content-Security-Policy",
-    securityHeaders["Content-Security-Policy"] ?? "",
+  // Built lazily: a session refresh rewrites the request cookies first.
+  const response = await updateSession(request, () =>
+    forwardedRequestHeaders(request.headers, nonce, csp),
   );
 
-  const response = NextResponse.next({
-    request: { headers: requestHeaders },
-  });
-
-  for (const [key, value] of Object.entries(securityHeaders)) {
-    response.headers.set(key, value);
-  }
-
-  return response;
+  return applySecurityHeaders(response, securityHeaders);
 }
 
 export const config = {

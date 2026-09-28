@@ -67,7 +67,6 @@ export function EmployeeHome({
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-xl flex-col">
       <header className="flex items-center justify-between gap-3 p-4">
-        {/* eslint-disable-next-line @next/next/no-img-element -- static branding asset, not a CDN image. */}
         <img
           src="/branding/cloxa-compact.svg"
           alt={t("common.appName")}

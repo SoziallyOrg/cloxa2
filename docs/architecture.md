@@ -206,7 +206,11 @@ everything from the earliest affected event to the latest one, under the same lo
   - Their JWT must carry `aal2`.
   - The app enforces a 30-minute idle timeout and a 12-hour absolute limit. When either
     expires, the user must re-verify MFA.
-  - Recovery codes are hashed and single-use.
+  - Recovery codes are hashed and single-use. **TODO:** not built yet; until then a lost
+    TOTP factor is reset by an operator with the Auth admin API.
+  - The idle clock is the signed httpOnly cookie `cx_act`, refreshed by `proxy.ts` on
+    `/manage` requests; the `/manage` layouts and pages decide with the same pure
+    function (`apps/web/src/lib/auth/mfa.ts`).
 - Auth calls (OTP request and verification) go through server actions that check the
   attempt limiter below first. Supabase's own rate limits then see the server, so the
   per-IP limit here uses the client IP from the trusted proxy header. Cloudflare
