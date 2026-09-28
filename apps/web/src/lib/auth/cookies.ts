@@ -6,6 +6,8 @@ export const COOKIE = {
   org: "cx_org",
   /** Last activity in `/manage`, for the 30-minute idle timeout. */
   activity: "cx_act",
+  /** A paired kiosk tablet's device secret (path `/kiosk`, see lib/kiosk/device-cookie). */
+  kiosk: "cx_kiosk",
 } as const;
 
 export const FLOW_TTL_SECONDS = 10 * 60;

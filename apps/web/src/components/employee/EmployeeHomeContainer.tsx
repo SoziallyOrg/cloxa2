@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import Link from "next/link";
+import type { Route } from "next";
 
 import type { ClockInput } from "@cloxa/db";
 import type { Shift, ShiftState } from "@cloxa/domain";
@@ -10,6 +12,7 @@ import { clockAction } from "@/app/app/actions";
 import { mapClockError } from "@/lib/clock/errors";
 
 import { Alert } from "../ui/Alert";
+import { Stack } from "../ui/Stack";
 import { OfflineBanner } from "../clock/OfflineBanner";
 import { SessionActions } from "../auth/SessionActions";
 import { EmployeeHome, type EmployeeHomeNav } from "./EmployeeHome";
@@ -114,7 +117,17 @@ export function EmployeeHomeContainer({
       onStopWork={() => run("clock_out")}
       onStartBreak={() => run("break_start")}
       onStopBreak={() => run("break_end")}
-      menu={<SessionActions everywhere />}
+      menu={
+        <Stack gap="md">
+          <Link
+            href={"/app/instellingen" as Route}
+            className="focus-ring text-lg font-semibold text-primary underline"
+          >
+            {t("kiosk.menuLink")}
+          </Link>
+          <SessionActions everywhere />
+        </Stack>
+      }
       notice={
         <>
           {!online ? <OfflineBanner /> : null}

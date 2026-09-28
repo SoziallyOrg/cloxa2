@@ -22,7 +22,7 @@ import { ClockStatus } from "@/components/clock/ClockStatus";
 import { OfflineBanner } from "@/components/clock/OfflineBanner";
 import { ShiftList } from "@/components/clock/ShiftList";
 import { EmployeeHome } from "@/components/employee/EmployeeHome";
-import { KioskHome } from "@/components/kiosk/KioskHome";
+import { KioskHome, type KioskEmployee } from "@/components/kiosk/KioskHome";
 import { TodayBoard } from "@/components/manage/TodayBoard";
 
 import {
@@ -78,6 +78,7 @@ export default function PreviewPage() {
 
 function PreviewContent() {
   const [dismissed, setDismissed] = useState(false);
+  const [kioskSelected, setKioskSelected] = useState<KioskEmployee | null>(null);
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-16 p-6 pb-32">
@@ -272,7 +273,12 @@ function PreviewContent() {
       <section className="flex flex-col gap-4">
         <Heading level={2}>{t("preview.sectionKiosk")}</Heading>
         <div className="rounded-lg border border-border p-4">
-          <KioskHome employees={FAKE_KIOSK_EMPLOYEES} onSubmitPin={PIN_NOOP} />
+          <KioskHome
+            employees={FAKE_KIOSK_EMPLOYEES}
+            selected={kioskSelected}
+            onSelect={setKioskSelected}
+            onSubmitPin={PIN_NOOP}
+          />
         </div>
       </section>
 

@@ -769,3 +769,258 @@ export async function recordSelfExport(
   });
   if (error) throw new RpcError("rpc_record_self_export", error);
 }
+
+// Kiosk (ADR 005) --------------------------------------------------------------------------
+
+/** 32 random bytes as lowercase hex: the kiosk's device secret. */
+const deviceSecret = z.string().regex(/^[0-9a-f]{64}$/);
+/** Format only; the database also refuses trivial PINs (`pin_too_simple`). */
+const pinDigits = z.string().regex(/^[0-9]{4,6}$/);
+
+/** Pairing codes: 8 of these 32 symbols (no I, O, 0 or 1). */
+export const PAIRING_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+export const PAIRING_CODE_LENGTH = 8;
+const pairingCode = z.string().regex(/^[A-HJ-NP-Z2-9]{8}$/);
+
+export const kioskCreateInput = z.strictObject({
+  siteId: uuid,
+  name: shortText(100),
+});
+export type KioskCreateInput = z.input<typeof kioskCreateInput>;
+
+export interface KioskPairingCode {
+  pairingCode: string;
+  expiresAt: string;
+}
+
+/** Owner or admin, fresh MFA. Returns the new kiosk and its one-time pairing code. */
+export async function kioskCreate(
+  client: CloxaClient,
+  input: KioskCreateInput,
+): Promise<KioskPairingCode & { deviceId: string }> {
+  const parsed = kioskCreateInput.parse(input);
+  const row = first(
+    "rpc_kiosk_create",
+    unwrap(
+      "rpc_kiosk_create",
+      await client.rpc("rpc_kiosk_create", {
+        p_site_id: parsed.siteId,
+        p_name: parsed.name,
+      }),
+    ),
+  );
+  return {
+    deviceId: row.device_id,
+    pairingCode: row.pairing_code,
+    expiresAt: row.expires_at,
+  };
+}
+
+export const kioskDeviceInput = z.strictObject({ deviceId: uuid });
+export type KioskDeviceInput = z.input<typeof kioskDeviceInput>;
+
+/** Owner or admin, fresh MFA. Replaces any outstanding code of the kiosk. */
+export async function kioskNewPairingCode(
+  client: CloxaClient,
+  input: KioskDeviceInput,
+): Promise<KioskPairingCode> {
+  const parsed = kioskDeviceInput.parse(input);
+  const row = first(
+    "rpc_kiosk_new_pairing_code",
+    unwrap(
+      "rpc_kiosk_new_pairing_code",
+      await client.rpc("rpc_kiosk_new_pairing_code", { p_device_id: parsed.deviceId }),
+    ),
+  );
+  return { pairingCode: row.pairing_code, expiresAt: row.expires_at };
+}
+
+/** Owner or admin, fresh MFA. The tablet stops working at once. */
+export async function kioskRevoke(
+  client: CloxaClient,
+  input: KioskDeviceInput,
+): Promise<void> {
+  const parsed = kioskDeviceInput.parse(input);
+  const { error } = await client.rpc("rpc_kiosk_revoke", {
+    p_device_id: parsed.deviceId,
+  });
+  if (error) throw new RpcError("rpc_kiosk_revoke", error);
+}
+
+export const setEmployeePinInput = z.strictObject({ employeeId: uuid, pin: pinDigits });
+export type SetEmployeePinInput = z.input<typeof setEmployeePinInput>;
+
+/** Privileged, fresh MFA, manager-scoped (managers: role `employee` or no login). */
+export async function setEmployeePin(
+  client: CloxaClient,
+  input: SetEmployeePinInput,
+): Promise<void> {
+  const parsed = setEmployeePinInput.parse(input);
+  const { error } = await client.rpc("rpc_set_employee_pin", {
+    p_employee_id: parsed.employeeId,
+    p_pin: parsed.pin,
+  });
+  if (error) throw new RpcError("rpc_set_employee_pin", error);
+}
+
+export const setMyPinInput = z.strictObject({ pin: pinDigits });
+export type SetMyPinInput = z.input<typeof setMyPinInput>;
+
+/** The caller's own PIN, in every organization they work for. No MFA needed. */
+export async function setMyPin(
+  client: CloxaClient,
+  input: SetMyPinInput,
+): Promise<number> {
+  const parsed = setMyPinInput.parse(input);
+  return unwrap(
+    "rpc_set_my_pin",
+    await client.rpc("rpc_set_my_pin", { p_pin: parsed.pin }),
+  );
+}
+
+// Kiosk device calls: the anon client, no session. Refusals come back as rows,
+// so the database keeps the failure record; only a broken call throws.
+
+export const kioskPairInput = z.strictObject({ code: pairingCode });
+export type KioskPairInput = z.input<typeof kioskPairInput>;
+
+export type KioskPairResult =
+  { ok: true; deviceSecret: string; deviceName: string } | { ok: false; error: string };
+
+/** Unknown, used and expired codes all answer `code_invalid`; `pairing_paused` after 50 failures. */
+export async function kioskPair(
+  client: CloxaClient,
+  input: KioskPairInput,
+): Promise<KioskPairResult> {
+  const parsed = kioskPairInput.parse(input);
+  const row = first(
+    "rpc_kiosk_pair",
+    unwrap(
+      "rpc_kiosk_pair",
+      await client.rpc("rpc_kiosk_pair", { p_code: parsed.code }),
+    ),
+  );
+  // The generated types don't model SQL nulls in returned rows.
+  const secret = row.device_secret as string | null;
+  const error = row.error_code as string | null;
+  if (!row.ok || secret === null) return { ok: false, error: error ?? "code_invalid" };
+  return { ok: true, deviceSecret: secret, deviceName: row.device_name };
+}
+
+export const kioskRosterInput = z.strictObject({ deviceSecret });
+export type KioskRosterInput = z.input<typeof kioskRosterInput>;
+
+export interface KioskRosterEntry {
+  employeeId: string;
+  displayName: string;
+  initials: string;
+  hasPin: boolean;
+}
+
+/** Throws `device_unknown` (unpaired or revoked) or `device_paused`. Updates last seen. */
+export async function kioskRoster(
+  client: CloxaClient,
+  input: KioskRosterInput,
+): Promise<KioskRosterEntry[]> {
+  const parsed = kioskRosterInput.parse(input);
+  const rows = unwrap(
+    "rpc_kiosk_roster",
+    await client.rpc("rpc_kiosk_roster", { p_device_secret: parsed.deviceSecret }),
+  );
+  return rows.map((row) => ({
+    employeeId: row.employee_id,
+    displayName: row.display_name,
+    initials: row.initials,
+    hasPin: row.has_pin,
+  }));
+}
+
+export type KioskShiftState = "off" | "working" | "on_break";
+
+export type KioskResult =
+  | { ok: true; state: KioskShiftState; occurredAt: string | null }
+  | {
+      ok: false;
+      /** device_unknown, device_paused, pin_invalid, pin_locked, invalid_transition or invalid_input. */
+      error: string;
+      triesLeft: number | null;
+      retryAfterSeconds: number | null;
+    };
+
+/** A kiosk status/clock row, with the SQL nulls the generated types leave out. */
+interface KioskRow {
+  ok: boolean;
+  error_code: string | null;
+  tries_left: number | null;
+  retry_after: number | null;
+  state: string | null;
+  occurred_at: string | null;
+}
+
+function kioskResult(rpc: string, rows: readonly KioskRow[]): KioskResult {
+  const row = first(rpc, rows);
+  if (
+    row.ok &&
+    (row.state === "off" || row.state === "working" || row.state === "on_break")
+  ) {
+    return { ok: true, state: row.state, occurredAt: row.occurred_at };
+  }
+  return {
+    ok: false,
+    error: row.error_code ?? "invalid_input",
+    triesLeft: row.tries_left,
+    retryAfterSeconds: row.retry_after,
+  };
+}
+
+export const kioskStatusInput = z.strictObject({
+  deviceSecret,
+  employeeId: uuid,
+  pin: pinDigits,
+});
+export type KioskStatusInput = z.input<typeof kioskStatusInput>;
+
+/** Needs the PIN; a wrong one counts towards the lockout. Never returns hours. */
+export async function kioskStatus(
+  client: CloxaClient,
+  input: KioskStatusInput,
+): Promise<KioskResult> {
+  const parsed = kioskStatusInput.parse(input);
+  const rows = unwrap(
+    "rpc_kiosk_status",
+    await client.rpc("rpc_kiosk_status", {
+      p_device_secret: parsed.deviceSecret,
+      p_employee_id: parsed.employeeId,
+      p_pin: parsed.pin,
+    }),
+  );
+  return kioskResult("rpc_kiosk_status", rows);
+}
+
+export const kioskClockInput = z.strictObject({
+  deviceSecret,
+  employeeId: uuid,
+  pin: pinDigits,
+  type: liveClockType,
+  idempotencyKey: uuid,
+});
+export type KioskClockInput = z.input<typeof kioskClockInput>;
+
+/** Records the event at the kiosk's site. Idempotent per key; `state` is the new state. */
+export async function kioskClock(
+  client: CloxaClient,
+  input: KioskClockInput,
+): Promise<KioskResult> {
+  const parsed = kioskClockInput.parse(input);
+  const rows = unwrap(
+    "rpc_kiosk_clock",
+    await client.rpc("rpc_kiosk_clock", {
+      p_device_secret: parsed.deviceSecret,
+      p_employee_id: parsed.employeeId,
+      p_pin: parsed.pin,
+      p_type: parsed.type,
+      p_idempotency_key: parsed.idempotencyKey,
+    }),
+  );
+  return kioskResult("rpc_kiosk_clock", rows);
+}

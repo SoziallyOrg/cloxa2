@@ -85,6 +85,25 @@ export function createServiceClient(): CloxaClient {
 }
 
 /**
+ * Publishable key, no session and no cookies: every call runs as `anon`. For
+ * the kiosk RPCs, which carry the device secret instead of a login, so a
+ * manager signed in on the same tablet changes nothing.
+ */
+export function createAnonClient(): CloxaClient {
+  return createSupabaseClient<Database>(
+    env.NEXT_PUBLIC_SUPABASE_URL,
+    env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+    {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+      },
+    },
+  );
+}
+
+/**
  * Stateless publishable-key client for sending a login email outside the
  * request (inside `after()`): no cookies, no PKCE verifier, so the emailed
  * code and `token_hash` link work on any device. Takes the client IP as a

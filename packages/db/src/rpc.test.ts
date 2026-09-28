@@ -4,10 +4,14 @@ import {
   authAttempt,
   authLinkFailure,
   inviteMember,
+  kioskClock,
+  kioskPair,
+  kioskStatus,
   requestCorrection,
   revokeInvitation,
   RpcError,
   schedulePatternSchema,
+  setEmployeePin,
   scheduleForInput,
   signOutEverywhere,
   type CloxaClient,
@@ -393,5 +397,137 @@ describe("review rules", () => {
 
     await expect(revokeInvitation(client, { id: ID_A })).resolves.toBeUndefined();
     expect(calls).toEqual([{ fn: "rpc_revoke_invitation", args: { p_id: ID_A } }]);
+  });
+});
+
+describe("kiosk RPCs", () => {
+  const SECRET = "ab".repeat(32);
+
+  it("returns the device secret after pairing", async () => {
+    const { client, calls } = fakeClient({
+      data: [
+        { ok: true, error_code: null, device_secret: SECRET, device_name: "Ingang" },
+      ],
+      error: null,
+    });
+    await expect(kioskPair(client, { code: "ABCD2345" })).resolves.toEqual({
+      ok: true,
+      deviceSecret: SECRET,
+      deviceName: "Ingang",
+    });
+    expect(calls).toEqual([{ fn: "rpc_kiosk_pair", args: { p_code: "ABCD2345" } }]);
+  });
+
+  it("returns a refused pairing as a value", async () => {
+    const { client } = fakeClient({
+      data: [
+        {
+          ok: false,
+          error_code: "pairing_paused",
+          device_secret: null,
+          device_name: null,
+        },
+      ],
+      error: null,
+    });
+    await expect(kioskPair(client, { code: "ABCD2345" })).resolves.toEqual({
+      ok: false,
+      error: "pairing_paused",
+    });
+  });
+
+  it("never sends a code with ambiguous characters", async () => {
+    const { client, calls } = fakeClient({ data: [], error: null });
+    await expect(kioskPair(client, { code: "ABCD1O23" })).rejects.toThrow();
+    expect(calls).toHaveLength(0);
+  });
+
+  it("maps a refused PIN with its tries left", async () => {
+    const { client, calls } = fakeClient({
+      data: [
+        {
+          ok: false,
+          error_code: "pin_invalid",
+          tries_left: 2,
+          retry_after: null,
+          state: null,
+          occurred_at: null,
+        },
+      ],
+      error: null,
+    });
+    await expect(
+      kioskStatus(client, { deviceSecret: SECRET, employeeId: ID_A, pin: "2580" }),
+    ).resolves.toEqual({
+      ok: false,
+      error: "pin_invalid",
+      triesLeft: 2,
+      retryAfterSeconds: null,
+    });
+    expect(calls).toEqual([
+      {
+        fn: "rpc_kiosk_status",
+        args: { p_device_secret: SECRET, p_employee_id: ID_A, p_pin: "2580" },
+      },
+    ]);
+  });
+
+  it("maps a recorded kiosk event to the new state and server time", async () => {
+    const { client } = fakeClient({
+      data: [
+        {
+          ok: true,
+          error_code: null,
+          tries_left: null,
+          retry_after: null,
+          state: "working",
+          occurred_at: "2026-09-29T06:02:00+00:00",
+        },
+      ],
+      error: null,
+    });
+    await expect(
+      kioskClock(client, {
+        deviceSecret: SECRET,
+        employeeId: ID_A,
+        pin: "2580",
+        type: "clock_in",
+        idempotencyKey: ID_B,
+      }),
+    ).resolves.toEqual({
+      ok: true,
+      state: "working",
+      occurredAt: "2026-09-29T06:02:00+00:00",
+    });
+  });
+
+  it("rejects malformed PINs and secrets before calling", async () => {
+    const { client, calls } = fakeClient({ data: [], error: null });
+    await expect(
+      kioskStatus(client, { deviceSecret: SECRET, employeeId: ID_A, pin: "123" }),
+    ).rejects.toThrow();
+    await expect(
+      kioskStatus(client, { deviceSecret: "nope", employeeId: ID_A, pin: "2580" }),
+    ).rejects.toThrow();
+    await expect(
+      setEmployeePin(client, { employeeId: ID_A, pin: "1234567" }),
+    ).rejects.toThrow();
+    expect(calls).toHaveLength(0);
+  });
+
+  it("sets a PIN for an employee and turns a refusal into an RpcError", async () => {
+    const { client, calls } = fakeClient({
+      data: null,
+      error: { message: "pin_too_simple", code: "22023" },
+    });
+    await expect(
+      setEmployeePin(client, { employeeId: ID_A, pin: "1234" }),
+    ).rejects.toMatchObject({
+      name: "RpcError",
+      message: "pin_too_simple",
+    });
+    expect(calls).toEqual([
+      { fn: "rpc_set_employee_pin", args: { p_employee_id: ID_A, p_pin: "1234" } },
+    ]);
   });
 });

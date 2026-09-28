@@ -20,12 +20,15 @@ import {
 
 import { ManageShell } from "@/components/manage/ManageShell";
 import { ShiftList } from "@/components/clock/ShiftList";
+import { PinForm } from "@/components/kiosk/PinForm";
 import { buttonClassName } from "@/components/ui/Button";
 import { Heading } from "@/components/ui/Heading";
 import { requireManager } from "@/lib/auth/context";
 import { nowMs } from "@/lib/clock/now";
 import { formatWeeklyHours } from "@/lib/schedule/hours";
 import { createClient } from "@/lib/supabase/server";
+
+import { setEmployeePinAction } from "./actions";
 
 const WINDOW_DAYS = 14;
 const WINDOW_MS = WINDOW_DAYS * 24 * 3600 * 1000;
@@ -97,6 +100,13 @@ export default async function ManageEmployeeDetailPage({
   if (correctionsError) {
     throw new Error(`correction_requests_unavailable:${correctionsError.code}`);
   }
+
+  const { data: pinRow, error: pinError } = await supabase
+    .from("employee_pins")
+    .select("set_at")
+    .eq("employee_id", employee.id)
+    .maybeSingle();
+  if (pinError) throw new Error(`employee_pins_unavailable:${pinError.code}`);
 
   const todayKey = brusselsDayKey(now);
   const toKey = brusselsDayKey(now + SCHEDULE_DAYS_AHEAD * 24 * 3600 * 1000);
@@ -189,6 +199,25 @@ export default async function ManageEmployeeDetailPage({
               })}
             </ul>
           )}
+        </section>
+
+        <section className="flex flex-col gap-3">
+          <Heading level={2}>{t("kiosk.pinSettingsHeading")}</Heading>
+          <p className="text-ink/70">
+            {pinRow
+              ? t("kiosk.managerPinSetAt", {
+                  date: formatBrusselsDate(new Date(pinRow.set_at)),
+                })
+              : t("kiosk.managerPinNone")}
+          </p>
+          <div className="max-w-md">
+            <PinForm
+              id="employee-pin"
+              submitLabel={t("kiosk.managerPinSubmit")}
+              savedMessage={t("kiosk.managerPinSaved")}
+              action={setEmployeePinAction.bind(null, employee.id)}
+            />
+          </div>
         </section>
       </div>
     </ManageShell>

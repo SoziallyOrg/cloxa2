@@ -30,7 +30,7 @@ begin
 end;
 $$;
 
-select plan(74);
+select plan(76);
 
 -- Fixtures (rolled back). Org A: owner u1 (A1 and A2), admin u2, manager u3
 -- (manages site A1), employees u4 (A1), u5 (A2), suspended u7 (A1),
@@ -120,7 +120,24 @@ select is(
     'audit_log', 'clock_events', 'correction_requests', 'employees', 'invitations', 'memberships',
     'organizations', 'schedules', 'site_assignments', 'sites'
   ],
-  'authenticated may SELECT every public table (RLS decides rows)'
+  'authenticated may SELECT every public table without secrets (RLS decides rows)'
+);
+
+-- Tables holding a hash (or, for exports, gated content) grant SELECT per column.
+select is(
+  array(
+    select c.relname::text from pg_catalog.pg_class as c
+    where c.relnamespace = 'public'::regnamespace and c.relkind = 'r'
+      and not pg_catalog.has_table_privilege('authenticated', c.oid, 'SELECT')
+    order by 1
+  ),
+  array['employee_pins', 'exports', 'kiosk_devices'],
+  'only tables with hash or content columns are column-granted'
+);
+select ok(
+  not pg_catalog.has_column_privilege('authenticated', 'public.kiosk_devices', 'secret_hash', 'SELECT')
+    and not pg_catalog.has_column_privilege('authenticated', 'public.employee_pins', 'pin_hash', 'SELECT'),
+  'authenticated can never select a kiosk secret or PIN hash'
 );
 
 select ok(
@@ -145,6 +162,13 @@ select is(
     'rpc_create_export(uuid,date,date,uuid[],integer,text,bytea,text)',
     'rpc_decide_correction(uuid,text,text)',
     'rpc_invite_member(uuid,text,text,text,uuid[],text,text,text)',
+    'rpc_kiosk_clock(text,uuid,text,text,uuid)',
+    'rpc_kiosk_create(uuid,text)',
+    'rpc_kiosk_new_pairing_code(uuid)',
+    'rpc_kiosk_pair(text)',
+    'rpc_kiosk_revoke(uuid)',
+    'rpc_kiosk_roster(text)',
+    'rpc_kiosk_status(text,uuid,text)',
     'rpc_my_status()',
     'rpc_record_export_download(uuid,uuid,text)',
     'rpc_record_export_integrity_failure(uuid,uuid,text)',
@@ -152,6 +176,8 @@ select is(
     'rpc_request_correction(text,uuid[],jsonb,text)',
     'rpc_revoke_invitation(uuid)',
     'rpc_schedule_for(uuid,date,date)',
+    'rpc_set_employee_pin(uuid,text)',
+    'rpc_set_my_pin(text)',
     'rpc_set_schedule(uuid,date,jsonb)',
     'rpc_sign_out_everywhere(uuid)',
     'rpc_verify_chains(uuid)',
@@ -165,9 +191,15 @@ select is(
     select p.oid::regprocedure::text from pg_catalog.pg_proc as p
     where p.pronamespace in ('public'::regnamespace, 'private'::regnamespace)
       and pg_catalog.has_function_privilege('anon', p.oid, 'EXECUTE')
+    order by 1
   ),
-  '{}'::text[],
-  'anon executes nothing'
+  array[
+    'rpc_kiosk_clock(text,uuid,text,text,uuid)',
+    'rpc_kiosk_pair(text)',
+    'rpc_kiosk_roster(text)',
+    'rpc_kiosk_status(text,uuid,text)'
+  ],
+  'anon executes only the kiosk RPCs (each checks the device secret)'
 );
 
 select is(

@@ -78,7 +78,7 @@ export type Database = {
       };
       clock_events: {
         Row: {
-          actor_user_id: string;
+          actor_user_id: string | null;
           client_captured_at: string | null;
           correction_id: string | null;
           device_id: string | null;
@@ -97,7 +97,7 @@ export type Database = {
           type: string;
         };
         Insert: {
-          actor_user_id: string;
+          actor_user_id?: string | null;
           client_captured_at?: string | null;
           correction_id?: string | null;
           device_id?: string | null;
@@ -116,7 +116,7 @@ export type Database = {
           type: string;
         };
         Update: {
-          actor_user_id?: string;
+          actor_user_id?: string | null;
           client_captured_at?: string | null;
           correction_id?: string | null;
           device_id?: string | null;
@@ -225,6 +225,38 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "organizations";
             referencedColumns: ["id"];
+          },
+        ];
+      };
+      employee_pins: {
+        Row: {
+          employee_id: string;
+          organization_id: string;
+          pin_hash: string;
+          set_at: string;
+          set_by: string;
+        };
+        Insert: {
+          employee_id: string;
+          organization_id: string;
+          pin_hash: string;
+          set_at?: string;
+          set_by: string;
+        };
+        Update: {
+          employee_id?: string;
+          organization_id?: string;
+          pin_hash?: string;
+          set_at?: string;
+          set_by?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "employee_pins_employee_fkey";
+            columns: ["organization_id", "employee_id"];
+            isOneToOne: false;
+            referencedRelation: "employees";
+            referencedColumns: ["organization_id", "id"];
           },
         ];
       };
@@ -405,6 +437,60 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "organizations";
             referencedColumns: ["id"];
+          },
+        ];
+      };
+      kiosk_devices: {
+        Row: {
+          created_at: string;
+          created_by: string;
+          id: string;
+          last_seen_at: string | null;
+          name: string;
+          organization_id: string;
+          paused_until: string | null;
+          secret_hash: string | null;
+          site_id: string;
+          status: string;
+        };
+        Insert: {
+          created_at?: string;
+          created_by: string;
+          id?: string;
+          last_seen_at?: string | null;
+          name: string;
+          organization_id: string;
+          paused_until?: string | null;
+          secret_hash?: string | null;
+          site_id: string;
+          status?: string;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string;
+          id?: string;
+          last_seen_at?: string | null;
+          name?: string;
+          organization_id?: string;
+          paused_until?: string | null;
+          secret_hash?: string | null;
+          site_id?: string;
+          status?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "kiosk_devices_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "kiosk_devices_site_fkey";
+            columns: ["organization_id", "site_id"];
+            isOneToOne: false;
+            referencedRelation: "sites";
+            referencedColumns: ["organization_id", "id"];
           },
         ];
       };
@@ -672,7 +758,7 @@ export type Database = {
           p_type: string;
         };
         Returns: {
-          actor_user_id: string;
+          actor_user_id: string | null;
           client_captured_at: string | null;
           correction_id: string | null;
           device_id: string | null;
@@ -746,6 +832,75 @@ export type Database = {
           p_statute?: string;
         };
         Returns: string;
+      };
+      rpc_kiosk_clock: {
+        Args: {
+          p_device_secret: string;
+          p_employee_id: string;
+          p_idempotency_key: string;
+          p_pin: string;
+          p_type: string;
+        };
+        Returns: {
+          error_code: string;
+          occurred_at: string;
+          ok: boolean;
+          retry_after: number;
+          state: string;
+          tries_left: number;
+        }[];
+      };
+      rpc_kiosk_create: {
+        Args: { p_name: string; p_site_id: string };
+        Returns: {
+          device_id: string;
+          expires_at: string;
+          pairing_code: string;
+        }[];
+      };
+      rpc_kiosk_new_pairing_code: {
+        Args: { p_device_id: string };
+        Returns: {
+          expires_at: string;
+          pairing_code: string;
+        }[];
+      };
+      rpc_kiosk_pair: {
+        Args: { p_code: string };
+        Returns: {
+          device_name: string;
+          device_secret: string;
+          error_code: string;
+          ok: boolean;
+        }[];
+      };
+      rpc_kiosk_pairing_failures: {
+        Args: never;
+        Returns: {
+          failures: number;
+          paused: boolean;
+        }[];
+      };
+      rpc_kiosk_revoke: { Args: { p_device_id: string }; Returns: undefined };
+      rpc_kiosk_roster: {
+        Args: { p_device_secret: string };
+        Returns: {
+          display_name: string;
+          employee_id: string;
+          has_pin: boolean;
+          initials: string;
+        }[];
+      };
+      rpc_kiosk_status: {
+        Args: { p_device_secret: string; p_employee_id: string; p_pin: string };
+        Returns: {
+          error_code: string;
+          occurred_at: string;
+          ok: boolean;
+          retry_after: number;
+          state: string;
+          tries_left: number;
+        }[];
       };
       rpc_link_invited_user: {
         Args: { p_invitation_id: string; p_user_id: string };
@@ -832,6 +987,11 @@ export type Database = {
           start_at: string;
         }[];
       };
+      rpc_set_employee_pin: {
+        Args: { p_employee_id: string; p_pin: string };
+        Returns: undefined;
+      };
+      rpc_set_my_pin: { Args: { p_pin: string }; Returns: number };
       rpc_set_schedule: {
         Args: { p_employee_id: string; p_pattern: Json; p_valid_from: string };
         Returns: {

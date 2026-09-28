@@ -66,8 +66,9 @@ fresh MFA a privileged member sees only their own rows, like an employee.
   - `supersedes_event_id` is nullable. The row it points to stops being effective.
   - `correction_id` is nullable.
 - **Integrity:**
-  - `actor_user_id` (not null). Who the actor is for kiosk events of workers without a
-    login is still to be decided in Phase 3.
+  - `actor_user_id`: the signed-in user. Null only for kiosk events (a CHECK requires
+    `source='kiosk'` and a `device_id` then); their audit rows have a null actor and
+    `metadata.device_id`.
   - `idempotency_key` is unique per `(organization_id, employee_id)`. A replay with the
     same key returns the original event; one employee's key never touches another's.
   - `prev_hash` and `hash` (bytea).
@@ -94,7 +95,11 @@ fresh MFA a privileged member sees only their own rows, like an employee.
 - **Lock order** inside one transaction: 1003 (per employee) → 1002 (clock chain, per
   org) → 1001 (audit chain, per org). Correction approval and withdrawal follow it, and
   corrections reject an `occurred_at` in the future. The auth limiter uses 1004 (email
-  hash) → 1005 (IP hash) and never combines them with the other locks.
+  hash) → 1005 (IP hash) and never combines them with the other locks. Every kiosk path
+  follows: 1008 (pairing, global) or 1007 (PIN checks, per device) → the `kiosk_devices`
+  row → its `kiosk_pairing_codes` rows → 1003 → 1002 → 1001. Revoking and issuing a code
+  start at the device row. 1007 and 1008 are never held together; purges of old attempts
+  skip locked rows.
 
 **Effective events** are events that no other event supersedes; a `void` supersedes
 without replacing.
@@ -195,6 +200,34 @@ everything from the earliest affected event to the latest one, under the same lo
   correction approval writes one per appended event plus one for the decision. Export
   downloads write one too. Tenant-less calls (the attempt limiter) have no audit row.
 - A daily root hash is anchored externally (Phase 4).
+
+## Kiosk (ADR 005)
+
+- `kiosk_devices` (one site each; `secret_hash` = sha256 of the 256-bit device secret,
+  never granted), `private.kiosk_pairing_codes` (sha256 of an 8-character code, one use,
+  10 minutes), `employee_pins` (bcrypt cost 10; `pin_hash` never granted),
+  `private.kiosk_attempts` (failures, 24-hour purge, blocked calls not recorded).
+- Owners/admins with fresh MFA: `rpc_kiosk_create(site, name)`,
+  `rpc_kiosk_new_pairing_code(device)`, `rpc_kiosk_revoke(device)`. PINs:
+  `rpc_set_employee_pin` (privileged, manager-scoped; managers only for role `employee`
+  or no login) and `rpc_set_my_pin` (self, no MFA). 4–6 digits, not all equal, not a
+  straight run (`pin_too_simple`). A new PIN lifts that employee's lockouts.
+- Anon (and authenticated, JWT ignored): `rpc_kiosk_pair(code)`,
+  `rpc_kiosk_roster(secret)`, `rpc_kiosk_status(secret, employee, pin)`,
+  `rpc_kiosk_clock(secret, employee, pin, type, key)`. Refusals are rows, not errors, so
+  the failure record and its audit row survive. Anon sees uniform codes only
+  (`pin_invalid` for a wrong PIN, an unknown employee, another site, no PIN).
+- Limits: 5 wrong PINs per employee per device in 15 minutes lock that pair for 15
+  minutes; 30 per device pause the device 15 minutes. Calls during a lockout answer
+  `pin_locked` silently (not recorded, not audited). PIN failures are audited
+  (`kiosk.pin_failed` with a reason); pairing failures have no org, so no audit row.
+- Pairing: brute force is infeasible (40-bit codes, 10 minutes, serialized by 1008). A
+  global safety valve pauses pairing at 5000 failures in 15 minutes (anon has no org).
+  Operators watch the count with `rpc_kiosk_pairing_failures()` (service_role); the
+  server log gets a line every 100 failures from 500 on.
+- Web: `/kiosk` uses only the anon client plus the `cx_kiosk` cookie (httpOnly, Strict,
+  path `/kiosk`, 1 year). Kiosk clocking shares `private.append_live_event` with
+  `rpc_clock`.
 
 ## Exports
 

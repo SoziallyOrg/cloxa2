@@ -7,6 +7,8 @@ export default defineConfig({
     name: "db-integration",
     environment: "node",
     include: ["*.test.ts"],
+    // Resolves and checks the database once; an unreachable DB fails the run.
+    globalSetup: ["./global-setup.ts"],
     testTimeout: 60_000,
     hookTimeout: 60_000,
   },

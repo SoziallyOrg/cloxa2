@@ -36,6 +36,17 @@ export default async function ManageMeerPage() {
               {t("exports.moreLink")}
             </Link>
           </li>
+          {context.membership.role === "owner" ||
+          context.membership.role === "admin" ? (
+            <li>
+              <Link
+                href={"/manage/meer/kiosks" as Route}
+                className="focus-ring text-lg font-semibold text-primary underline"
+              >
+                {t("manageKiosks.moreLink")}
+              </Link>
+            </li>
+          ) : null}
           <li className="text-lg text-ink/70">{t("manageMore.settings")}</li>
           <li>
             <Link

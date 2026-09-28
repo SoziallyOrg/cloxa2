@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 
 import { t } from "@cloxa/i18n";
 
+import { Alert } from "../ui/Alert";
 import { Button } from "../ui/Button";
 import { cx } from "../ui/cx";
 import { IconSearch } from "../ui/icons";
@@ -11,15 +12,27 @@ import { IconSearch } from "../ui/icons";
 export interface KioskEmployee {
   readonly id: string;
   readonly name: string;
+  /** From the database; derived from the name when absent (preview data). */
+  readonly initials?: string;
+  /** `false` shows "no PIN yet" instead of the pad. */
+  readonly hasPin?: boolean;
 }
 
 export interface KioskHomeProps {
   employees: readonly KioskEmployee[];
-  /** Called once 4 digits are entered. Resolve/settle to clear the pad. */
+  /** The tapped tile, or null for the name grid. Owned by the caller. */
+  selected: KioskEmployee | null;
+  onSelect: (employee: KioskEmployee | null) => void;
+  /** Called with 4 to 6 digits when OK is pressed. The pad clears itself. */
   onSubmitPin: (employeeId: string, pin: string) => void | Promise<void>;
+  /** While the PIN is being checked. */
+  busy?: boolean;
+  /** Shown above the pad, e.g. a wrong PIN. */
+  error?: string | null;
 }
 
-const PIN_LENGTH = 4;
+const PIN_MIN_LENGTH = 4;
+const PIN_MAX_LENGTH = 6;
 const SEARCH_THRESHOLD = 12;
 const ZERO_DIGIT = "0";
 const DIGIT_ROWS = [
@@ -38,9 +51,15 @@ function initialsOf(name: string): string {
 }
 
 /** A wall-mounted tablet flow: pick your name, then enter your pincode. */
-export function KioskHome({ employees, onSubmitPin }: KioskHomeProps) {
+export function KioskHome({
+  employees,
+  selected,
+  onSelect,
+  onSubmitPin,
+  busy = false,
+  error = null,
+}: KioskHomeProps) {
   const [query, setQuery] = useState("");
-  const [selected, setSelected] = useState<KioskEmployee | null>(null);
   const [pin, setPin] = useState("");
 
   const filtered = useMemo(() => {
@@ -50,14 +69,20 @@ export function KioskHome({ employees, onSubmitPin }: KioskHomeProps) {
   }, [employees, query]);
 
   function pressDigit(digit: string) {
-    if (pin.length >= PIN_LENGTH || selected === null) return;
-    const next = pin + digit;
-    setPin(next);
+    if (busy || pin.length >= PIN_MAX_LENGTH) return;
+    setPin(pin + digit);
+  }
 
-    if (next.length === PIN_LENGTH) {
-      void onSubmitPin(selected.id, next);
-      setPin("");
-    }
+  function submit() {
+    if (busy || selected === null || pin.length < PIN_MIN_LENGTH) return;
+    void onSubmitPin(selected.id, pin);
+    setPin("");
+  }
+
+  function back() {
+    setPin("");
+    setQuery("");
+    onSelect(null);
   }
 
   if (selected === null) {
@@ -79,16 +104,26 @@ export function KioskHome({ employees, onSubmitPin }: KioskHomeProps) {
           </label>
         ) : null}
 
+        {employees.length === 0 ? (
+          <p className="text-lg">{t("kiosk.noEmployees")}</p>
+        ) : null}
+
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
           {filtered.map((employee) => (
             <button
               key={employee.id}
               type="button"
-              onClick={() => setSelected(employee)}
+              onClick={() => {
+                setPin("");
+                onSelect(employee);
+              }}
               className="focus-ring flex min-h-kiosk-tile w-full min-w-0 flex-col items-center justify-center gap-2 rounded-lg border border-border bg-surface p-3"
             >
-              <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-primary text-lg font-bold text-primary-contrast">
-                {initialsOf(employee.name)}
+              <span
+                aria-hidden="true"
+                className="flex size-12 shrink-0 items-center justify-center rounded-full bg-primary text-lg font-bold text-primary-contrast"
+              >
+                {employee.initials ?? initialsOf(employee.name)}
               </span>
               <span className="line-clamp-2 w-full text-center text-base font-semibold break-words">
                 {employee.name}
@@ -100,13 +135,29 @@ export function KioskHome({ employees, onSubmitPin }: KioskHomeProps) {
     );
   }
 
+  if (selected.hasPin === false) {
+    return (
+      <div className="mx-auto flex w-full max-w-md flex-col items-center gap-6 p-6">
+        <h1 className="text-2xl font-bold">{selected.name}</h1>
+        <p className="text-center text-lg">{t("kiosk.noPin")}</p>
+        <Button variant="secondary" size="lg" onClick={back}>
+          {t("kiosk.pinBack")}
+        </Button>
+      </div>
+    );
+  }
+
+  const slots = Math.max(PIN_MIN_LENGTH, pin.length);
+
   return (
     <div className="mx-auto flex w-full max-w-md flex-col items-center gap-6 p-6">
       <h1 className="text-2xl font-bold">{t("kiosk.pinTitle")}</h1>
       <p className="text-lg">{selected.name}</p>
 
+      {error ? <Alert tone="error">{error}</Alert> : null}
+
       <div className="flex gap-3" aria-hidden="true">
-        {Array.from({ length: PIN_LENGTH }, (_, index) => (
+        {Array.from({ length: slots }, (_, index) => (
           <span
             key={index}
             className={cx(
@@ -117,7 +168,7 @@ export function KioskHome({ employees, onSubmitPin }: KioskHomeProps) {
         ))}
       </div>
       <p className="sr-only" role="status">
-        {pin.length}
+        {t("kiosk.pinEntered", { count: pin.length })}
       </p>
 
       <div className="grid grid-cols-3 gap-4">
@@ -125,33 +176,38 @@ export function KioskHome({ employees, onSubmitPin }: KioskHomeProps) {
           <button
             key={digit}
             type="button"
+            disabled={busy}
             onClick={() => pressDigit(digit)}
             className="focus-ring size-pin-key rounded-lg border border-border bg-surface text-2xl font-bold"
           >
             {digit}
           </button>
         ))}
-        <Button variant="quiet" size="md" onClick={() => setPin("")}>
+        <Button variant="quiet" size="md" disabled={busy} onClick={() => setPin("")}>
           {t("kiosk.pinClear")}
         </Button>
         <button
           type="button"
+          disabled={busy}
           onClick={() => pressDigit(ZERO_DIGIT)}
           className="focus-ring size-pin-key rounded-lg border border-border bg-surface text-2xl font-bold"
         >
           {ZERO_DIGIT}
         </button>
         <Button
-          variant="quiet"
+          variant="primary"
           size="md"
-          onClick={() => {
-            setSelected(null);
-            setPin("");
-          }}
+          loading={busy}
+          disabled={pin.length < PIN_MIN_LENGTH}
+          onClick={submit}
         >
-          {t("kiosk.pinBack")}
+          {t("kiosk.pinConfirm")}
         </Button>
       </div>
+
+      <Button variant="quiet" size="md" onClick={back}>
+        {t("kiosk.pinBack")}
+      </Button>
     </div>
   );
 }

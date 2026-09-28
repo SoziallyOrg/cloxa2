@@ -8,6 +8,7 @@
  *   manager-e2e@demo.test (manager, site 1; reserved for the e2e tests)
  *   jan@demo.test, els@demo.test (site 1) · mohamed@demo.test, lotte@demo.test (site 2)
  *   schedule-e2e@demo.test (site 1; reserved for the schedule e2e test)
+ *   kiosk-admin@demo.test (admin), kiosk-e2e@demo.test (site 1; reserved for the kiosk e2e)
  * Codes arrive in the local Mailpit: http://127.0.0.1:54324
  *
  * Refuses to run unless both the Supabase API and the database are on
@@ -29,7 +30,7 @@ import postgres from "postgres";
 import type { Database } from "@cloxa/db";
 
 type Client = SupabaseClient<Database>;
-type Role = "manager" | "employee";
+type Role = "admin" | "manager" | "employee";
 type SiteKey = "main" | "second";
 
 const ORG_NAME = "Bakkerij Demo (fictief)";
@@ -56,6 +57,20 @@ const MEMBERS: readonly {
   },
   { email: "jan@demo.test", name: "Jan Janssens", role: "employee", sites: ["main"] },
   { email: "els@demo.test", name: "Els Maes", role: "employee", sites: ["main"] },
+  // Dedicated to the kiosk e2e: an admin who creates kiosks (TOTP reset per run)
+  // and an employee who clocks only through the kiosk.
+  {
+    email: "kiosk-admin@demo.test",
+    name: "Kim Kioskbeheer",
+    role: "admin",
+    sites: ["main"],
+  },
+  {
+    email: "kiosk-e2e@demo.test",
+    name: "Karel Kiosktest",
+    role: "employee",
+    sites: ["main"],
+  },
   // Dedicated to the schedule e2e spec.
   {
     email: "schedule-e2e@demo.test",
