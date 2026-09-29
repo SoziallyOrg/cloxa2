@@ -318,32 +318,34 @@ export default async function ManageEmployeeDetailPage({
 
         {moduleSections.map(({ module, data, view }) => (
           <ModuleSection key={module.id} view={view}>
-            {module.fields.length > 0
-              ? module.fields.map((field) => {
+            {/* No children at all without fields: an empty group is not shown. */}
+            {module.fields.length > 0 ? (
+              <>
+                {module.fields.map((field) => {
                   const value = fieldValue(field, data);
+                  // The value under the name: both can be long on a phone.
                   return (
                     <Row
                       key={field.key}
-                      // A field name can be long: it wraps instead of hiding.
-                      wrap
                       title={t(field.label)}
-                      value={
+                      subtitle={
                         value === null ? t("modules.fieldNotSet") : renderValue(value)
                       }
                     />
                   );
-                })
-              : undefined}
-            {module.fields.length > 0 && !employee.anonymised_at ? (
-              <ModuleFieldsSheet
-                moduleId={module.id}
-                moduleLabel={view.label}
-                employeeName={employee.display_name}
-                fields={module.fields}
-                initial={fieldsToForm(module, data)}
-                action={setModuleFieldsAction.bind(null, employee.id, module.id)}
-              />
-            ) : null}
+                })}
+                {employee.anonymised_at ? null : (
+                  <ModuleFieldsSheet
+                    moduleId={module.id}
+                    moduleLabel={view.label}
+                    employeeName={employee.display_name}
+                    fields={module.fields}
+                    initial={fieldsToForm(module, data)}
+                    action={setModuleFieldsAction.bind(null, employee.id, module.id)}
+                  />
+                )}
+              </>
+            ) : undefined}
           </ModuleSection>
         ))}
 
