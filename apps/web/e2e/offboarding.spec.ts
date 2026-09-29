@@ -51,6 +51,9 @@ test("owner offboards and reinstates an employee, and downloads the AVG export",
   // Find the employee on either tab (a failed earlier run may have left them out of service).
   await page.goto("/manage/team?toon=uit-dienst");
   const leftLink = page.getByRole("link", { name: EMPLOYEE_NAME });
+  await expect(page.getByRole("radio", { name: "Uit dienst" })).toBeChecked();
+  // The list may still be arriving: give the leftover a moment to show up.
+  await leftLink.waitFor({ timeout: 5_000 }).catch(() => undefined);
   if ((await leftLink.count()) > 0) {
     await leftLink.click();
     await button(page, "Terug in dienst").click();
