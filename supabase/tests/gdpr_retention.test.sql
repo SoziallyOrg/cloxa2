@@ -181,7 +181,7 @@ insert into run select private.run_retention();
 
 select is(
   (select result from run),
-  '{"employees_anonymised": 2, "exports_purged": 1, "organizations_failed": 0}'::jsonb,
+  '{"employees_anonymised": 2, "exports_purged": 1, "pilot_requests_purged": 0, "organizations_failed": 0}'::jsonb,
   'one run anonymises the two eligible leavers and purges the old export'
 );
 select is(
@@ -278,7 +278,7 @@ select is(
 );
 select is(
   private.run_retention(),
-  '{"employees_anonymised": 0, "exports_purged": 0, "organizations_failed": 0}'::jsonb,
+  '{"employees_anonymised": 0, "exports_purged": 0, "pilot_requests_purged": 0, "organizations_failed": 0}'::jsonb,
   'a second run finds nothing'
 );
 select is(

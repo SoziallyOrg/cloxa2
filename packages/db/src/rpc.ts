@@ -606,6 +606,70 @@ export async function adminCreateOrganization(
   return first("rpc_admin_create_organization", rows);
 }
 
+// Pilot requests (ADR 009) -----------------------------------------------------------------
+
+export const PILOT_EMPLOYEE_RANGES = ["1-9", "10-49", "50-249", "250+"] as const;
+export const PILOT_SECTORS = [
+  "horeca",
+  "bouw",
+  "schoonmaak",
+  "handel",
+  "zorg",
+  "industrie",
+  "diensten",
+  "interim",
+  "andere",
+] as const;
+
+export const submitPilotRequestInput = z.strictObject({
+  companyName: shortText(200),
+  /** Normalised (`BE0123456749`); the database also checks the mod-97 digits. */
+  vatNumber: z.string().regex(/^BE[01][0-9]{9}$/),
+  contactName: shortText(200),
+  email: z.string().trim().toLowerCase().pipe(z.email().max(254)),
+  phone: z.string().trim().max(40).optional(),
+  employeeRange: z.enum(PILOT_EMPLOYEE_RANGES),
+  sector: z.enum(PILOT_SECTORS),
+  message: z.string().trim().max(1000).optional(),
+  consent: z.literal(true),
+  emailHash: sha256Hex,
+  ipHash,
+});
+export type SubmitPilotRequestInput = z.input<typeof submitPilotRequestInput>;
+
+/**
+ * service_role only, after Turnstile and the honeypot. Returns whether the
+ * request was stored: false means rate limited, and callers must answer the
+ * same as for a stored one.
+ */
+export async function submitPilotRequest(
+  client: CloxaClient,
+  input: SubmitPilotRequestInput,
+): Promise<boolean> {
+  const parsed = submitPilotRequestInput.parse(input);
+  const args = {
+    p_company_name: parsed.companyName,
+    p_vat_number: parsed.vatNumber,
+    p_contact_name: parsed.contactName,
+    p_email: parsed.email,
+    p_phone: parsed.phone || null,
+    p_employee_range: parsed.employeeRange,
+    p_sector: parsed.sector,
+    p_message: parsed.message || null,
+    p_consent: parsed.consent,
+    p_email_hash: bytea(parsed.emailHash),
+    p_ip_hash: parsed.ipHash === null ? null : bytea(parsed.ipHash),
+  };
+  return unwrap(
+    "rpc_submit_pilot_request",
+    // The generated types don't model SQL nulls for these arguments.
+    await client.rpc(
+      "rpc_submit_pilot_request",
+      args as Functions["rpc_submit_pilot_request"]["Args"],
+    ),
+  );
+}
+
 export const inviteMemberInput = z.strictObject({
   organizationId: uuid,
   email: z.string().trim().toLowerCase().pipe(z.email().max(254)),

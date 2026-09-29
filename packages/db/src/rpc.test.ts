@@ -20,6 +20,7 @@ import {
   updateOrgSettings,
   scheduleForInput,
   signOutEverywhere,
+  submitPilotRequest,
   type CloxaClient,
 } from "./rpc";
 
@@ -763,5 +764,61 @@ describe("modules", () => {
         },
       },
     ]);
+  });
+});
+
+describe("submitPilotRequest", () => {
+  const base = {
+    companyName: " Bakkerij Zon ",
+    vatNumber: "BE0403019261",
+    contactName: "Jo Peeters",
+    email: " Jo@Example.TEST ",
+    employeeRange: "10-49",
+    sector: "horeca",
+    consent: true,
+    emailHash: HASH,
+    ipHash: null,
+  } as const;
+
+  it("sends hashes as bytea and unset optional fields as null", async () => {
+    const { client, calls } = fakeClient({ data: true, error: null });
+    await expect(submitPilotRequest(client, { ...base, phone: "  " })).resolves.toBe(true);
+    expect(calls).toEqual([
+      {
+        fn: "rpc_submit_pilot_request",
+        args: {
+          p_company_name: "Bakkerij Zon",
+          p_vat_number: "BE0403019261",
+          p_contact_name: "Jo Peeters",
+          p_email: "jo@example.test",
+          p_phone: null,
+          p_employee_range: "10-49",
+          p_sector: "horeca",
+          p_message: null,
+          p_consent: true,
+          p_email_hash: `\\x${HASH}`,
+          p_ip_hash: null,
+        },
+      },
+    ]);
+  });
+
+  it("reports a rate-limited request as not stored", async () => {
+    const { client } = fakeClient({ data: false, error: null });
+    await expect(submitPilotRequest(client, base)).resolves.toBe(false);
+  });
+
+  it("refuses missing consent, an odd VAT format and an unknown sector", async () => {
+    const { client, calls } = fakeClient({ data: true, error: null });
+    await expect(
+      submitPilotRequest(client, { ...base, consent: false as unknown as true }),
+    ).rejects.toThrow();
+    await expect(
+      submitPilotRequest(client, { ...base, vatNumber: "BE 0403.019.261" }),
+    ).rejects.toThrow();
+    await expect(
+      submitPilotRequest(client, { ...base, sector: "piraten" as unknown as "horeca" }),
+    ).rejects.toThrow();
+    expect(calls).toEqual([]);
   });
 });

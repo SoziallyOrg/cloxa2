@@ -813,6 +813,19 @@ export type Database = {
           organization_id: string;
         }[];
       };
+      rpc_admin_activate_pilot_request: {
+        Args: {
+          p_owner_user_id: string;
+          p_request_id: string;
+          p_site_name?: string;
+        };
+        Returns: {
+          employee_id: string;
+          membership_id: string;
+          organization_id: string;
+          site_id: string;
+        }[];
+      };
       rpc_admin_create_organization: {
         Args: {
           p_name: string;
@@ -825,6 +838,26 @@ export type Database = {
           organization_id: string;
           site_id: string;
         }[];
+      };
+      rpc_admin_list_pilot_requests: {
+        Args: { p_id?: string };
+        Returns: {
+          company_name: string;
+          contact_name: string;
+          created_at: string;
+          email: string;
+          employee_range: string;
+          id: string;
+          message: string;
+          phone: string;
+          sector: string;
+          status: string;
+          vat_number: string;
+        }[];
+      };
+      rpc_admin_reject_pilot_request: {
+        Args: { p_request_id: string };
+        Returns: boolean;
       };
       rpc_auth_attempt: {
         Args: {
@@ -1185,6 +1218,22 @@ export type Database = {
         Returns: number;
       };
       rpc_subject_export: { Args: { p_employee_id: string }; Returns: Json };
+      rpc_submit_pilot_request: {
+        Args: {
+          p_company_name: string;
+          p_consent: boolean;
+          p_contact_name: string;
+          p_email: string;
+          p_email_hash: string;
+          p_employee_range: string;
+          p_ip_hash: string;
+          p_message: string;
+          p_phone: string;
+          p_sector: string;
+          p_vat_number: string;
+        };
+        Returns: boolean;
+      };
       rpc_update_org_settings: {
         Args: {
           p_correction_max_age_days: number;
