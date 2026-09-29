@@ -12,6 +12,6 @@ export default defineConfig({
   test: {
     name: "web",
     environment: "node",
-    include: ["src/**/*.test.ts"],
+    include: ["src/**/*.test.ts", "scripts/**/*.test.ts"],
   },
 });

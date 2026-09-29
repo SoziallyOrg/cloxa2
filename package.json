@@ -24,6 +24,7 @@
     "db:integration": "pnpm --filter @cloxa/db-integration test:integration",
     "db:lint": "supabase db lint --local --schema public,private --level warning --fail-on warning",
     "db:types": "supabase gen types typescript --local > packages/db/src/database.types.ts && prettier --write packages/db/src/database.types.ts",
+    "ops": "pnpm --filter @cloxa/web ops",
     "e2e": "playwright test --project=chromium",
     "screens": "playwright test --project=screens"
   },

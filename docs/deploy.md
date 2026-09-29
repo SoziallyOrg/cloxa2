@@ -55,6 +55,9 @@ DNS-wijzigingen kunnen uren duren om overal door te komen.
 - `chmod 600 ~/cloxa/.env.production` — dit bestand nooit committen.
 - Zet ook `deploy/docker-compose.yml` en `deploy/Caddyfile` op de server, in dezelfde
   map (`~/cloxa/deploy/`).
+- Wil je een mail bij elke nieuwe pilotaanvraag? Vul dan alle zes de `SMTP_*`/
+  `OPERATOR_EMAIL`-variabelen in (Hostinger SMTP). Zonder worden aanvragen alleen
+  opgeslagen. De aanvrager krijgt nooit automatisch een mail.
 
 ## 5. GitHub secrets en environment
 
@@ -100,6 +103,34 @@ Onder repository Settings:
       sleutel terug
 - [ ] Pas **daarna, en alleen als je zeker bent**: HSTS preload aanvragen
       (`hstspreload.org`) — dit is moeilijk terug te draaien
+
+## 10. Een klant activeren
+
+Zelf aanmelden staat uit: bedrijven vragen een pilot aan op `cloxa.app/aanvragen` en jij
+zet ze klaar met de operator-CLI. Er is bewust geen web-beheerpaneel.
+
+1. **Bekijk de aanvragen:** `pnpm ops requests`. Ze blijven 12 maanden bewaard en worden
+   dan automatisch verwijderd.
+2. **Controleer de aanvrager** (bel of mail zelf, zoek het ondernemingsnummer op).
+3. **Wijs af of activeer.** Voor productie zet je de gegevens in een bestand buiten git,
+   bv. `.env.ops` in de hoofdmap (alle `.env.*` staan in `.gitignore`), met
+   `NEXT_PUBLIC_SUPABASE_URL` en `SUPABASE_SECRET_KEY` van het productieproject.
+   - Eerst zonder `--confirm`: het commando toont wat het gaat doen en wijzigt niets.
+   - Activeren:
+     `pnpm ops activate <aanvraag-id> --site "Naam van de eerste locatie" --confirm --env-file ../../.env.ops`
+     (het pad is relatief aan `apps/web`; `--site` mag weg, dan heet de locatie zoals
+     het bedrijf).
+   - Afwijzen: `pnpm ops reject <aanvraag-id> --confirm --env-file ../../.env.ops`.
+4. Voor iets anders dan je lokale stack toont het commando de host en vraagt het je die
+   over te typen. Zo activeer je nooit per ongeluk op het verkeerde project.
+5. Bij activeren maakt het commando de organisatie en de eerste locatie aan, nodigt het
+   de contactpersoon per e-mail uit (Nederlandstalige uitnodiging) en maakt die
+   eigenaar. Heeft dat e-mailadres al een login, dan krijgt die persoon geen nieuwe
+   uitnodiging maar logt hij in met een e-mailcode. Bij de eerste keer stelt de eigenaar
+   zijn beveiligingsapp in.
+
+De sleutel wordt nooit getoond. Bewaar het `.env.ops`-bestand veilig en gebruik het
+alleen op je eigen machine.
 
 ## Wat nog ontbreekt
 

@@ -4,6 +4,8 @@
     "jsx": "preserve",
     "lib": ["DOM", "DOM.Iterable", "ES2023"],
     "noEmit": true,
+    // scripts/ (run by Node's type stripping) import each other with .ts.
+    "allowImportingTsExtensions": true,
     "plugins": [{ "name": "next" }],
     "types": ["node"],
     "paths": {
