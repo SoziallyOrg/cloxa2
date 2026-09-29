@@ -109,8 +109,8 @@ export default function LandingPage() {
         <h2 id="zo-ziet-het-eruit" className={H2}>
           {t("landing.visual.heading")}
         </h2>
-        <div className="mt-8 flex items-end gap-6 rounded-group bg-surface p-6 md:gap-10 md:p-10">
-          <div className="w-[34%] max-w-[260px] shrink-0">
+        <div className="mt-8 flex flex-col items-center gap-6 rounded-group bg-surface p-6 md:flex-row md:items-end md:gap-10 md:p-10">
+          <div className="w-2/3 max-w-[260px] shrink-0 md:w-[34%]">
             <Screenshot
               name="klok-werk-phone"
               width={390}
@@ -119,7 +119,7 @@ export default function LandingPage() {
               className="w-full"
             />
           </div>
-          <div className="min-w-0 flex-1">
+          <div className="w-full min-w-0 md:flex-1">
             <Screenshot
               name="beheer-vandaag-desktop"
               width={1440}
