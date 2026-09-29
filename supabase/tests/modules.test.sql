@@ -282,11 +282,12 @@ select is_empty(
 
 reset role;
 select results_eq(
-  $$select metadata from public.audit_log
+  $$select metadata - 'old_sha256' - 'new_sha256' from public.audit_log
     where action = 'employee.module_data_updated' and entity_id = '40000000-0000-4000-8000-000000000e05'$$,
   $$values ('{"employee_id": "40000000-0000-4000-8000-000000000e05", "module": "interim",
-             "field_keys": ["agency_name", "agency_reference"]}'::jsonb)$$,
-  'module data is audited with field keys only, never the values'
+             "field_keys": ["agency_name", "agency_reference"],
+             "agency_name_old": null, "agency_name_new": "Uitzend NV"}'::jsonb)$$,
+  'module data is audited with keys, digests and the agency (a company), not the reference'
 );
 
 -- Telework: a work location only when enabled --------------------------------------------------

@@ -205,8 +205,11 @@ export async function loadSnapshotInput(
     );
     const agency = options.interimAgency ?? null;
     if (agency !== null) {
+      // The interim statute and that agency, as the database checks too.
       employees = employees.filter(
-        (employee) => interimAgency(data.get(employee.id)?.get("interim")) === agency,
+        (employee) =>
+          statutes.get(employee.id) === "interim" &&
+          interimAgency(data.get(employee.id)?.get("interim")) === agency,
       );
     }
     const needYear = employees.filter((employee) =>

@@ -310,6 +310,40 @@ describe("buildExportContent", () => {
     expect(plain).not.toHaveProperty("modules");
   });
 
+  it("accepts the additive optional module keys in v1, and nothing else new", () => {
+    const base = buildExportContent(input({}));
+    const withModules = {
+      ...base,
+      modules: ["interim"],
+      interim_agency: "Uitzend NV",
+      rows: [
+        {
+          day: "2026-09-01",
+          employee_id: ANN,
+          employee_code: null,
+          employee_name: "Ann",
+          shifts: [],
+          planned_ms: 0,
+          worked_net_ms: 0,
+          deviation_ms: 0,
+          edited: false,
+          modules: { interim: { agency_name: "Uitzend NV", agency_reference: null } },
+        },
+      ],
+    };
+    expect(exportContentSchema.safeParse(withModules).success).toBe(true);
+    expect(exportContentSchema.safeParse({ ...withModules, other: 1 }).success).toBe(
+      false,
+    );
+    expect(
+      exportContentSchema.safeParse({ ...withModules, interim_agency: "Uitzend\nNV" })
+        .success,
+    ).toBe(false);
+    expect(
+      exportContentSchema.safeParse({ ...withModules, modules: ["ciao"] }).success,
+    ).toBe(false);
+  });
+
   it("writes the header the database checks", () => {
     const content = buildExportContent(input({ siteIds: null }));
     expect(content).toEqual({

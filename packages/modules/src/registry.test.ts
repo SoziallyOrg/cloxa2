@@ -1,9 +1,12 @@
+import { readdirSync, readFileSync } from "node:fs";
+import path from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import { catalog } from "@cloxa/i18n";
 
 import { exportModules, yearToDateNetMs } from "./exports";
-import { interimAgency } from "./interim";
+import { hasControlCharacter, interimAgency } from "./interim";
 import {
   appliesTo,
   configFromChoices,
@@ -18,7 +21,40 @@ import {
   modulesFor,
 } from "./registry";
 import { at, HOUR, shift } from "./test-support";
-import { MODULE_IDS } from "./types";
+import { MODULE_IDS, STATUTES } from "./types";
+
+// packages/modules/src -> repo root.
+const MIGRATIONS_DIR = path.join(__dirname, "..", "..", "..", "supabase", "migrations");
+
+/**
+ * The statute map of the newest `private.module_statutes` in the migrations:
+ * `when '<module>' then array['a', 'b']` per module.
+ */
+function sqlModuleStatutes(): Map<string, string[]> {
+  const files = readdirSync(MIGRATIONS_DIR)
+    .filter((name) => name.endsWith(".sql"))
+    .sort();
+  let body: string | null = null;
+  for (const name of files) {
+    const sql = readFileSync(path.join(MIGRATIONS_DIR, name), "utf8");
+    const match =
+      /function private\.module_statutes\(p_module text\)[\s\S]*?\$\$([\s\S]*?)\$\$/.exec(
+        sql,
+      );
+    if (match) body = match[1]!;
+  }
+  if (body === null) throw new Error("no private.module_statutes in the migrations");
+  const map = new Map<string, string[]>();
+  for (const [, module, list] of body.matchAll(
+    /when '(\w+)' then array\[([^\]]*)\]/g,
+  )) {
+    map.set(
+      module!,
+      [...list!.matchAll(/'(\w+)'/g)].map(([, statute]) => statute!).sort(),
+    );
+  }
+  return map;
+}
 
 describe("registry", () => {
   it("knows exactly the five modules of ADR 008, in a fixed order", () => {
@@ -50,6 +86,16 @@ describe("registry", () => {
     expect(modulesFor(enabled, "bediende").map(({ module }) => module.id)).toEqual([
       "telework",
     ]);
+  });
+
+  it("uses the same statutes as private.module_statutes in SQL", () => {
+    const sql = sqlModuleStatutes();
+    expect([...sql.keys()].sort()).toEqual([...MODULE_IDS].sort());
+    for (const definition of MODULES) {
+      const statutes =
+        definition.statutes === "all" ? [...STATUTES] : [...definition.statutes];
+      expect(sql.get(definition.id), definition.id).toEqual(statutes.sort());
+    }
   });
 
   it("applies modules by statute", () => {
@@ -132,6 +178,22 @@ describe("fields", () => {
     expect(fieldValue(hours!, data)).toEqual({ durationMs: 37.5 * HOUR });
     expect(fieldValue(date!, data)).toEqual({ day: "2026-09-01" });
     expect(fieldValue(interim.fields[1]!, { agency_name: "X" })).toBeNull();
+  });
+
+  it("refuses control characters in agency fields", () => {
+    expect(hasControlCharacter("Uitzend NV")).toBe(false);
+    expect(hasControlCharacter("Uitzend\nNV")).toBe(true);
+    expect(hasControlCharacter("Uitzend\u007fNV")).toBe(true);
+    expect(fieldsFromForm(interim, { agency_name: "Uitzend\tNV" })).toEqual({
+      ok: false,
+      invalid: ["agency_name"],
+    });
+    expect(
+      fieldsFromForm(interim, {
+        agency_name: "Uitzend NV",
+        agency_reference: "R\u0001",
+      }),
+    ).toEqual({ ok: false, invalid: ["agency_reference"] });
   });
 
   it("reads the agency of an interim worker", () => {

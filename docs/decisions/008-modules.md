@@ -45,6 +45,13 @@ them.
   - Module data shows up in the employee detail page, counters and hints, and exports.
   - Nothing appears when no module is enabled.
 
+**Notes.**
+
+- Org module config never holds personal data: every member can read it, and its keys
+  are audited.
+- Known gap: `work_location` cannot be corrected yet. A correction request has no
+  location field, so a wrong "thuis" stays until one is added.
+
 **Consequences.** Every counter is labelled "indicatief" and is computed from facts. The
 legal responsibility stays with the employer. Adding a sector is a package plus i18n,
 with no changes to the core schema.

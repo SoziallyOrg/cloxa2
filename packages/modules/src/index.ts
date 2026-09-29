@@ -39,7 +39,7 @@ export {
 } from "./registry";
 export type { ExportModules } from "./exports";
 export { exportModules, yearToDateNetMs } from "./exports";
-export { interimAgency } from "./interim";
+export { hasControlCharacter, interimAgency } from "./interim";
 export { STUDENT_CONTINGENT_HOURS } from "./student";
 export { overurenThresholds } from "./overuren";
 export { FLEXI_TOLERANCE_MS } from "./flexi";

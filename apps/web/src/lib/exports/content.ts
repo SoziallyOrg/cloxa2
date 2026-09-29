@@ -2,9 +2,10 @@
  * The `cloxa.export.v1` snapshot: one row per employee per Brussels day.
  * Durations are integer milliseconds, instants are UTC ISO strings with a
  * Brussels local twin. Field names are snake_case and stable: changing them
- * means a new format version.
+ * means a new format version. Additive optional keys (`modules`,
+ * `interim_agency`, a row's `modules`) keep v1; any other key is refused.
  */
-import { MODULE_IDS } from "@cloxa/modules";
+import { hasControlCharacter, MODULE_IDS } from "@cloxa/modules";
 import { z } from "zod";
 
 export const EXPORT_FORMAT_VERSION = "cloxa.export.v1";
@@ -73,7 +74,12 @@ export const exportContentSchema = z.strictObject({
   /** The modules that were on, sorted; absent when none was. */
   modules: z.array(moduleId).min(1).optional(),
   /** Only this interim agency's workers. */
-  interim_agency: z.string().min(1).max(200).optional(),
+  interim_agency: z
+    .string()
+    .min(1)
+    .max(200)
+    .refine((value) => !hasControlCharacter(value))
+    .optional(),
   rows: z.array(exportRowSchema),
 });
 export type ExportContent = z.output<typeof exportContentSchema>;

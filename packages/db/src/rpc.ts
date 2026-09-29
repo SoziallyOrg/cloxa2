@@ -826,13 +826,24 @@ const modulePayload = z
       MAX_MODULE_PAYLOAD_BYTES,
     { message: "at most 8 KiB" },
   );
-/** An agency name as the export stores it: trimmed, 1 to 200 characters. */
+/** Mirrors the database: U+0000-U+001F and U+007F are refused in names. */
+function hasControlCharacter(value: string): boolean {
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index);
+    if (code < 0x20 || code === 0x7f) return true;
+  }
+  return false;
+}
+
+/** An agency name as the export stores it: trimmed, 1 to 200 characters, no control characters. */
 const interimAgencyName = z
   .string()
   .max(200)
-  .refine((value) => value.length > 0 && value.trim() === value, {
-    message: "trimmed and not empty",
-  });
+  .refine(
+    (value) =>
+      value.length > 0 && value.trim() === value && !hasControlCharacter(value),
+    { message: "trimmed, not empty, no control characters" },
+  );
 
 export const setOrgModuleInput = z.strictObject({
   organizationId: uuid,

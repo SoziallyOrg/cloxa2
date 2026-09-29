@@ -202,7 +202,11 @@ everything from the earliest affected event to the latest one, under the same lo
   telework is on); module data follows `can_see_employee`.
 - `rpc_set_org_module(org, module, enabled, config)`: owner/admin, fresh MFA.
   `rpc_set_employee_module_data(employee, module, data)`: privileged, fresh MFA, visible
-  employee, module enabled, not anonymised. Both audited with keys only.
+  employee, module enabled, applicable to the employee's statute
+  (`private.module_statutes`, mirrored in `@cloxa/modules` and compared by a unit test),
+  not anonymised. Both audited with keys only, plus for module data the sha256 of the
+  old and new data and, for interim, the old and new agency name (a company, not a
+  person).
 - `rpc_clock`, `rpc_clock_offline` and `rpc_kiosk_clock` take an optional
   `p_work_location`: refused (`telework_disabled`) unless telework is on, and
   `invalid_work_location` on anything but a clock-in.
@@ -283,7 +287,12 @@ everything from the earliest affected event to the latest one, under the same lo
 - With modules on, the header lists them (`modules`) and each row carries a `modules`
   object with the columns of the modules that apply to that employee. `interim_agency`
   (header and `exports.interim_agency`) marks an export of one agency's workers; the RPC
-  checks every row's employee belongs to it.
+  checks every row's employee has the interim statute and that agency. Agency names hold
+  no control characters.
+- `cloxa.export.v1` allows these **additive optional keys** (`modules`,
+  `interim_agency`, a row's `modules`) without a new version; every other unknown key is
+  refused, by the RPC and by our own verifier (`exportContentSchema`). Removing or
+  renaming a key means a new version.
 - Old exports are purged daily per organization by `private.run_retention` (ADR 007).
 
 ## Retention and data-subject access (ADR 007)

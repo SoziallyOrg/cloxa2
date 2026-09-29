@@ -8,9 +8,30 @@ import { z } from "zod";
 
 import type { ExportDayInput, ModuleDefinition } from "./types";
 
+/**
+ * True when the text holds a control character (U+0000-U+001F or U+007F):
+ * refused in names that end up in exports and CSV cells. A function, not a
+ * regex, so the rule reads the same as the database's check.
+ */
+export function hasControlCharacter(value: string): boolean {
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index);
+    if (code < 0x20 || code === 0x7f) return true;
+  }
+  return false;
+}
+
+const plainText = (max: number) =>
+  z
+    .string()
+    .trim()
+    .min(1)
+    .max(max)
+    .refine((value) => !hasControlCharacter(value), "no control characters");
+
 export const interimData = z.strictObject({
-  agency_name: z.string().trim().min(1).max(120),
-  agency_reference: z.string().trim().min(1).max(64).optional(),
+  agency_name: plainText(120),
+  agency_reference: plainText(64).optional(),
 });
 export type InterimData = z.output<typeof interimData>;
 
