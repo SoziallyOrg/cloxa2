@@ -52,6 +52,21 @@ describe("telework", () => {
     expect(counters[0]?.value?.values).toEqual({ home: 0, site: 0 });
   });
 
+  it("shows nothing when no shift in the period has a location", () => {
+    expect(
+      telework.counters(
+        input({
+          period: {
+            from: "2026-09-01",
+            to: "2026-09-29",
+            now: at("2026-09-29", "12:00"),
+          },
+          shifts: [shift("2026-09-15", "09:00", "17:00")],
+        }),
+      ),
+    ).toEqual([]);
+  });
+
   it("exports the day's home and site shifts", () => {
     expect(
       telework.exportValues({

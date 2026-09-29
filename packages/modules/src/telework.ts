@@ -31,6 +31,10 @@ function counters(input: ModuleInput): readonly Counter[] {
     counts.set(month, entry);
   }
 
+  // Nobody was asked in this period (telework came later, or a kiosk-only
+  // worker): nothing to count, so nothing to show.
+  if (counts.size === 0) return [];
+
   // This month always, then earlier months of the period that have shifts.
   const first = monthOf(input.period.from);
   const result: Counter[] = [];

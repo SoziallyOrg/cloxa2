@@ -95,7 +95,7 @@ describe("student", () => {
   });
 
   it("shows planned against worked per quarter, up to the current quarter", () => {
-    const [, quarters] = student.counters(
+    const [, ...quarters] = student.counters(
       input({
         period,
         shifts: [shift("2026-08-03", "09:00", "12:00")],
@@ -107,15 +107,17 @@ describe("student", () => {
         ],
       }),
     );
-    expect(quarters?.display).toBe("lines");
-    expect(quarters?.lines).toHaveLength(3);
-    expect(quarters?.lines?.[0]?.values).toEqual({
-      quarter: 1,
+    expect(quarters.map((counter) => counter.id)).toEqual([
+      "student.quarter.1",
+      "student.quarter.2",
+      "student.quarter.3",
+    ]);
+    expect(quarters[0]?.label.values).toEqual({ quarter: 1 });
+    expect(quarters[0]?.value?.values).toEqual({
       planned: { durationMs: 4 * HOUR },
       worked: { durationMs: 0 },
     });
-    expect(quarters?.lines?.[2]?.values).toEqual({
-      quarter: 3,
+    expect(quarters[2]?.value?.values).toEqual({
       planned: { durationMs: 6 * HOUR },
       worked: { durationMs: 3 * HOUR },
     });

@@ -529,8 +529,8 @@ export const catalog = {
       progressLabel: "Studentenuren tegenover het contingent van 650 uur",
       progressStart: "0 u",
       progressEnd: "650 u",
-      quartersLabel: "Per kwartaal (Dimona)",
-      quarterLine: "Kwartaal {quarter}: gepland {planned}, gewerkt {worked}",
+      quarterLabel: "Kwartaal {quarter} (Dimona)",
+      quarterValue: "Gepland {planned} · gewerkt {worked}",
       hintLow:
         "Nog {remaining} van het contingent van 650 u (indicatief). Kijk het saldo na op Student@work.",
       hintOver:
@@ -563,7 +563,7 @@ export const catalog = {
     },
     interim: {
       label: "Uitzendkrachten",
-      summary: "Het uitzendkantoor per uitzendkracht, en een export per kantoor.",
+      summary: "Het uitzendkantoor van elke uitzendkracht.",
       description:
         "Bewaart het uitzendkantoor en de referentie per uitzendkracht, en maakt een export per uitzendkantoor.",
       fieldAgencyName: "Uitzendkantoor",

@@ -145,7 +145,7 @@ function counters(input: ModuleInput): readonly Counter[] {
   const lastQuarter = quarterOf(input.period.to);
   const planned = plannedByDay(input.planned);
   const worked = workedByDay(input.shifts, input.period.now, input.period.to);
-  const quarterLines: Message[] = [];
+  const quarters: Counter[] = [];
   for (let quarter = 1; quarter <= lastQuarter; quarter += 1) {
     const inQuarter = (day: string) =>
       yearOf(day) === result.year && quarterOf(day) === quarter;
@@ -157,25 +157,21 @@ function counters(input: ModuleInput): readonly Counter[] {
     for (const [day, ms] of worked) {
       if (inQuarter(day)) workedTotal += ms;
     }
-    quarterLines.push({
-      key: "modules.student.quarterLine",
-      values: {
-        quarter,
-        planned: { durationMs: plannedTotal },
-        worked: { durationMs: workedTotal },
+    quarters.push({
+      id: `student.quarter.${quarter}`,
+      display: "row",
+      label: { key: "modules.student.quarterLabel", values: { quarter } },
+      value: {
+        key: "modules.student.quarterValue",
+        values: {
+          planned: { durationMs: plannedTotal },
+          worked: { durationMs: workedTotal },
+        },
       },
     });
   }
 
-  return [
-    year,
-    {
-      id: "student.quarters",
-      display: "lines",
-      label: { key: "modules.student.quartersLabel" },
-      lines: quarterLines,
-    },
-  ];
+  return [year, ...quarters];
 }
 
 function hints(input: ModuleInput): readonly Hint[] {

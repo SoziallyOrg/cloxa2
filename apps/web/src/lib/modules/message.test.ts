@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { deriveShifts } from "@cloxa/domain";
 import { moduleById } from "@cloxa/modules";
 import { brusselsLocalToInstant } from "@cloxa/i18n";
 
@@ -30,8 +31,30 @@ describe("renderMessage", () => {
   });
 
   it("renders a module view as plain text", () => {
+    const base = {
+      employee_id: "p1",
+      site_id: "s1",
+      source: "app",
+      supersedes_event_id: null,
+      correction_id: null,
+    };
+    const shifts = deriveShifts([
+      clockEventFromRow({
+        ...base,
+        id: "e1",
+        type: "clock_in",
+        occurred_at: "2026-09-28T06:00:00Z",
+        work_location: "home",
+      }),
+      clockEventFromRow({
+        ...base,
+        id: "e2",
+        type: "clock_out",
+        occurred_at: "2026-09-28T14:00:00Z",
+      }),
+    ]);
     const view = viewModule(moduleById("telework"), {
-      shifts: [],
+      shifts,
       planned: [],
       period: { from: "2026-09-01", to: "2026-09-29", now: Date.now() },
       config: {},
@@ -46,7 +69,7 @@ describe("renderMessage", () => {
           id: "telework.2026-09",
           display: "row",
           label: "September 2026",
-          value: "0 thuis · 0 op de werkplek",
+          value: "1 thuis · 0 op de werkplek",
           progress: null,
           lines: [],
         },

@@ -324,6 +324,8 @@ export default async function ManageEmployeeDetailPage({
                   return (
                     <Row
                       key={field.key}
+                      // A field name can be long: it wraps instead of hiding.
+                      wrap
                       title={t(field.label)}
                       value={
                         value === null ? t("modules.fieldNotSet") : renderValue(value)
