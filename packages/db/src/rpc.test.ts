@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   authAttempt,
   authLinkFailure,
+  clock,
   clockOffline,
   inviteMember,
   kioskClock,
@@ -13,7 +14,9 @@ import {
   revokeInvitation,
   RpcError,
   schedulePatternSchema,
+  setEmployeeModuleData,
   setEmployeePin,
+  setOrgModule,
   updateOrgSettings,
   scheduleForInput,
   signOutEverywhere,
@@ -652,6 +655,111 @@ describe("offboarding and org settings", () => {
           p_offline_clocking: true,
           p_offline_max_skew_minutes: 240,
           p_correction_max_age_days: 60,
+        },
+      },
+    ]);
+  });
+});
+
+describe("modules", () => {
+  it("maps a module switch and refuses unknown modules or big configs before calling", async () => {
+    const { client, calls } = fakeClient({ data: null, error: null });
+    await setOrgModule(client, {
+      organizationId: ID_A,
+      module: "overuren",
+      enabled: true,
+      config: { sector: "horeca" },
+    });
+    await expect(
+      setOrgModule(client, {
+        organizationId: ID_A,
+        module: "ciao" as "student",
+        enabled: true,
+        config: {},
+      }),
+    ).rejects.toThrow();
+    await expect(
+      setOrgModule(client, {
+        organizationId: ID_A,
+        module: "student",
+        enabled: true,
+        config: { note: "x".repeat(8200) },
+      }),
+    ).rejects.toThrow();
+    expect(calls).toEqual([
+      {
+        fn: "rpc_set_org_module",
+        args: {
+          p_org: ID_A,
+          p_module: "overuren",
+          p_enabled: true,
+          p_config: { sector: "horeca" },
+        },
+      },
+    ]);
+  });
+
+  it("maps employee module data and throws the database refusal", async () => {
+    const { client, calls } = fakeClient({ data: null, error: null });
+    await setEmployeeModuleData(client, {
+      employeeId: ID_A,
+      module: "interim",
+      data: { agency_name: "Uitzend NV" },
+    });
+    expect(calls[0]).toEqual({
+      fn: "rpc_set_employee_module_data",
+      args: {
+        p_employee_id: ID_A,
+        p_module: "interim",
+        p_data: { agency_name: "Uitzend NV" },
+      },
+    });
+
+    const refused = fakeClient({
+      data: null,
+      error: { message: "module_disabled", code: "22023" },
+    });
+    await expect(
+      setEmployeeModuleData(refused.client, {
+        employeeId: ID_A,
+        module: "student",
+        data: {},
+      }),
+    ).rejects.toMatchObject({ name: "RpcError", message: "module_disabled" });
+  });
+
+  it("sends a work location only with a clock-in", async () => {
+    const { client, calls } = fakeClient({ data: { id: ID_B }, error: null });
+    await clock(client, {
+      type: "clock_in",
+      idempotencyKey: ID_A,
+      siteId: ID_B,
+      workLocation: "home",
+    });
+    await expect(
+      clock(client, {
+        type: "clock_out",
+        idempotencyKey: ID_A,
+        siteId: ID_B,
+        workLocation: "home",
+      }),
+    ).rejects.toThrow();
+    await expect(
+      clock(client, {
+        type: "clock_in",
+        idempotencyKey: ID_A,
+        siteId: ID_B,
+        workLocation: "garden" as "home",
+      }),
+    ).rejects.toThrow();
+    expect(calls).toEqual([
+      {
+        fn: "rpc_clock",
+        args: {
+          p_type: "clock_in",
+          p_idempotency_key: ID_A,
+          p_site_id: ID_B,
+          p_work_location: "home",
         },
       },
     ]);

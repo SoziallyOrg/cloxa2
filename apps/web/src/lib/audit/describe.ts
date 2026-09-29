@@ -14,6 +14,7 @@ export const ACTION_DESCRIPTIONS: Readonly<Record<string, CatalogKey>> = {
   "correction_request.approved": "audit.action.correctionRequestApproved",
   "correction_request.rejected": "audit.action.correctionRequestRejected",
   "employee.kiosk_pin_set": "audit.action.employeeKioskPinSet",
+  "employee.module_data_updated": "audit.action.employeeModuleDataUpdated",
   "employee.offboarded": "audit.action.employeeOffboarded",
   "employee.reinstated": "audit.action.employeeReinstated",
   "employee.self_data_exported": "audit.action.employeeSelfDataExported",
@@ -39,6 +40,7 @@ export const ACTION_DESCRIPTIONS: Readonly<Record<string, CatalogKey>> = {
   "organization.created": "audit.action.organizationCreated",
   "organization.retention_applied": "audit.action.organizationRetentionApplied",
   "organization.retention_failed": "audit.action.organizationRetentionFailed",
+  "organization.module_updated": "audit.action.organizationModuleUpdated",
   "organization.settings_updated": "audit.action.organizationSettingsUpdated",
   "schedule.set": "audit.action.scheduleSet",
 };

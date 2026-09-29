@@ -90,7 +90,7 @@ $$;
 
 select col_default_is('public', 'clock_events', 'offline', 'false', 'clock_events.offline defaults to false');
 select has_function(
-  'public', 'rpc_clock_offline', array['text', 'uuid', 'uuid', 'timestamp with time zone'],
+  'public', 'rpc_clock_offline', array['text', 'uuid', 'uuid', 'timestamp with time zone', 'text'],
   'rpc_clock_offline takes no employee or source parameter'
 );
 

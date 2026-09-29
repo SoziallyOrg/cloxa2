@@ -647,6 +647,8 @@ select results_eq(
 select is(
   (select count(*) from public.clock_events as event
    where event.correction_id is not null
+     -- This file's organizations only: a seeded dev database has events of its own.
+     and event.organization_id in ('10000000-0000-4000-8000-00000000050a', '10000000-0000-4000-8000-00000000050b')
      and (select count(*) from public.audit_log as log
           where log.entity = 'clock_event' and log.entity_id = event.id) <> 1),
   0::bigint, 'every appended correction event has exactly one audit row'

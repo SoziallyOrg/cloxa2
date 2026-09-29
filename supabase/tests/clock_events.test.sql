@@ -83,7 +83,7 @@ select columns_are(
   array[
     'id', 'organization_id', 'site_id', 'employee_id', 'type', 'occurred_at', 'server_at',
     'client_captured_at', 'source', 'device_id', 'geo', 'supersedes_event_id', 'correction_id',
-    'actor_user_id', 'idempotency_key', 'prev_hash', 'hash', 'offline'
+    'actor_user_id', 'idempotency_key', 'prev_hash', 'hash', 'offline', 'work_location'
   ],
   'clock_events has exactly the contract columns'
 );
@@ -92,7 +92,7 @@ select has_index(
   array['organization_id', 'employee_id', 'occurred_at'], 'index on (organization_id, employee_id, occurred_at)'
 );
 select col_is_unique('public', 'clock_events', array['organization_id', 'employee_id', 'idempotency_key'], 'idempotency key is unique per employee');
-select has_function('public', 'rpc_clock', array['text', 'uuid', 'uuid', 'timestamp with time zone'], 'rpc_clock has no source or employee parameter');
+select has_function('public', 'rpc_clock', array['text', 'uuid', 'uuid', 'timestamp with time zone', 'text'], 'rpc_clock has no source or employee parameter');
 
 -- Live clocking as employee u3 (aal1) --------------------------------------------
 
@@ -345,7 +345,9 @@ select throws_ok(
 
 select is(
   (select count(*) from public.clock_events as event
-   where (select count(*) from public.audit_log as log
+   -- This file's organizations only: a seeded dev database has events of its own.
+   where event.organization_id in ('10000000-0000-4000-8000-00000000020a', '10000000-0000-4000-8000-00000000020b')
+     and (select count(*) from public.audit_log as log
           where log.entity = 'clock_event' and log.entity_id = event.id) <> 1),
   0::bigint, 'every event has exactly one audit row'
 );
@@ -438,18 +440,18 @@ select is(
   (select length(c) - length(replace(c, '|', ''))
    from (select private.clock_event_canonical(row(
      gen_random_uuid(), '10000000-0000-4000-8000-00000000020a', gen_random_uuid(), gen_random_uuid(), 'clock_in', now(), now(),
-     null, 'app', null, null, null, null, gen_random_uuid(), gen_random_uuid(), null, null, false
+     null, 'app', null, null, null, null, gen_random_uuid(), gen_random_uuid(), null, null, false, null
    )::public.clock_events) as c) as canonical),
   13, 'canonical bytes keep all 14 fields (13 separators) when nullable fields are null'
 );
 select isnt(
   private.clock_event_canonical((select row(e.id, e.organization_id, e.site_id, e.employee_id, e.type, e.occurred_at, e.server_at,
     e.client_captured_at, e.source, '60000000-0000-4000-8000-000000000001'::uuid, '{"lat": 51.2, "lng": 4.4}'::jsonb,
-    e.supersedes_event_id, e.correction_id, e.actor_user_id, e.idempotency_key, e.prev_hash, e.hash, e.offline)::public.clock_events
+    e.supersedes_event_id, e.correction_id, e.actor_user_id, e.idempotency_key, e.prev_hash, e.hash, e.offline, e.work_location)::public.clock_events
     from chain_a as e where position = 1)),
   private.clock_event_canonical((select row(e.id, e.organization_id, e.site_id, e.employee_id, e.type, e.occurred_at, e.server_at,
     e.client_captured_at, e.source, e.device_id, e.geo, e.supersedes_event_id, e.correction_id, e.actor_user_id,
-    e.idempotency_key, e.prev_hash, e.hash, e.offline)::public.clock_events from chain_a as e where position = 1)),
+    e.idempotency_key, e.prev_hash, e.hash, e.offline, e.work_location)::public.clock_events from chain_a as e where position = 1)),
   'device_id and geo are part of the canonical bytes'
 );
 

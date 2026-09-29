@@ -412,7 +412,7 @@ insert into doc select public.rpc_subject_export('40000000-0000-4000-8000-000000
 select is(
   (select array_agg(key order by key) from doc, jsonb_object_keys(doc.value) as key),
   array['audit_log', 'clock_events', 'correction_requests', 'employee', 'format', 'generated_at',
-        'invitations', 'memberships', 'organization', 'pin', 'schedules', 'site_assignments'],
+        'invitations', 'memberships', 'module_data', 'organization', 'pin', 'schedules', 'site_assignments'],
   'the subject export has every section'
 );
 select results_eq(

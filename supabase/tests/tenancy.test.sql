@@ -117,8 +117,8 @@ select is(
     order by 1
   ),
   array[
-    'audit_log', 'clock_events', 'correction_requests', 'employees', 'invitations', 'memberships',
-    'organizations', 'schedules', 'site_assignments', 'sites'
+    'audit_log', 'clock_events', 'correction_requests', 'employee_module_data', 'employees', 'invitations',
+    'memberships', 'org_modules', 'organizations', 'schedules', 'site_assignments', 'sites'
   ],
   'authenticated may SELECT every public table without secrets (RLS decides rows)'
 );
@@ -158,12 +158,12 @@ select is(
     'private.export_scope_ok(uuid,uuid[])',
     'private.is_privileged(uuid)',
     'rpc_accept_membership()',
-    'rpc_clock_offline(text,uuid,uuid,timestamp with time zone)',
-    'rpc_clock(text,uuid,uuid,timestamp with time zone)',
-    'rpc_create_export(uuid,date,date,uuid[],integer,text,bytea,text)',
+    'rpc_clock_offline(text,uuid,uuid,timestamp with time zone,text)',
+    'rpc_clock(text,uuid,uuid,timestamp with time zone,text)',
+    'rpc_create_export(uuid,date,date,uuid[],integer,text,bytea,text,text)',
     'rpc_decide_correction(uuid,text,text)',
     'rpc_invite_member(uuid,text,text,text,uuid[],text,text,text)',
-    'rpc_kiosk_clock(text,uuid,text,text,uuid)',
+    'rpc_kiosk_clock(text,uuid,text,text,uuid,text)',
     'rpc_kiosk_create(uuid,text)',
     'rpc_kiosk_new_pairing_code(uuid)',
     'rpc_kiosk_pair(text)',
@@ -180,8 +180,10 @@ select is(
     'rpc_request_correction(text,uuid[],jsonb,text)',
     'rpc_revoke_invitation(uuid)',
     'rpc_schedule_for(uuid,date,date)',
+    'rpc_set_employee_module_data(uuid,text,jsonb)',
     'rpc_set_employee_pin(uuid,text)',
     'rpc_set_my_pin(text)',
+    'rpc_set_org_module(uuid,text,boolean,jsonb)',
     'rpc_set_schedule(uuid,date,jsonb)',
     'rpc_sign_out_everywhere(uuid)',
     'rpc_subject_export(uuid)',
@@ -200,7 +202,7 @@ select is(
     order by 1
   ),
   array[
-    'rpc_kiosk_clock(text,uuid,text,text,uuid)',
+    'rpc_kiosk_clock(text,uuid,text,text,uuid,text)',
     'rpc_kiosk_pair(text)',
     'rpc_kiosk_roster(text)',
     'rpc_kiosk_status(text,uuid,text)'

@@ -10,7 +10,7 @@
  */
 
 import { brusselsDayKey } from "./brussels-day-key";
-import type { ClockEvent } from "./clock-event";
+import type { ClockEvent, WorkLocation } from "./clock-event";
 
 export interface ShiftBreak {
   readonly start: number;
@@ -40,6 +40,8 @@ export interface Shift {
    * (`serverAt - occurredAt`), or null when unknown or there is none.
    */
   readonly offlineSkewMs: number | null;
+  /** From the clock_in (telework); absent when it was not asked. */
+  readonly workLocation?: WorkLocation;
 }
 
 interface OpenShift {
@@ -49,6 +51,7 @@ interface OpenShift {
   hasOffline: boolean;
   offlineSkewMs: number | null;
   cursor: number;
+  workLocation: WorkLocation | undefined;
 }
 
 export function deriveShifts(events: readonly ClockEvent[]): Shift[] {
@@ -72,6 +75,7 @@ export function deriveShifts(events: readonly ClockEvent[]): Shift[] {
           hasOffline: offline,
           offlineSkewMs: skew,
           cursor: event.occurredAt,
+          workLocation: event.workLocation,
         };
         break;
       }
@@ -146,5 +150,6 @@ function finalizeShift(open: OpenShift, end: number | null): Shift {
     edited: open.edited,
     hasOffline: open.hasOffline,
     offlineSkewMs: open.offlineSkewMs,
+    ...(open.workLocation !== undefined ? { workLocation: open.workLocation } : {}),
   };
 }

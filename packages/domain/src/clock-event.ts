@@ -9,6 +9,9 @@ export type ClockEventType =
 
 export type ClockEventSource = "app" | "kiosk" | "mobile" | "correction";
 
+/** Telework module (ADR 008): where a shift is worked. Only on a clock_in. */
+export type WorkLocation = "site" | "home";
+
 export interface ClockEvent {
   readonly id: string;
   readonly type: ClockEventType;
@@ -27,4 +30,6 @@ export interface ClockEvent {
   readonly offline?: boolean;
   /** Epoch milliseconds the server received it, when the caller loaded it. */
   readonly serverAt?: number;
+  /** Only on a clock_in, and only when the organization asks (telework). */
+  readonly workLocation?: WorkLocation;
 }

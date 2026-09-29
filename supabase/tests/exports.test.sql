@@ -108,7 +108,8 @@ grant select, insert on ids to authenticated;
 select columns_are(
   'public', 'exports',
   array['id', 'organization_id', 'site_ids', 'period_from', 'period_to', 'format_version', 'created_by',
-        'created_at', 'row_count', 'content_sha256', 'signature', 'signing_key_id', 'content'],
+        'created_at', 'row_count', 'content_sha256', 'signature', 'signing_key_id', 'content',
+        'interim_agency'],
   'exports has the contract columns'
 );
 

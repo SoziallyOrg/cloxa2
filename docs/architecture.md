@@ -66,6 +66,9 @@ fresh MFA a privileged member sees only their own rows, like an employee.
     Only for `source='app'`, with `client_captured_at = occurred_at`.
   - `device_id` is nullable.
   - `geo` is nullable: one point, only when the org setting allows it.
+  - `work_location` is nullable: `site` or `home`, only on a `clock_in`, only when the
+    org has the telework module on (ADR 008). A kiosk clock-in records `site` then. An
+    adjust correction of a clock-in keeps its location.
 - **Links:**
   - `supersedes_event_id` is nullable. The row it points to stops being effective.
   - `correction_id` is nullable.
@@ -85,8 +88,9 @@ fresh MFA a privileged member sees only their own rows, like an employee.
   type, `occurred_at` and `server_at` (both as epoch µs), `client_captured_at` (epoch
   µs), source, `supersedes_event_id`, `correction_id`, `actor_user_id`, `device_id`,
   `geo` (jsonb text). Every null is an empty field (`concat_ws` skips nulls, so each
-  nullable value is coalesced). Offline rows append `|offline`; all other rows keep
-  exactly these 14 fields, so hashes from before the column existed stay valid.
+  nullable value is coalesced). Offline rows append `|offline`; rows with a work
+  location then append `|work_location=site` or `|work_location=home`. All other rows
+  keep exactly these 14 fields, so hashes from before those columns existed stay valid.
 - Canonical bytes (`audit_log`): id, org, `actor_user_id`, action, entity, `entity_id`,
   `metadata` (jsonb text) and `created_at` (epoch µs), same rules.
 - Appends take `pg_advisory_xact_lock` on the org, so the chain is linear; unique
@@ -187,6 +191,23 @@ everything from the earliest affected event to the latest one, under the same lo
   event gets its own `clock_event.recorded` audit row, plus one for the decision. The
   original events stay forever.
 
+## Modules (ADR 008)
+
+- `org_modules(organization_id, module, enabled, config)` and
+  `employee_module_data(organization_id, employee_id, module, data)`. `module` is one of
+  `student`, `flexi`, `interim`, `overuren`, `telework` (checked in SQL); `config` and
+  `data` are JSON objects of at most 8 KiB. Their shape is checked app-side with zod
+  (`@cloxa/modules`).
+- Reads: every active member reads their org's modules (the app needs to know if
+  telework is on); module data follows `can_see_employee`.
+- `rpc_set_org_module(org, module, enabled, config)`: owner/admin, fresh MFA.
+  `rpc_set_employee_module_data(employee, module, data)`: privileged, fresh MFA, visible
+  employee, module enabled, not anonymised. Both audited with keys only.
+- `rpc_clock`, `rpc_clock_offline` and `rpc_kiosk_clock` take an optional
+  `p_work_location`: refused (`telework_disabled`) unless telework is on, and
+  `invalid_work_location` on anything but a clock-in.
+- Anonymisation deletes module data; the subject export includes it.
+
 ## Onboarding and members
 
 - `rpc_admin_create_organization` (service_role): wraps `private.create_organization`.
@@ -259,6 +280,10 @@ everything from the earliest affected event to the latest one, under the same lo
   readable through `rpc_record_export_download`, which writes `export.downloaded` first.
 - Employee self-exports are built on the fly from their own rows and audited as
   `export.self_downloaded`; they are not stored or signed.
+- With modules on, the header lists them (`modules`) and each row carries a `modules`
+  object with the columns of the modules that apply to that employee. `interim_agency`
+  (header and `exports.interim_agency`) marks an export of one agency's workers; the RPC
+  checks every row's employee belongs to it.
 - Old exports are purged daily per organization by `private.run_retention` (ADR 007).
 
 ## Retention and data-subject access (ADR 007)
@@ -342,3 +367,6 @@ everything from the earliest affected event to the latest one, under the same lo
   - Pure functions, fully unit-tested.
 - **`@cloxa/db`**
   - Generated types, plus `rpc.*` typed wrappers with zod input schemas.
+- **`@cloxa/modules`**
+  - The module registry and contract (ADR 008): counters, hints, fields and export
+    columns per module. Pure functions over `@cloxa/domain` shifts.

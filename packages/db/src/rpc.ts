@@ -76,17 +76,29 @@ const uuid = z.uuid();
 const instant = z.iso.datetime({ offset: true });
 const localDate = z.iso.date();
 const liveClockType = z.enum(["clock_in", "clock_out", "break_start", "break_end"]);
+/** Telework module (ADR 008): only with a clock_in, only when the org enables it. */
+export const workLocationSchema = z.enum(["site", "home"]);
+export type WorkLocationInput = z.output<typeof workLocationSchema>;
+const onlyWithClockIn = (value: { type: string; workLocation?: string | undefined }) =>
+  value.workLocation === undefined || value.type === "clock_in";
+const onlyWithClockInMessage = {
+  message: "a work location only goes with a clock_in",
+  path: ["workLocation"],
+};
 const shortText = (max: number) => z.string().trim().min(1).max(max);
 const uniqueIds = (ids: readonly string[]) => new Set(ids).size === ids.length;
 
 // Live clocking ----------------------------------------------------------------------------
 
-export const clockInput = z.strictObject({
-  type: liveClockType,
-  idempotencyKey: uuid,
-  siteId: uuid,
-  clientCapturedAt: instant.optional(),
-});
+export const clockInput = z
+  .strictObject({
+    type: liveClockType,
+    idempotencyKey: uuid,
+    siteId: uuid,
+    clientCapturedAt: instant.optional(),
+    workLocation: workLocationSchema.optional(),
+  })
+  .refine(onlyWithClockIn, onlyWithClockInMessage);
 export type ClockInput = z.input<typeof clockInput>;
 
 export async function clock(
@@ -101,6 +113,7 @@ export async function clock(
       p_idempotency_key: parsed.idempotencyKey,
       p_site_id: parsed.siteId,
       ...optional("p_client_captured_at", parsed.clientCapturedAt),
+      ...optional("p_work_location", parsed.workLocation),
     }),
   );
 }
@@ -111,12 +124,15 @@ export async function myStatus(client: CloxaClient): Promise<Returns<"rpc_my_sta
 
 // Offline clocking (ADR 006) ---------------------------------------------------------------
 
-export const clockOfflineInput = z.strictObject({
-  type: liveClockType,
-  idempotencyKey: uuid,
-  siteId: uuid,
-  capturedAt: instant,
-});
+export const clockOfflineInput = z
+  .strictObject({
+    type: liveClockType,
+    idempotencyKey: uuid,
+    siteId: uuid,
+    capturedAt: instant,
+    workLocation: workLocationSchema.optional(),
+  })
+  .refine(onlyWithClockIn, onlyWithClockInMessage);
 export type ClockOfflineInput = z.input<typeof clockOfflineInput>;
 
 export type ClockOfflineResult =
@@ -157,6 +173,7 @@ export async function clockOffline(
       p_idempotency_key: parsed.idempotencyKey,
       p_site_id: parsed.siteId,
       p_client_captured_at: parsed.capturedAt,
+      ...optional("p_work_location", parsed.workLocation),
     }),
   );
   const row = first("rpc_clock_offline", rows);
@@ -789,6 +806,81 @@ export async function updateOrgSettings(
   if (error) throw new RpcError("rpc_update_org_settings", error);
 }
 
+// Modules (ADR 008) ------------------------------------------------------------------------
+
+export const MODULE_ID_VALUES = [
+  "student",
+  "flexi",
+  "interim",
+  "overuren",
+  "telework",
+] as const;
+const moduleId = z.enum(MODULE_ID_VALUES);
+/** Mirrors `private.is_module_payload`: a JSON object of at most 8 KiB. */
+export const MAX_MODULE_PAYLOAD_BYTES = 8192;
+const modulePayload = z
+  .record(z.string(), z.json())
+  .refine(
+    (value) =>
+      new TextEncoder().encode(JSON.stringify(value)).length <=
+      MAX_MODULE_PAYLOAD_BYTES,
+    { message: "at most 8 KiB" },
+  );
+/** An agency name as the export stores it: trimmed, 1 to 200 characters. */
+const interimAgencyName = z
+  .string()
+  .max(200)
+  .refine((value) => value.length > 0 && value.trim() === value, {
+    message: "trimmed and not empty",
+  });
+
+export const setOrgModuleInput = z.strictObject({
+  organizationId: uuid,
+  module: moduleId,
+  enabled: z.boolean(),
+  config: modulePayload,
+});
+export type SetOrgModuleInput = z.input<typeof setOrgModuleInput>;
+
+/** Owner/admin, fresh MFA. Audited with the config keys only. */
+export async function setOrgModule(
+  client: CloxaClient,
+  input: SetOrgModuleInput,
+): Promise<void> {
+  const parsed = setOrgModuleInput.parse(input);
+  const { error } = await client.rpc("rpc_set_org_module", {
+    p_org: parsed.organizationId,
+    p_module: parsed.module,
+    p_enabled: parsed.enabled,
+    p_config: parsed.config as Json,
+  });
+  if (error) throw new RpcError("rpc_set_org_module", error);
+}
+
+export const setEmployeeModuleDataInput = z.strictObject({
+  employeeId: uuid,
+  module: moduleId,
+  data: modulePayload,
+});
+export type SetEmployeeModuleDataInput = z.input<typeof setEmployeeModuleDataInput>;
+
+/**
+ * Privileged, fresh MFA, a visible employee, the module enabled. The shape
+ * of `data` is the module's own (`@cloxa/modules`); the database only bounds it.
+ */
+export async function setEmployeeModuleData(
+  client: CloxaClient,
+  input: SetEmployeeModuleDataInput,
+): Promise<void> {
+  const parsed = setEmployeeModuleDataInput.parse(input);
+  const { error } = await client.rpc("rpc_set_employee_module_data", {
+    p_employee_id: parsed.employeeId,
+    p_module: parsed.module,
+    p_data: parsed.data as Json,
+  });
+  if (error) throw new RpcError("rpc_set_employee_module_data", error);
+}
+
 // Exports ----------------------------------------------------------------------------------
 
 /** Inclusive Europe/Brussels days per export, and the stored snapshot size cap. */
@@ -833,6 +925,8 @@ export const createExportInput = z
       ),
     signatureHex: z.string().regex(/^[0-9a-f]{128}$/),
     signingKeyId: z.string().regex(/^[A-Za-z0-9._-]{1,64}$/),
+    /** Only this interim agency's workers (ADR 008); the content says so too. */
+    interimAgency: interimAgencyName.optional(),
   })
   .refine(exportPeriod, exportPeriodMessage);
 export type CreateExportInput = z.input<typeof createExportInput>;
@@ -855,6 +949,7 @@ export async function createExport(
     p_content: parsed.content,
     p_signature: bytea(parsed.signatureHex),
     p_signing_key_id: parsed.signingKeyId,
+    ...optional("p_interim_agency", parsed.interimAgency),
   };
   return unwrap(
     "rpc_create_export",
@@ -1165,13 +1260,17 @@ export async function kioskStatus(
   return kioskResult("rpc_kiosk_status", rows);
 }
 
-export const kioskClockInput = z.strictObject({
-  deviceSecret,
-  employeeId: uuid,
-  pin: pinDigits,
-  type: liveClockType,
-  idempotencyKey: uuid,
-});
+export const kioskClockInput = z
+  .strictObject({
+    deviceSecret,
+    employeeId: uuid,
+    pin: pinDigits,
+    type: liveClockType,
+    idempotencyKey: uuid,
+    /** A kiosk stands at a site; with telework on, the database records it anyway. */
+    workLocation: z.literal("site").optional(),
+  })
+  .refine(onlyWithClockIn, onlyWithClockInMessage);
 export type KioskClockInput = z.input<typeof kioskClockInput>;
 
 /** Records the event at the kiosk's site. Idempotent per key; `state` is the new state. */
@@ -1188,6 +1287,7 @@ export async function kioskClock(
       p_pin: parsed.pin,
       p_type: parsed.type,
       p_idempotency_key: parsed.idempotencyKey,
+      ...optional("p_work_location", parsed.workLocation),
     }),
   );
   return kioskResult("rpc_kiosk_clock", rows);

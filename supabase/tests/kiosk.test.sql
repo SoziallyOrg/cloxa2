@@ -131,7 +131,7 @@ select is(
     order by 1
   ),
   array[
-    'rpc_kiosk_clock(text,uuid,text,text,uuid)',
+    'rpc_kiosk_clock(text,uuid,text,text,uuid,text)',
     'rpc_kiosk_pair(text)',
     'rpc_kiosk_roster(text)',
     'rpc_kiosk_status(text,uuid,text)'

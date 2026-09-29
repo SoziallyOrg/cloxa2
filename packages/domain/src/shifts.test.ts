@@ -282,4 +282,17 @@ describe("deriveShifts", () => {
     expect(noServerTime?.hasOffline).toBe(true);
     expect(noServerTime?.offlineSkewMs).toBeNull();
   });
+
+  it("takes the work location from the clock-in, and leaves it out when not asked", () => {
+    const start = Date.UTC(2026, 5, 1, 9, 0);
+
+    const [home, unasked] = deriveShifts([
+      makeEvent({ id: "1", type: "clock_in", occurredAt: start, workLocation: "home" }),
+      makeEvent({ id: "2", type: "clock_out", occurredAt: start + HOUR }),
+      makeEvent({ id: "3", type: "clock_in", occurredAt: start + 2 * HOUR }),
+    ]);
+
+    expect(home?.workLocation).toBe("home");
+    expect(unasked).not.toHaveProperty("workLocation");
+  });
 });

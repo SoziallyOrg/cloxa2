@@ -12,6 +12,7 @@ export function makeEvent(overrides: {
   correctionId?: string;
   offline?: boolean;
   serverAt?: number;
+  workLocation?: "site" | "home";
 }): ClockEvent {
   const event: ClockEvent = {
     id: overrides.id,
@@ -32,5 +33,8 @@ export function makeEvent(overrides: {
       : {}),
     ...(overrides.offline !== undefined ? { offline: overrides.offline } : {}),
     ...(overrides.serverAt !== undefined ? { serverAt: overrides.serverAt } : {}),
+    ...(overrides.workLocation !== undefined
+      ? { workLocation: overrides.workLocation }
+      : {}),
   };
 }

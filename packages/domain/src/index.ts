@@ -1,4 +1,9 @@
-export type { ClockEvent, ClockEventSource, ClockEventType } from "./clock-event";
+export type {
+  ClockEvent,
+  ClockEventSource,
+  ClockEventType,
+  WorkLocation,
+} from "./clock-event";
 export { effectiveEvents } from "./effective-events";
 export type {
   DeriveShiftStateFailure,

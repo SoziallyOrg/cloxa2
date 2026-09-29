@@ -96,6 +96,7 @@ export type Database = {
           source: string;
           supersedes_event_id: string | null;
           type: string;
+          work_location: string | null;
         };
         Insert: {
           actor_user_id?: string | null;
@@ -116,6 +117,7 @@ export type Database = {
           source: string;
           supersedes_event_id?: string | null;
           type: string;
+          work_location?: string | null;
         };
         Update: {
           actor_user_id?: string | null;
@@ -136,6 +138,7 @@ export type Database = {
           source?: string;
           supersedes_event_id?: string | null;
           type?: string;
+          work_location?: string | null;
         };
         Relationships: [
           {
@@ -240,6 +243,41 @@ export type Database = {
           },
         ];
       };
+      employee_module_data: {
+        Row: {
+          data: Json;
+          employee_id: string;
+          module: string;
+          organization_id: string;
+          updated_at: string;
+          updated_by: string;
+        };
+        Insert: {
+          data?: Json;
+          employee_id: string;
+          module: string;
+          organization_id: string;
+          updated_at?: string;
+          updated_by: string;
+        };
+        Update: {
+          data?: Json;
+          employee_id?: string;
+          module?: string;
+          organization_id?: string;
+          updated_at?: string;
+          updated_by?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "employee_module_data_employee_fkey";
+            columns: ["organization_id", "employee_id"];
+            isOneToOne: false;
+            referencedRelation: "employees";
+            referencedColumns: ["organization_id", "id"];
+          },
+        ];
+      };
       employee_pins: {
         Row: {
           employee_id: string;
@@ -340,6 +378,7 @@ export type Database = {
           created_by: string;
           format_version: string;
           id: string;
+          interim_agency: string | null;
           organization_id: string;
           period_from: string;
           period_to: string;
@@ -355,6 +394,7 @@ export type Database = {
           created_by: string;
           format_version: string;
           id?: string;
+          interim_agency?: string | null;
           organization_id: string;
           period_from: string;
           period_to: string;
@@ -370,6 +410,7 @@ export type Database = {
           created_by?: string;
           format_version?: string;
           id?: string;
+          interim_agency?: string | null;
           organization_id?: string;
           period_from?: string;
           period_to?: string;
@@ -543,6 +584,41 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "memberships_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      org_modules: {
+        Row: {
+          config: Json;
+          enabled: boolean;
+          module: string;
+          organization_id: string;
+          updated_at: string;
+          updated_by: string;
+        };
+        Insert: {
+          config?: Json;
+          enabled?: boolean;
+          module: string;
+          organization_id: string;
+          updated_at?: string;
+          updated_by: string;
+        };
+        Update: {
+          config?: Json;
+          enabled?: boolean;
+          module?: string;
+          organization_id?: string;
+          updated_at?: string;
+          updated_by?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "org_modules_organization_id_fkey";
             columns: ["organization_id"];
             isOneToOne: false;
             referencedRelation: "organizations";
@@ -774,6 +850,7 @@ export type Database = {
           p_idempotency_key: string;
           p_site_id: string;
           p_type: string;
+          p_work_location?: string;
         };
         Returns: {
           actor_user_id: string | null;
@@ -794,6 +871,7 @@ export type Database = {
           source: string;
           supersedes_event_id: string | null;
           type: string;
+          work_location: string | null;
         };
         SetofOptions: {
           from: "*";
@@ -808,6 +886,7 @@ export type Database = {
           p_idempotency_key: string;
           p_site_id: string;
           p_type: string;
+          p_work_location?: string;
         };
         Returns: {
           correction_id: string;
@@ -819,6 +898,7 @@ export type Database = {
       rpc_create_export: {
         Args: {
           p_content: string;
+          p_interim_agency?: string;
           p_org: string;
           p_period_from: string;
           p_period_to: string;
@@ -876,6 +956,7 @@ export type Database = {
           p_idempotency_key: string;
           p_pin: string;
           p_type: string;
+          p_work_location?: string;
         };
         Returns: {
           error_code: string;
@@ -1035,11 +1116,50 @@ export type Database = {
           start_at: string;
         }[];
       };
+      rpc_set_employee_module_data: {
+        Args: { p_data: Json; p_employee_id: string; p_module: string };
+        Returns: {
+          data: Json;
+          employee_id: string;
+          module: string;
+          organization_id: string;
+          updated_at: string;
+          updated_by: string;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "employee_module_data";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
       rpc_set_employee_pin: {
         Args: { p_employee_id: string; p_pin: string };
         Returns: undefined;
       };
       rpc_set_my_pin: { Args: { p_pin: string }; Returns: number };
+      rpc_set_org_module: {
+        Args: {
+          p_config?: Json;
+          p_enabled: boolean;
+          p_module: string;
+          p_org: string;
+        };
+        Returns: {
+          config: Json;
+          enabled: boolean;
+          module: string;
+          organization_id: string;
+          updated_at: string;
+          updated_by: string;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "org_modules";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
       rpc_set_schedule: {
         Args: { p_employee_id: string; p_pattern: Json; p_valid_from: string };
         Returns: {
