@@ -76,7 +76,35 @@ const serverSchema = z
       .refine((value) => value === undefined || parseVerifyKeys(value) !== null, {
         message: "EXPORT_VERIFY_KEYS must be a JSON list of {kid, publicKeyJwk}",
       }),
+    /**
+     * Notification to the operator for each new pilot request (Hostinger SMTP).
+     * Optional as a group: without it requests are only stored.
+     */
+    SMTP_HOST: z.string().min(1).optional(),
+    SMTP_PORT: z.coerce.number().int().min(1).max(65535).optional(),
+    SMTP_USER: z.string().min(1).optional(),
+    SMTP_PASSWORD: z.string().min(1).optional(),
+    SMTP_FROM: z.string().min(3).optional(),
+    OPERATOR_EMAIL: z.email().optional(),
   })
+  // Half a mail config is a mistake, not a way to switch it off.
+  .refine(
+    (value) => {
+      const set = [
+        value.SMTP_HOST,
+        value.SMTP_PORT,
+        value.SMTP_USER,
+        value.SMTP_PASSWORD,
+        value.SMTP_FROM,
+        value.OPERATOR_EMAIL,
+      ].filter((entry) => entry !== undefined).length;
+      return set === 0 || set === 6;
+    },
+    {
+      message:
+        "Set all of SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, SMTP_FROM and OPERATOR_EMAIL, or none",
+    },
+  )
   // Half a Turnstile config is a mistake, not a way to switch it off.
   .refine(
     (value) =>
@@ -124,6 +152,12 @@ const serverOnlyEnv = serverSchema.parse({
   EXPORT_SIGNING_KEY: process.env["EXPORT_SIGNING_KEY"] || undefined,
   EXPORT_SIGNING_KEY_ID: process.env["EXPORT_SIGNING_KEY_ID"] || undefined,
   EXPORT_VERIFY_KEYS: process.env["EXPORT_VERIFY_KEYS"] || undefined,
+  SMTP_HOST: process.env["SMTP_HOST"] || undefined,
+  SMTP_PORT: process.env["SMTP_PORT"] || undefined,
+  SMTP_USER: process.env["SMTP_USER"] || undefined,
+  SMTP_PASSWORD: process.env["SMTP_PASSWORD"] || undefined,
+  SMTP_FROM: process.env["SMTP_FROM"] || undefined,
+  OPERATOR_EMAIL: process.env["OPERATOR_EMAIL"] || undefined,
 });
 
 export const env = {

@@ -143,3 +143,17 @@ export const resetUserAttempts = (userId: string) => reset(userHash(userId));
 export function retryMinutes(retryAfterSeconds: number): number {
   return Math.max(1, Math.ceil(retryAfterSeconds / 60));
 }
+
+/**
+ * The limiter keys of a pilot request: its own purposes, so a request never
+ * touches (or is touched by) login limits. The IP hash is null when the IP is unknown.
+ */
+export async function pilotRequestKeys(
+  normalisedEmail: string,
+): Promise<{ emailHash: string; ipHash: string | null }> {
+  const ip = await ipKey();
+  return {
+    emailHash: hash("pilot_email", normalisedEmail),
+    ipHash: ip === null ? null : hash("pilot_ip", ip),
+  };
+}

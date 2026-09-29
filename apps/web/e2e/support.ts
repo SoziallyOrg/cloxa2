@@ -167,3 +167,42 @@ export function collectConsoleErrors(page: Page): string[] {
   page.on("pageerror", (error) => errors.push(`${page.url()}: ${error.message}`));
   return errors;
 }
+
+// Pilot requests (service_role RPCs on the local stack) ---------------------------------------
+
+export interface OpenPilotRequest {
+  id: string;
+  email: string;
+  company_name: string;
+  vat_number: string;
+  sector: string;
+}
+
+async function serviceRpc(name: string, body: object): Promise<unknown> {
+  const key = local("SECRET_KEY");
+  const response = await fetch(`${local("API_URL")}/rest/v1/rpc/${name}`, {
+    method: "POST",
+    headers: {
+      apikey: key,
+      Authorization: `Bearer ${key}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) throw new Error(`${name}: ${response.status}`);
+  return response.json();
+}
+
+/** The stored, still open pilot requests of one address. */
+export async function pilotRequestsOf(email: string): Promise<OpenPilotRequest[]> {
+  const open = (await serviceRpc(
+    "rpc_admin_list_pilot_requests",
+    {},
+  )) as OpenPilotRequest[];
+  return open.filter((request) => request.email === email);
+}
+
+/** Closes a test request, so the operator's open list stays clean. */
+export async function rejectPilotRequest(id: string): Promise<void> {
+  await serviceRpc("rpc_admin_reject_pilot_request", { p_request_id: id });
+}

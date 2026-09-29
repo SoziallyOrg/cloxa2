@@ -7,6 +7,13 @@ import { collectConsoleErrors } from "./support";
  * console error (a blocked inline script or style would show up here).
  */
 const PAGES = [
+  // The public website.
+  { path: "/", lands: /\/$/ },
+  { path: "/aanvragen", lands: /\/aanvragen$/ },
+  { path: "/aanvragen/verstuurd", lands: /\/aanvragen\/verstuurd$/ },
+  { path: "/privacy", lands: /\/privacy$/ },
+  { path: "/voorwaarden", lands: /\/voorwaarden$/ },
+  { path: "/verwerkersovereenkomst", lands: /\/verwerkersovereenkomst$/ },
   { path: "/login", lands: /\/login$/ },
   // A junk token hash is refused before anything is verified.
   { path: "/auth/confirm?token_hash=x&type=email", lands: /\/login\?fout=link$/ },

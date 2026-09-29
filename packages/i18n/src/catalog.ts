@@ -16,8 +16,164 @@ export const catalog = {
     none: "—",
   },
   landing: {
-    title: "Cloxa",
-    subtitle: "Tijdsregistratie voor Belgische teams.",
+    metaTitle: "Cloxa: eenvoudige werktijdregistratie voor Belgische werkgevers",
+    metaDescription:
+      "Met Cloxa registreren je medewerkers hun werktijd met één knop, ook zonder smartphone. Vraag een pilot aan voor je bedrijf.",
+    skipToContent: "Ga naar de inhoud",
+    headerNav: "Hoofdmenu",
+    login: "Inloggen",
+    hero: {
+      title: "Werktijd registreren, zo simpel dat iedereen het kan.",
+      subtitle:
+        "Cloxa is eenvoudige werktijdregistratie voor Belgische werkgevers, ook voor medewerkers die niet handig zijn met technologie.",
+      primary: "Vraag een pilot aan",
+      secondary: "Inloggen",
+      note: "We starten met een pilot en zetten Cloxa zelf voor je klaar.",
+    },
+    benefits: {
+      heading: "Waarom Cloxa",
+      simple: {
+        title: "Eenvoudig voor iedereen",
+        body: "Eén grote knop om te starten en te stoppen. Heeft iemand geen smartphone? Zet dan een tablet (kiosk) neer. Je medewerkers tikken hun naam en typen hun persoonlijke code.",
+      },
+      safe: {
+        title: "Betrouwbaar en veilig",
+        body: "Registraties kunnen niet ongemerkt worden aangepast: een correctie komt er altijd bij, met een spoor. Je gegevens staan in de EU. We gebruiken geen vingerafdruk of gezichtsherkenning.",
+      },
+      admin: {
+        title: "Minder administratie",
+        body: "Iemand vergat uit te klokken? Een correctie is snel gevraagd en goedgekeurd. En je exporteert de uren voor je sociaal secretariaat wanneer je wilt.",
+      },
+    },
+    visual: {
+      heading: "Zo ziet het eruit",
+      caption: "Voorbeeldschermen met fictieve gegevens.",
+      phoneAlt:
+        "Scherm van een medewerker met de status Aan het werk, een teller en de knoppen Stop werk en Pauze.",
+      desktopAlt:
+        "Scherm van een leidinggevende met wie er vandaag aan het werk is, op pauze zit of aandacht nodig heeft.",
+    },
+    law: {
+      heading: "Wat zegt de wet?",
+      body: "Voor sommige situaties is registratie nu al verplicht, bijvoorbeeld bij glijdende uurroosters en bij sommige deeltijdse werknemers. Een algemene verplichting voor alle werkgevers is gepland, maar het is nog geen wet: het is een ontwerp dat nog niet is goedgekeurd. Cloxa geeft geen juridisch advies. Twijfel je? Vraag het aan je sociaal secretariaat.",
+      link: "Lees de veelgestelde vragen",
+    },
+    faq: {
+      heading: "Veelgestelde vragen",
+      dimona: {
+        question: "Vervangt Cloxa mijn Dimona?",
+        answer:
+          "Nee. Cloxa vervangt Dimona niet, en ook Checkin@Work, CIAO en de GKS niet. Dat zijn aparte meldingen van de overheid of je sector. Die blijf je zelf doen.",
+      },
+      phone: {
+        question: "Werkt het zonder smartphone?",
+        answer:
+          "Ja. Zet een tablet neer als kiosk. Je medewerkers tikken hun naam en typen hun persoonlijke code om te starten of te stoppen.",
+      },
+      data: {
+        question: "Waar staan mijn gegevens?",
+        answer:
+          "In de EU. De database staat bij Supabase in Frankfurt en de website draait op een server van Hostinger in een Europees datacenter. Lees er meer over in de privacyverklaring.",
+      },
+      secretariat: {
+        question: "Kan ik de uren doorgeven aan mijn sociaal secretariaat?",
+        answer:
+          "Je kunt de uren exporteren als bestand. Cloxa berekent geen loon: dat blijft bij jou of je sociaal secretariaat.",
+      },
+      price: {
+        question: "Wat kost het?",
+        answer:
+          "We werken nu met pilots en die zijn gratis. Wat het daarna kost, bespreken we samen met je. Vraag het gerust in je aanvraag.",
+      },
+    },
+    cta: {
+      heading: "Zin om het te proberen?",
+      body: "Vul een korte aanvraag in. We nemen contact met je op.",
+    },
+    footer: {
+      nav: "Meer informatie",
+      privacy: "Privacy",
+      terms: "Voorwaarden",
+      dpa: "Verwerkersovereenkomst",
+      contact: "Contact",
+      copyright: "© {year} Cloxa",
+    },
+    og: {
+      alt: "Cloxa, eenvoudige werktijdregistratie",
+    },
+  },
+  pilot: {
+    metaTitle: "Vraag een pilot aan | Cloxa",
+    metaDescription:
+      "Vraag een pilot aan voor je bedrijf. We nemen contact met je op en zetten Cloxa zelf voor je klaar.",
+    title: "Vraag een pilot aan",
+    intro:
+      "Vertel ons kort wie je bent. We nemen contact met je op en zetten Cloxa zelf voor je klaar. De pilot is gratis.",
+    back: "Terug",
+    company: "Naam van het bedrijf",
+    vat: "Ondernemingsnummer",
+    vatHint: "Het btw-nummer, bijvoorbeeld BE 0403.019.261.",
+    name: "Je naam",
+    email: "Je e-mailadres",
+    phone: "Telefoonnummer",
+    employees: "Hoeveel medewerkers heb je?",
+    employeesPlaceholder: "Kies een aantal",
+    sector: "In welke sector werk je?",
+    sectorPlaceholder: "Kies een sector",
+    message: "Wil je nog iets kwijt?",
+    messageHint: "Bijvoorbeeld hoe je de uren nu bijhoudt.",
+    consent: "Ja, jullie mogen contact met me opnemen over deze aanvraag.",
+    privacyHint: "Wat we met je gegevens doen, lees je in de privacyverklaring.",
+    privacyLink: "Privacyverklaring",
+    submit: "Verstuur aanvraag",
+    // Hidden from people; bots fill it in.
+    honeypot: "Laat dit veld leeg",
+    unavailable:
+      "Versturen lukt nu even niet. Probeer het over een paar minuten opnieuw.",
+    range: {
+      "1-9": "1 tot 9",
+      "10-49": "10 tot 49",
+      "50-249": "50 tot 249",
+      "250+": "250 of meer",
+    },
+    sectors: {
+      horeca: "Horeca",
+      bouw: "Bouw",
+      schoonmaak: "Schoonmaak",
+      handel: "Handel en winkels",
+      zorg: "Zorg",
+      industrie: "Industrie",
+      diensten: "Diensten en kantoor",
+      interim: "Interim",
+      andere: "Andere",
+    },
+    errors: {
+      required: "Vul dit in.",
+      tooLong: "Dit is te lang.",
+      vatInvalid: "Dit ondernemingsnummer klopt niet. Kijk het even na.",
+      emailInvalid: "Dit e-mailadres klopt niet. Kijk het even na.",
+      choose: "Kies een antwoord.",
+      messageTooLong: "Je bericht is te lang. Gebruik maximaal 1000 tekens.",
+      consent: "Zonder je toestemming kunnen we geen contact met je opnemen.",
+    },
+    sent: {
+      metaTitle: "Aanvraag ontvangen | Cloxa",
+      title: "Bedankt voor je aanvraag",
+      body: "We nemen zo snel mogelijk contact met je op via het e-mailadres of telefoonnummer dat je opgaf.",
+      note: "Je krijgt hier geen automatische e-mail over. We contacteren je zelf.",
+      home: "Naar de startpagina",
+    },
+  },
+  legal: {
+    tocHeading: "Op deze pagina",
+    updated: "Laatst bijgewerkt: {date}",
+    draftBanner: "Concept, nog niet juridisch nagekeken",
+    draftNote:
+      "Deze tekst is een concept. Een jurist moet hem nog nakijken voor hij gebruikt wordt. Waar [in te vullen] staat, vullen we nog gegevens in.",
+    back: "Naar de startpagina",
+    metaPrivacy: "Privacyverklaring | Cloxa",
+    metaTerms: "Voorwaarden voor de pilot | Cloxa",
+    metaDpa: "Verwerkersovereenkomst | Cloxa",
   },
   app: {
     heading: "Mijn tijdsregistratie",

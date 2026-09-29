@@ -11,7 +11,9 @@ export function normalizeEmail(raw: unknown): string | null {
   return parsed.success ? parsed.data : null;
 }
 
-export type HashPurpose = "email" | "ip" | "email_ip" | "flow" | "user";
+// `pilot_*`: the pilot request limiter, kept apart from the login keys.
+export type HashPurpose =
+  "email" | "ip" | "email_ip" | "flow" | "user" | "pilot_email" | "pilot_ip";
 
 /**
  * Keyed hash for the attempt limiter: lowercase hex HMAC-SHA256. The pepper

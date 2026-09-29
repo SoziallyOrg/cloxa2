@@ -4,7 +4,7 @@ import { t } from "./translate";
 
 describe("t", () => {
   it("resolves a plain catalog message", () => {
-    expect(t("landing.title")).toBe("Cloxa");
+    expect(t("common.appName")).toBe("Cloxa");
   });
 
   it("resolves a nested catalog message", () => {

@@ -43,7 +43,7 @@ function loadTurnstile(): Promise<TurnstileApi> {
 export interface TurnstileWidgetProps {
   siteKey: string;
   /** Checked on the server, so a token for one form can't be used on another. */
-  action: "login" | "confirm";
+  action: "login" | "confirm" | "pilot";
   /** Changes after every submit: tokens are single-use, so the widget resets. */
   resetSignal: unknown;
 }

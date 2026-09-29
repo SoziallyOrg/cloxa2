@@ -782,7 +782,9 @@ describe("submitPilotRequest", () => {
 
   it("sends hashes as bytea and unset optional fields as null", async () => {
     const { client, calls } = fakeClient({ data: true, error: null });
-    await expect(submitPilotRequest(client, { ...base, phone: "  " })).resolves.toBe(true);
+    await expect(submitPilotRequest(client, { ...base, phone: "  " })).resolves.toBe(
+      true,
+    );
     expect(calls).toEqual([
       {
         fn: "rpc_submit_pilot_request",

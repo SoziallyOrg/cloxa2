@@ -36,6 +36,12 @@ export async function capture(page: Page, name: string, whole = true): Promise<v
         const height = await page.evaluate(() => document.documentElement.scrollHeight);
         await page.setViewportSize({ ...size, height: Math.max(size.height, height) });
       }
+      // A theme switch can swap an image (`<picture>`): wait until they are in.
+      await page.waitForFunction(() =>
+        Array.from(document.images).every(
+          (image) => image.complete && image.naturalWidth > 0,
+        ),
+      );
       await page.screenshot({
         path: `${OUT}/${name}-${viewport}-${colorScheme}.png`,
         animations: "disabled",

@@ -11,7 +11,7 @@ const SITEVERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverif
 export const TURNSTILE_FIELD = "cf-turnstile-response";
 
 /** Widget actions, checked on the server so a token for one form can't be replayed on another. */
-export type TurnstileAction = "login" | "confirm";
+export type TurnstileAction = "login" | "confirm" | "pilot";
 
 export type TurnstileResult = "ok" | "failed" | "unavailable";
 

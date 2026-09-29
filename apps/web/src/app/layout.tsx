@@ -4,11 +4,15 @@ import { connection } from "next/server";
 import { t } from "@cloxa/i18n";
 import { colors } from "@cloxa/ui-tokens";
 
+import { env } from "@/lib/env.server";
+
 // Self-hosted Inter: the SF-like stand-in where San Francisco isn't installed.
 import "@fontsource-variable/inter/wght.css";
 import "./globals.css";
 
 export const metadata: Metadata = {
+  // Absolute URLs for Open Graph and the canonical link.
+  metadataBase: new URL(env.CLOXA_SITE_URL),
   title: t("common.appName"),
   applicationName: t("common.appName"),
   // "Add to Home Screen" opens full screen, like an app. `appleWebApp` emits
