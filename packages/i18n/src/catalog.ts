@@ -497,6 +497,8 @@ export const catalog = {
     ciaoBody:
       "Cloxa registreert niet bij CIAO of Checkin@Work. Die registratie doe je zelf bij de RSZ.",
     detailIntro: "Wat deze module doet",
+    detailLink: "Meer uitleg",
+    ciaoRow: "Niet in Cloxa",
     settingsHeading: "Instellingen",
     noSettings: "Deze module heeft geen instellingen.",
     saved: "Opgeslagen.",
@@ -514,6 +516,7 @@ export const catalog = {
     value: "{value}",
     student: {
       label: "Studenten",
+      summary: "Uren tegenover het contingent van 650 uur per jaar.",
       description:
         "Houdt bij hoeveel uur een student dit kalenderjaar werkte, tegenover het contingent van 650 uur, en toont per kwartaal gepland tegenover gewerkt.",
       yearLabel: "Studentenuren in {year}",
@@ -543,6 +546,7 @@ export const catalog = {
     },
     flexi: {
       label: "Flexi-jobs",
+      summary: "Begin en einde per dag, en afwijkingen van de planning.",
       description:
         "Toont per dag het begin, het einde en de netto tijd, en zegt wanneer dat meer dan 15 minuten afwijkt van de planning.",
       dayLabel: "{day}",
@@ -559,6 +563,7 @@ export const catalog = {
     },
     interim: {
       label: "Uitzendkrachten",
+      summary: "Het uitzendkantoor per uitzendkracht, en een export per kantoor.",
       description:
         "Bewaart het uitzendkantoor en de referentie per uitzendkracht, en maakt een export per uitzendkantoor.",
       fieldAgencyName: "Uitzendkantoor",
@@ -570,6 +575,7 @@ export const catalog = {
     },
     overuren: {
       label: "Vrijwillige overuren",
+      summary: "Uren boven de planning per jaar, tegenover 360 of 450 uur.",
       description:
         "Telt per kalenderjaar de uren boven de planning, tegenover 360 uur (horeca: 450 uur). Alleen dagen met een planning tellen mee.",
       yearLabel: "Boven de planning in {year}",
@@ -589,6 +595,7 @@ export const catalog = {
     },
     telework: {
       label: "Thuiswerk",
+      summary: "Bij Start werk kiest iemand: op de werkplek of thuis.",
       description:
         "Vraagt bij Start werk of iemand op de werkplek of thuis werkt, en telt dat per maand. Er wordt niets gevolgd.",
       monthLabel: "{month}",

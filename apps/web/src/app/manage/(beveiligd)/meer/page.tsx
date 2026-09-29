@@ -1,6 +1,7 @@
 import {
   Clock,
   FileDown,
+  Puzzle,
   ScrollText,
   Settings,
   ShieldCheck,
@@ -43,6 +44,11 @@ export default async function ManageMeerPage() {
                 href="/manage/meer/kiosks"
                 icon={Tablet}
                 title={t("manageKiosks.moreLink")}
+              />
+              <Row
+                href="/manage/meer/modules"
+                icon={Puzzle}
+                title={t("modules.moreLink")}
               />
               <Row
                 href="/manage/meer/audit"

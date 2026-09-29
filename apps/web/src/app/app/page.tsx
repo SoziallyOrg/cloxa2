@@ -24,6 +24,7 @@ import { previewHold } from "@/lib/preview";
 import { requireEmployeeArea } from "@/lib/auth/context";
 import { nowMs } from "@/lib/clock/now";
 import { readChosenSiteId } from "@/lib/clock/site-cookie";
+import { loadEnabledModules } from "@/lib/modules/load";
 import { nightLookbackStart } from "@/lib/manage/timeline";
 import { blocksForOpenShift } from "@/lib/schedule/open-shift";
 import { createClient } from "@/lib/supabase/server";
@@ -107,7 +108,7 @@ export default async function EmployeeAppPage() {
     );
   }
 
-  const [statusRows, eventsResult] = await Promise.all([
+  const [statusRows, eventsResult, askWorkLocation] = await Promise.all([
     myStatus(supabase),
     supabase
       .from("clock_events")
@@ -117,6 +118,12 @@ export default async function EmployeeAppPage() {
       .eq("employee_id", context.employeeId)
       .gte("occurred_at", new Date(now - RECENT_EVENTS_WINDOW_MS).toISOString())
       .order("occurred_at"),
+    // Telework asks where at "Start werk". A module never blocks clocking:
+    // when this read fails, the question is simply left out.
+    loadEnabledModules(supabase, context.membership.organizationId).then(
+      (enabled) => enabled.some(({ module }) => module.id === "telework"),
+      () => false,
+    ),
   ]);
   const { data: eventRows, error: eventsError } = eventsResult;
   if (eventsError) throw new Error(`clock_events_unavailable:${eventsError.code}`);
@@ -197,6 +204,7 @@ export default async function EmployeeAppPage() {
         todayShifts={todayShifts}
         planned={planned}
         siteId={siteId}
+        askWorkLocation={askWorkLocation}
       />
     </KlokFrame>
   );

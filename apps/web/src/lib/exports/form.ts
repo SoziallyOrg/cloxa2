@@ -13,6 +13,8 @@ export const exportFormSchema = z
     from: z.iso.date(),
     to: z.iso.date(),
     siteIds: z.array(z.uuid()).min(1).max(500),
+    /** Only this interim agency's workers (ADR 008). */
+    interimAgency: z.string().trim().min(1).max(200).optional(),
   })
   .refine(
     (value) => value.to >= value.from && periodLength(value) <= MAX_EXPORT_PERIOD_DAYS,
@@ -43,6 +45,7 @@ export function resolveExportScope(
 }
 
 export type ExportErrorKey =
+  | "exports.errorAgency"
   | "exports.errorPeriod"
   | "exports.errorSites"
   | "exports.errorTooLarge"

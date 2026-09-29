@@ -24,6 +24,8 @@ export interface HoursRow {
   net: string;
   edited: boolean;
   offline: boolean;
+  /** Worked at home (telework module). */
+  home: boolean;
   offlineSkew: string | null;
   /** "Klopt er iets niet?" starts a question for this day. */
   correctionHref: string;
@@ -60,7 +62,12 @@ export function HoursList({ heading, rows }: HoursListProps) {
             aria-haspopup="dialog"
             title={row.date}
             subtitle={
-              <ShiftTags range={row.range} edited={row.edited} offline={row.offline} />
+              <ShiftTags
+                range={row.range}
+                edited={row.edited}
+                offline={row.offline}
+                home={row.home}
+              />
             }
             value={row.net}
             chevron

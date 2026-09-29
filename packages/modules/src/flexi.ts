@@ -133,6 +133,7 @@ export const flexi: ModuleDefinition = {
   id: "flexi",
   label: "modules.flexi.label",
   description: "modules.flexi.description",
+  summary: "modules.flexi.summary",
   statutes: ["flexi"],
   configChoices: [],
   configSchema: z.strictObject({}),

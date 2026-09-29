@@ -57,6 +57,36 @@ function lines(csv: string): string[] {
 }
 
 describe("serializeExportCsv", () => {
+  it("adds columns only for the modules the export lists", () => {
+    const csv = serializeExportCsv({
+      ...content([
+        {
+          ...ROW,
+          shifts: [shift(), shift({ start_utc: "2026-09-01T15:00:00.000Z" })],
+          modules: {
+            interim: { agency_name: "=Uitzend NV", agency_reference: null },
+            overuren: { above_planned_ms: 15 * 60_000 },
+          },
+        },
+      ]),
+      modules: ["interim", "overuren"],
+    });
+    const [header, first, second] = lines(csv);
+    expect(
+      header?.endsWith(
+        ";Nog bezig;Uitzendkantoor;Referentie uitzendkantoor;Overuren: boven de planning (uur, indicatief)",
+      ),
+    ).toBe(true);
+    // Text repeats on every line (formula-guarded); a duration is a day total.
+    expect(first?.endsWith(";nee;'=Uitzend NV;;0,25")).toBe(true);
+    expect(second?.endsWith(";nee;'=Uitzend NV;;")).toBe(true);
+  });
+
+  it("has no module columns when the export lists none", () => {
+    const csv = serializeExportCsv(content([{ ...ROW, shifts: [shift()] }]));
+    expect(lines(csv)[0]?.endsWith(";Aangepast;Nog bezig")).toBe(true);
+  });
+
   it("starts with a UTF-8 BOM and uses ; with CRLF line ends", () => {
     const csv = serializeExportCsv(content([{ ...ROW, shifts: [shift()] }]));
     expect(csv.startsWith("﻿")).toBe(true);

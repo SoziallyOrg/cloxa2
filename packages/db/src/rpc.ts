@@ -819,7 +819,7 @@ const moduleId = z.enum(MODULE_ID_VALUES);
 /** Mirrors `private.is_module_payload`: a JSON object of at most 8 KiB. */
 export const MAX_MODULE_PAYLOAD_BYTES = 8192;
 const modulePayload = z
-  .record(z.string(), z.json())
+  .record(z.string(), z.unknown())
   .refine(
     (value) =>
       new TextEncoder().encode(JSON.stringify(value)).length <=

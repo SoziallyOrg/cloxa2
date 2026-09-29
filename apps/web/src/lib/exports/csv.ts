@@ -6,8 +6,13 @@
  * One line per shift; a day with planned time but no shift gets one line
  * without shift columns. Day totals (planned, deviation) sit on the first
  * line of each day only, so summing a column never counts a day twice.
+ *
+ * Module columns (ADR 008) follow, only for the modules the export lists.
+ * Durations and counts are day totals too (first line only); text and ja/nee
+ * repeat on every line, so filtering on them keeps the whole day.
  */
 import { t, type CatalogKey } from "@cloxa/i18n";
+import { MODULES, type ExportColumn, type ModuleId } from "@cloxa/modules";
 
 import type { ExportContent, ExportRow, ExportShift } from "./content";
 
@@ -74,10 +79,45 @@ function yesNo(value: boolean): string {
   return t(value ? "exports.csv.yes" : "exports.csv.no");
 }
 
+interface ModuleColumn {
+  readonly module: ModuleId;
+  readonly column: ExportColumn;
+}
+
+/** The module columns of this export, in registry order. */
+function moduleColumns(content: ExportContent): ModuleColumn[] {
+  const listed = new Set<string>(content.modules ?? []);
+  return MODULES.filter((module) => listed.has(module.id)).flatMap((module) =>
+    module.exportColumns.map((column) => ({ module: module.id, column })),
+  );
+}
+
+function moduleCell(
+  row: ExportRow,
+  { module, column }: ModuleColumn,
+  withDayTotals: boolean,
+): string {
+  const value = row.modules?.[module]?.[column.key] ?? null;
+  if (value === null) return "";
+  switch (column.kind) {
+    case "text":
+      return typeof value === "string" ? text(value) : "";
+    case "boolean":
+      return typeof value === "boolean" ? yesNo(value) : "";
+    case "duration":
+      return withDayTotals && typeof value === "number"
+        ? hoursOf(minutesOf(value))
+        : "";
+    case "count":
+      return withDayTotals && typeof value === "number" ? String(value) : "";
+  }
+}
+
 function line(
   row: ExportRow,
   shift: ExportShift | null,
   withDayTotals: boolean,
+  modules: readonly ModuleColumn[],
 ): string {
   const planned = minutesOf(row.planned_ms);
   const deviation = minutesOf(row.deviation_ms);
@@ -101,19 +141,25 @@ function line(
     withDayTotals ? hoursOf(deviation) : "",
     shift === null ? yesNo(row.edited) : yesNo(shift.edited),
     shift === null ? "" : yesNo(shift.open),
+    ...modules.map((column) => moduleCell(row, column, withDayTotals)),
   ];
   return cells.join(SEPARATOR);
 }
 
 export function serializeExportCsv(content: ExportContent): string {
-  const lines = [HEADER_KEYS.map((key) => quote(t(key))).join(SEPARATOR)];
+  const modules = moduleColumns(content);
+  const header = [
+    ...HEADER_KEYS.map((key) => t(key)),
+    ...modules.map(({ column }) => t(column.header)),
+  ];
+  const lines = [header.map(quote).join(SEPARATOR)];
   for (const row of content.rows) {
     if (row.shifts.length === 0) {
-      lines.push(line(row, null, true));
+      lines.push(line(row, null, true, modules));
       continue;
     }
     row.shifts.forEach((shift, index) => {
-      lines.push(line(row, shift, index === 0));
+      lines.push(line(row, shift, index === 0, modules));
     });
   }
   return `${BOM}${lines.join(EOL)}${EOL}`;

@@ -7,6 +7,7 @@ import { z } from "zod";
 import {
   clock,
   clockOffline,
+  RpcError,
   type ClockInput,
   type ClockOfflineInput,
 } from "@cloxa/db";
@@ -24,6 +25,31 @@ export interface ClockActionResult {
 }
 
 /**
+ * The clock-in is the fact; where it happens is extra. When telework was
+ * switched off between the question and the press (or while the press sat in
+ * the offline queue), the clock-in is recorded without a location.
+ */
+async function withoutLocationWhenOff<I extends { workLocation?: unknown }, R>(
+  input: I,
+  send: (input: I) => Promise<R>,
+): Promise<R> {
+  try {
+    return await send(input);
+  } catch (error) {
+    if (
+      input.workLocation === undefined ||
+      !(error instanceof RpcError) ||
+      error.message !== "telework_disabled"
+    ) {
+      throw error;
+    }
+    const rest = { ...input };
+    delete rest.workLocation;
+    return send(rest);
+  }
+}
+
+/**
  * Live clocking from `/app`. Never throws to the client: the idempotency
  * key is minted client-side and reused on retry, so a thrown error there
  * would strand the caller without a way to retry with the same key.
@@ -32,7 +58,7 @@ export async function clockAction(input: ClockInput): Promise<ClockActionResult>
   await requireEmployeeArea();
   const supabase = await createClient();
   try {
-    await clock(supabase, input);
+    await withoutLocationWhenOff(input, (next) => clock(supabase, next));
   } catch (error) {
     return { ok: false, errorKey: mapClockError(error) };
   }
@@ -53,7 +79,9 @@ export async function syncOfflineClockAction(
   const supabase = await createClient();
   let outcome: SyncOutcome;
   try {
-    outcome = outcomeFromResult(await clockOffline(supabase, input));
+    outcome = outcomeFromResult(
+      await withoutLocationWhenOff(input, (next) => clockOffline(supabase, next)),
+    );
   } catch (error) {
     return outcomeFromError(error);
   }

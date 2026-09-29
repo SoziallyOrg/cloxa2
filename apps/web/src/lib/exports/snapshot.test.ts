@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { ClockEvent } from "@cloxa/domain";
+import { enabledModules } from "@cloxa/modules";
 
 import { exportContentSchema } from "./content";
 import { buildExportContent, type SnapshotInput } from "./snapshot";
@@ -237,6 +238,76 @@ describe("buildExportContent", () => {
       gross_ms: 8.5 * 3600_000,
       overnight: false,
     });
+  });
+
+  it("adds module columns per employee-day, only for the modules that apply", () => {
+    const content = buildExportContent(
+      input({
+        period: { from: "2026-09-01", to: "2026-09-01" },
+        events: [
+          event(ANN, "clock_in", "2026-09-01T06:00:00Z", { workLocation: "home" }),
+          event(ANN, "clock_out", "2026-09-01T10:00:00Z"),
+          event(BOB, "clock_in", "2026-09-01T07:00:00Z", { workLocation: "site" }),
+          event(BOB, "clock_out", "2026-09-01T11:00:00Z"),
+        ],
+        modules: {
+          enabled: enabledModules([
+            { module: "telework", enabled: true, config: {} },
+            { module: "student", enabled: true, config: {} },
+            { module: "interim", enabled: true, config: {} },
+          ]),
+          statutes: new Map([
+            [ANN, "student"],
+            [BOB, "interim"],
+          ]),
+          data: new Map([[BOB, new Map([["interim", { agency_name: "Uitzend NV" }]])]]),
+          yearEvents: new Map([
+            [
+              ANN,
+              [
+                event(ANN, "clock_in", "2026-02-02T08:00:00Z"),
+                event(ANN, "clock_out", "2026-02-02T10:00:00Z"),
+                event(ANN, "clock_in", "2026-09-01T06:00:00Z"),
+                event(ANN, "clock_out", "2026-09-01T10:00:00Z"),
+              ],
+            ],
+          ]),
+          interimAgency: null,
+        },
+      }),
+    );
+
+    expect(content.modules).toEqual(["interim", "student", "telework"]);
+    expect(content).not.toHaveProperty("interim_agency");
+    const [ann, bob] = content.rows;
+    expect(ann?.modules).toEqual({
+      student: { quarter: "2026-Q3", year_to_date_net_ms: 6 * 3600_000 },
+      telework: { home_shifts: 1, site_shifts: 0 },
+    });
+    expect(bob?.modules).toEqual({
+      interim: { agency_name: "Uitzend NV", agency_reference: null },
+      telework: { home_shifts: 0, site_shifts: 1 },
+    });
+    expect(exportContentSchema.safeParse(content).success).toBe(true);
+  });
+
+  it("names the agency of an agency export, and has no modules without any on", () => {
+    const agency = buildExportContent(
+      input({
+        modules: {
+          enabled: enabledModules([{ module: "interim", enabled: true, config: {} }]),
+          statutes: new Map(),
+          data: new Map(),
+          yearEvents: new Map(),
+          interimAgency: "Uitzend NV",
+        },
+      }),
+    );
+    expect(agency.interim_agency).toBe("Uitzend NV");
+    expect(agency.modules).toEqual(["interim"]);
+
+    const plain = buildExportContent(input({ modules: null }));
+    expect(plain).not.toHaveProperty("modules");
   });
 
   it("writes the header the database checks", () => {

@@ -2,14 +2,7 @@ import { notFound } from "next/navigation";
 import { CalendarDays, Download } from "lucide-react";
 
 import { scheduleFor } from "@cloxa/db";
-import {
-  brusselsDayKey,
-  deriveShifts,
-  effectiveEvents,
-  type ClockEvent,
-  type ClockEventSource,
-  type ClockEventType,
-} from "@cloxa/domain";
+import { brusselsDayKey, deriveShifts, effectiveEvents } from "@cloxa/domain";
 import {
   formatBrusselsDate,
   formatBrusselsShortDate,
@@ -18,10 +11,14 @@ import {
   type CatalogKey,
 } from "@cloxa/i18n";
 
+import { fieldsToForm, fieldValue, modulesFor, type ModuleId } from "@cloxa/modules";
+
 import { formatDurationMs } from "@/components/clock/format";
 import { formatShiftRow } from "@/components/clock/shift-row";
 import { ShiftTags } from "@/components/clock/ShiftTags";
 import { workedMs } from "@/components/clock/week-total";
+import { ModuleFieldsSheet } from "@/components/modules/ModuleFieldsSheet";
+import { ModuleSection } from "@/components/modules/ModuleSection";
 import {
   OffboardSection,
   PinSection,
@@ -35,6 +32,9 @@ import { StatusLine } from "@/components/ui/StatusLine";
 import { requireManager } from "@/lib/auth/context";
 import { nowMs } from "@/lib/clock/now";
 import { STATUTE_LABEL_KEY } from "@/lib/manage/labels";
+import { CLOCK_EVENT_COLUMNS, clockEventFromRow } from "@/lib/modules/events";
+import { loadEnabledModules, loadModuleData, loadYearFacts } from "@/lib/modules/load";
+import { renderValue, viewModule } from "@/lib/modules/message";
 import {
   effectiveRetentionYears,
   offboardConfirmLines,
@@ -48,6 +48,7 @@ import {
   offboardEmployeeAction,
   reinstateEmployeeAction,
   setEmployeePinAction,
+  setModuleFieldsAction,
 } from "./actions";
 
 const DAY_MS = 24 * 3600 * 1000;
@@ -115,26 +116,13 @@ export default async function ManageEmployeeDetailPage({
 
   const { data: eventRows, error: eventsError } = await supabase
     .from("clock_events")
-    .select(
-      "id, type, occurred_at, employee_id, site_id, source, supersedes_event_id, correction_id, offline, server_at",
-    )
+    .select(CLOCK_EVENT_COLUMNS)
     .eq("employee_id", employee.id)
     .gte("occurred_at", new Date(windowStart - FETCH_BUFFER_MS).toISOString())
     .order("occurred_at");
   if (eventsError) throw new Error(`clock_events_unavailable:${eventsError.code}`);
 
-  const events: ClockEvent[] = eventRows.map((row) => ({
-    id: row.id,
-    type: row.type as ClockEventType,
-    occurredAt: Date.parse(row.occurred_at),
-    employeeId: row.employee_id,
-    siteId: row.site_id,
-    source: row.source as ClockEventSource,
-    ...(row.supersedes_event_id ? { supersedesEventId: row.supersedes_event_id } : {}),
-    ...(row.correction_id ? { correctionId: row.correction_id } : {}),
-    ...(row.offline ? { offline: true, serverAt: Date.parse(row.server_at) } : {}),
-  }));
-  const shifts = deriveShifts(effectiveEvents(events))
+  const shifts = deriveShifts(effectiveEvents(eventRows.map(clockEventFromRow)))
     .filter((shift) => shift.start >= windowStart)
     .sort((a, b) => b.start - a.start);
 
@@ -197,6 +185,31 @@ export default async function ManageEmployeeDetailPage({
       total + (Date.parse(row.end_at) - Date.parse(row.start_at)) / 60_000,
     0,
   );
+  // Modules (ADR 008): only the enabled ones that apply to this statute.
+  const applicable = modulesFor(
+    await loadEnabledModules(supabase, context.membership.organizationId),
+    employee.statute,
+  );
+  const [facts, moduleData] =
+    applicable.length === 0
+      ? [null, new Map<ModuleId, unknown>()]
+      : await Promise.all([
+          loadYearFacts(supabase, employee.id, now),
+          loadModuleData(supabase, employee.id),
+        ]);
+  const moduleSections = facts
+    ? applicable.map(({ module, config }) => ({
+        module,
+        data: moduleData.get(module.id) ?? null,
+        view: viewModule(module, {
+          ...facts,
+          config,
+          data: moduleData.get(module.id) ?? null,
+          audience: "manager",
+        }),
+      }))
+    : [];
+
   const leftDate = employee.left_at
     ? formatBrusselsDate(new Date(`${employee.left_at}T12:00:00Z`))
     : null;
@@ -239,6 +252,7 @@ export default async function ManageEmployeeDetailPage({
                       range={row.range}
                       edited={row.edited}
                       offline={row.offline}
+                      home={shift.workLocation === "home"}
                       extra={
                         row.offlineSkew
                           ? t("offline.skewLabel", { value: row.offlineSkew })
@@ -301,6 +315,35 @@ export default async function ManageEmployeeDetailPage({
             title={t("manageEmployee.scheduleEditLink")}
           />
         </Section>
+
+        {moduleSections.map(({ module, data, view }) => (
+          <ModuleSection key={module.id} view={view}>
+            {module.fields.length > 0
+              ? module.fields.map((field) => {
+                  const value = fieldValue(field, data);
+                  return (
+                    <Row
+                      key={field.key}
+                      title={t(field.label)}
+                      value={
+                        value === null ? t("modules.fieldNotSet") : renderValue(value)
+                      }
+                    />
+                  );
+                })
+              : undefined}
+            {module.fields.length > 0 && !employee.anonymised_at ? (
+              <ModuleFieldsSheet
+                moduleId={module.id}
+                moduleLabel={view.label}
+                employeeName={employee.display_name}
+                fields={module.fields}
+                initial={fieldsToForm(module, data)}
+                action={setModuleFieldsAction.bind(null, employee.id, module.id)}
+              />
+            ) : null}
+          </ModuleSection>
+        ))}
 
         {employee.anonymised_at ? null : (
           <PinSection

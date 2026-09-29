@@ -1,4 +1,5 @@
 import { formatBrusselsDate, formatBrusselsTime, t } from "@cloxa/i18n";
+import { interimAgency } from "@cloxa/modules";
 
 import { FileDown } from "lucide-react";
 
@@ -12,6 +13,7 @@ import { previewHold } from "@/lib/preview";
 import { nowMs } from "@/lib/clock/now";
 import { periodQuickPicks } from "@/lib/exports/brussels";
 import { loadExportableSites } from "@/lib/exports/load";
+import { loadEnabledModules } from "@/lib/modules/load";
 import { DEV_UNSIGNED_KEY_ID } from "@/lib/exports/signing";
 import { createClient } from "@/lib/supabase/server";
 
@@ -29,6 +31,23 @@ function shortHash(bytea: string): string {
   return bytea.replace(/^\\x/, "").slice(0, 12);
 }
 
+/** Distinct agency names, sorted, from the interim data the caller can read. */
+async function loadAgencies(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+): Promise<string[]> {
+  const { data, error } = await supabase
+    .from("employee_module_data")
+    .select("data")
+    .eq("module", "interim");
+  if (error) throw new Error(`employee_module_data_unavailable:${error.code}`);
+  const names = new Set<string>();
+  for (const row of data) {
+    const name = interimAgency(row.data);
+    if (name !== null) names.add(name);
+  }
+  return [...names].sort((a, b) => a.localeCompare(b, "nl-BE"));
+}
+
 export default async function ManageExportsPage() {
   const context = await requireManager();
   await previewHold();
@@ -41,12 +60,18 @@ export default async function ManageExportsPage() {
   const { data: exportRows, error: exportsError } = await supabase
     .from("exports")
     .select(
-      "id, period_from, period_to, site_ids, row_count, created_by, created_at, content_sha256, signing_key_id",
+      "id, period_from, period_to, site_ids, row_count, created_by, created_at, content_sha256, signing_key_id, interim_agency",
     )
     .eq("organization_id", context.membership.organizationId)
     .order("created_at", { ascending: false })
     .limit(LIST_LIMIT);
   if (exportsError) throw new Error(`exports_unavailable:${exportsError.code}`);
+
+  // With the interim module on: the agencies of the workers this manager sees.
+  const interimOn = (
+    await loadEnabledModules(supabase, context.membership.organizationId)
+  ).some(({ module }) => module.id === "interim");
+  const agencies = interimOn ? await loadAgencies(supabase) : [];
 
   const creatorIds = [...new Set(exportRows.map((row) => row.created_by))];
   const { data: creatorRows, error: creatorsError } =
@@ -83,6 +108,7 @@ export default async function ManageExportsPage() {
       <List className="pb-10">
         <ExportForm
           sites={sites}
+          agencies={agencies}
           quickPicks={periodQuickPicks(nowMs())}
           action={createExportAction}
         />
@@ -116,12 +142,17 @@ export default async function ManageExportsPage() {
                     <p className="text-subhead text-ink-2">
                       {[
                         sitesLabel(row.site_ids),
+                        row.interim_agency
+                          ? t("exports.agencyValue", { agency: row.interim_agency })
+                          : null,
                         t("exports.rows", { count: row.row_count }),
                         t("exports.createdBy", {
                           name: creatorLabel(row.created_by),
                           date: `${formatBrusselsDate(createdAt)} ${formatBrusselsTime(createdAt)}`,
                         }),
-                      ].join(" · ")}
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
                     </p>
                     <p className="font-mono text-footnote text-ink-2">
                       {t("exports.hash", { hash: shortHash(row.content_sha256) })}

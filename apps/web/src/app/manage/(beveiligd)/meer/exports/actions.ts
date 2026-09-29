@@ -59,8 +59,13 @@ export async function createExportAction(
       generatedAt: nowMs(),
       period,
       siteIds: scope.siteIds,
+      withModules: true,
+      interimAgency: parsed.data.interimAgency ?? null,
     });
     const content = buildExportContent(source);
+    if (parsed.data.interimAgency !== undefined && content.rows.length === 0) {
+      return { ok: false, errorKey: "exports.errorAgency" };
+    }
     const text = canonicalJson(content);
     const bytes = Buffer.from(text, "utf8");
     if (bytes.length > MAX_EXPORT_CONTENT_BYTES) {
@@ -77,6 +82,9 @@ export async function createExportAction(
       content: text,
       signatureHex,
       signingKeyId: keyId,
+      ...(content.interim_agency === undefined
+        ? {}
+        : { interimAgency: content.interim_agency }),
     });
   } catch (error) {
     // Codes only: no content, names or tokens in logs.

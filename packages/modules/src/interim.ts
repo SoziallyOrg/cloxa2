@@ -28,6 +28,7 @@ export const interim: ModuleDefinition = {
   id: "interim",
   label: "modules.interim.label",
   description: "modules.interim.description",
+  summary: "modules.interim.summary",
   statutes: ["interim"],
   configChoices: [],
   configSchema: z.strictObject({}),

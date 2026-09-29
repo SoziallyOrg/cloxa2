@@ -53,6 +53,9 @@ importers:
       '@cloxa/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
+      '@cloxa/modules':
+        specifier: workspace:*
+        version: link:../../packages/modules
       '@cloxa/ui-tokens':
         specifier: workspace:*
         version: link:../../packages/ui-tokens

@@ -20,6 +20,11 @@
  *     organization with two sites, a team of nine with screens-team-*@
  *     logins, requests, kiosks and exports) and screens-beheer-leeg@demo.test
  *     (owner of an empty organization): the manager screens in `pnpm screens`
+ *   modules-owner-e2e@demo.test (owner of "Modules Test (fictief)") and
+ *     modules-e2e@demo.test (its student): reserved for modules.spec.ts
+ *   screens-modules@demo.test (owner of "Kantoor Verbeke (fictief)", four
+ *     modules on) with screens-modules-student@ and screens-modules-interim@:
+ *     the module screens in `pnpm screens`
  *   screens-e2e@, screens-pauze@, screens-uit@, screens-actie@,
  *     screens-leeg@demo.test (site 1; reserved for `pnpm screens`: made-up
  *     history and a realistic "today", reset on every run; screens-leeg@ has
@@ -585,6 +590,8 @@ async function main(): Promise<void> {
     requesterId: seedOwnerId,
   });
 
+  await seedModules({ dbUrl, admin, ensureUser, privilegedSession, signIn });
+
   console.log(
     `Demo organization ready: 2 sites, ${MEMBERS.length + 1} accounts (${created} newly linked).`,
   );
@@ -662,6 +669,8 @@ async function appendSeedEvent(
     offline?: boolean;
     supersedes?: string;
     correctionId?: string;
+    /** Telework (ADR 008): only on a clock_in. */
+    workLocation?: "site" | "home";
   },
 ): Promise<string> {
   const correction = event.type === "void" || event.supersedes !== undefined;
@@ -671,13 +680,13 @@ async function appendSeedEvent(
     insert into public.clock_events (
       organization_id, site_id, employee_id, type, occurred_at, client_captured_at,
       source, supersedes_event_id, correction_id, actor_user_id, idempotency_key,
-      offline, server_at, prev_hash, hash)
+      offline, work_location, server_at, prev_hash, hash)
     values (
       ${context.orgId}, ${context.siteId}, ${person.employeeId}, ${event.type}, ${event.at},
       ${event.offline ? event.at : null}, ${correction ? "correction" : "app"},
       ${event.supersedes ?? null}, ${event.correctionId ?? null},
       ${correction ? context.deciderId : person.userId}, gen_random_uuid(),
-      ${event.offline ?? false},
+      ${event.offline ?? false}, ${event.workLocation ?? null},
       ${event.offline ? new Date(Math.min(event.at.getTime() + 40 * MINUTE, Date.now())) : new Date()},
       ${head!.prev},
       decode(md5(random()::text) || md5(random()::text), 'hex'))
@@ -1596,6 +1605,354 @@ async function seedManagerScreens(input: {
       const { factorId, client } = session as Session;
       await admin.auth.admin.mfa.deleteFactor({ id: factorId, userId: ownerId });
       await client.auth.signOut({ scope: "local" });
+    }
+  }
+}
+
+// Modules (ADR 008) ------------------------------------------------------------------------
+
+/**
+ * Two organizations of their own, so no other screen or spec ever sees a
+ * module switched on:
+ * - "Modules Test (fictief)": modules-owner-e2e@ (owner) and modules-e2e@ (a
+ *   student), reserved for modules.spec.ts. The spec switches the modules
+ *   itself; the seed only makes sure the people exist.
+ * - "Kantoor Verbeke (fictief)": screens-modules@ (owner), a student
+ *   (screens-modules-student@: Monday and Thursday afternoons since 1
+ *   January, relative to now, and no shift today) and an interim worker
+ *   (screens-modules-interim@), four modules on (flexi off) and an agency
+ *   export: the module screens in `pnpm screens`.
+ */
+const MODULES_E2E = {
+  org: "Modules Test (fictief)",
+  owner: { email: "modules-owner-e2e@demo.test", name: "Mona Moduletest" },
+  student: {
+    email: "modules-e2e@demo.test",
+    name: "Stijn Studenttest",
+    code: "S-900",
+    statute: "student",
+  },
+} as const;
+const MODULES_SCREENS = {
+  org: "Kantoor Verbeke (fictief)",
+  owner: { email: "screens-modules@demo.test", name: "Karin Verbeke" },
+  student: {
+    email: "screens-modules-student@demo.test",
+    name: "Lena Vermeiren",
+    code: "S-021",
+    statute: "student",
+  },
+  interim: {
+    email: "screens-modules-interim@demo.test",
+    name: "Yusuf Demir",
+    code: "I-310",
+    statute: "interim",
+  },
+  agency: "Tempo Uitzend (fictief)",
+  agencyReference: "TU-4471",
+} as const;
+
+/** Same JSON value, whatever the key order (jsonb reorders keys). */
+function sameJson(a: unknown, b: unknown): boolean {
+  const sorted = (value: unknown): unknown =>
+    value !== null && typeof value === "object" && !Array.isArray(value)
+      ? Object.fromEntries(
+          Object.keys(value)
+            .sort()
+            .map((key) => [key, sorted((value as Record<string, unknown>)[key])]),
+        )
+      : value;
+  return JSON.stringify(sorted(a)) === JSON.stringify(sorted(b));
+}
+
+interface ModulesSeedInput {
+  dbUrl: string;
+  admin: Client;
+  ensureUser: (email: string) => Promise<string>;
+  privilegedSession: (email: string, userId: string) => Promise<Session>;
+  signIn: (email: string) => Promise<Client>;
+}
+
+/** An employee of `orgId` on `siteId`, invited, linked and accepted like a first login. */
+async function ensureModuleMember(
+  input: ModulesSeedInput,
+  sql: Sql,
+  owner: () => Promise<Session>,
+  orgId: string,
+  siteId: string,
+  member: { email: string; name: string; code: string; statute: string },
+): Promise<ScreensPerson> {
+  const userId = await input.ensureUser(member.email);
+  const [membership] = await sql<{ status: string }[]>`
+    select status from public.memberships
+    where organization_id = ${orgId} and user_id = ${userId}`;
+  if (!membership) {
+    const [open] = await sql<{ id: string }[]>`
+      select id from public.invitations
+      where organization_id = ${orgId} and email = ${member.email}
+        and status in ('pending', 'linked') and expires_at > now()`;
+    let invitationId = open?.id;
+    if (!invitationId) {
+      const { data, error } = await (
+        await owner()
+      ).client.rpc("rpc_invite_member", {
+        p_org: orgId,
+        p_email: member.email,
+        p_role: "employee",
+        p_display_name: member.name,
+        p_site_ids: [siteId],
+        p_employee_code: member.code,
+        p_statute: member.statute,
+      });
+      if (error) fail("rpc_invite_member", error);
+      invitationId = data;
+    }
+    const { error: linkError } = await input.admin.rpc("rpc_link_invited_user", {
+      p_invitation_id: invitationId,
+      p_user_id: userId,
+    });
+    if (linkError) fail("rpc_link_invited_user", linkError);
+  }
+  if (!membership || membership.status === "invited") {
+    const memberClient = await input.signIn(member.email);
+    const { error } = await memberClient.rpc("rpc_accept_membership");
+    if (error) fail("rpc_accept_membership", error);
+    await memberClient.auth.signOut({ scope: "local" });
+  }
+  return screensPerson(sql, orgId, member.email, userId);
+}
+
+/** Monday and Thursday afternoons from 1 January up to yesterday, relative to now. */
+async function seedStudentYear(
+  sql: Sql,
+  context: ScreensContext,
+  person: ScreensPerson,
+): Promise<void> {
+  const existing = await sql<{ occurred_at: Date }[]>`
+    select occurred_at from public.clock_events where employee_id = ${person.employeeId}`;
+  const busyDays = new Set(existing.map((row) => DAY_KEY.format(row.occurred_at)));
+
+  const now = Date.now();
+  const today = DAY_KEY.format(new Date(now));
+  const newYear = `${today.slice(0, 4)}-01-01`;
+  // This month and the last one have a location: telework was on by then.
+  const located = DAY_KEY.format(new Date(now - 31 * 86_400_000)).slice(0, 7);
+  const days: string[] = [];
+  for (let back = 1; back <= 366; back += 1) {
+    const probe = new Date(now - back * 86_400_000);
+    const day = DAY_KEY.format(probe);
+    if (day < newYear) break;
+    if (["Mon", "Thu"].includes(WEEKDAY.format(probe)) && !busyDays.has(day)) {
+      days.push(day);
+    }
+  }
+  if (days.length === 0) return;
+
+  await sql.begin(async (tx) => {
+    await tx`set local session_replication_role = replica`;
+    for (const [index, day] of days.entries()) {
+      const jitter = (index * 7) % 11;
+      const thursday = WEEKDAY.format(brussels(day, 12 * 60)) === "Thu";
+      const workLocation =
+        day.slice(0, 7) >= located ? (thursday ? "home" : "site") : undefined;
+      await appendSeedEvent(tx, context, person, {
+        type: "clock_in",
+        at: brussels(day, 13 * 60 - 3 + jitter),
+        ...(workLocation ? { workLocation } : {}),
+      });
+      await appendSeedEvent(tx, context, person, {
+        type: "clock_out",
+        at: brussels(day, 17 * 60 + 25 + ((jitter * 3) % 13)),
+      });
+    }
+  });
+}
+
+async function seedModules(input: ModulesSeedInput): Promise<void> {
+  const sql = postgres(input.dbUrl, { max: 1, onnotice: () => undefined });
+  const sessions: { userId: string; session: Session }[] = [];
+  const ownerSession = (email: string, userId: string) => {
+    let session: Session | null = null;
+    return async () => {
+      if (session === null) {
+        session = await input.privilegedSession(email, userId);
+        sessions.push({ userId, session });
+      }
+      return session;
+    };
+  };
+  const mainSite = async (orgId: string) => {
+    const [site] = await sql<{ id: string }[]>`
+      select id from public.sites where organization_id = ${orgId} order by created_at limit 1`;
+    if (!site) throw new Error("an organization without a site");
+    return site.id;
+  };
+
+  try {
+    // The e2e organization: the people only.
+    {
+      const ownerId = await input.ensureUser(MODULES_E2E.owner.email);
+      const orgId = await ensureOwnedOrganization(
+        input.admin,
+        ownerId,
+        MODULES_E2E.org,
+        MODULES_E2E.owner.name,
+      );
+      await ensureModuleMember(
+        input,
+        sql,
+        ownerSession(MODULES_E2E.owner.email, ownerId),
+        orgId,
+        await mainSite(orgId),
+        MODULES_E2E.student,
+      );
+    }
+
+    // The screens organization.
+    const ownerId = await input.ensureUser(MODULES_SCREENS.owner.email);
+    const orgId = await ensureOwnedOrganization(
+      input.admin,
+      ownerId,
+      MODULES_SCREENS.org,
+      MODULES_SCREENS.owner.name,
+    );
+    const siteId = await mainSite(orgId);
+    const owner = ownerSession(MODULES_SCREENS.owner.email, ownerId);
+    const student = await ensureModuleMember(
+      input,
+      sql,
+      owner,
+      orgId,
+      siteId,
+      MODULES_SCREENS.student,
+    );
+    const interim = await ensureModuleMember(
+      input,
+      sql,
+      owner,
+      orgId,
+      siteId,
+      MODULES_SCREENS.interim,
+    );
+
+    // Switched on and set through the real RPCs (they write the log), only
+    // when something differs.
+    const desired: Record<
+      string,
+      { enabled: boolean; config: Record<string, string> }
+    > = {
+      student: { enabled: true, config: {} },
+      flexi: { enabled: false, config: {} },
+      interim: { enabled: true, config: {} },
+      overuren: { enabled: true, config: { sector: "general" } },
+      telework: { enabled: true, config: {} },
+    };
+    const current = await sql<{ module: string; enabled: boolean; config: unknown }[]>`
+      select module, enabled, config from public.org_modules where organization_id = ${orgId}`;
+    for (const [id, want] of Object.entries(desired)) {
+      const row = current.find((candidate) => candidate.module === id);
+      if (
+        row
+          ? row.enabled === want.enabled && sameJson(row.config, want.config)
+          : !want.enabled
+      ) {
+        continue;
+      }
+      const { error } = await (
+        await owner()
+      ).client.rpc("rpc_set_org_module", {
+        p_org: orgId,
+        p_module: id,
+        p_enabled: want.enabled,
+        p_config: want.config,
+      });
+      if (error) fail("rpc_set_org_module", error);
+    }
+
+    const today = DAY_KEY.format(new Date());
+    const data: [ScreensPerson, string, Record<string, string | number>][] = [
+      [
+        student,
+        "student",
+        { hours_elsewhere: 120, checked_on: `${today.slice(0, 7)}-01` },
+      ],
+      [
+        interim,
+        "interim",
+        {
+          agency_name: MODULES_SCREENS.agency,
+          agency_reference: MODULES_SCREENS.agencyReference,
+        },
+      ],
+    ];
+    for (const [person, id, want] of data) {
+      const [row] = await sql<{ data: unknown }[]>`
+        select data from public.employee_module_data
+        where employee_id = ${person.employeeId} and module = ${id}`;
+      if (row && sameJson(row.data, want)) continue;
+      const { error } = await (
+        await owner()
+      ).client.rpc("rpc_set_employee_module_data", {
+        p_employee_id: person.employeeId,
+        p_module: id,
+        p_data: want,
+      });
+      if (error) fail("rpc_set_employee_module_data", error);
+    }
+
+    // The student: a plan for Monday and Thursday afternoons, the year so
+    // far, and nothing running today (so Klok asks "Waar werk je vandaag?").
+    const [schedule] = await sql`
+      select 1 from public.schedules where employee_id = ${student.employeeId} limit 1`;
+    if (!schedule) {
+      const afternoon = [{ start: "13:00", end: "17:30" }];
+      await sql`
+        insert into public.schedules
+          (organization_id, employee_id, version, valid_from, pattern, created_by, notified_at)
+        values (${orgId}, ${student.employeeId}, 1, ${`${today.slice(0, 4)}-01-01`},
+          ${sql.json({ mon: afternoon, thu: afternoon })}, ${ownerId}, now())`;
+    }
+    const context: ScreensContext = { orgId, siteId, deciderId: ownerId };
+    await seedStudentYear(sql, context, student);
+    await settleScreensToday(sql, context, student, "off");
+    await seedScreensHistory(sql, context, interim, {
+      pendingRequest: false,
+      offlineDay: false,
+    });
+    await settleScreensToday(sql, context, interim, "off");
+
+    // Two earlier exports, one for the agency (made-up content: never downloaded).
+    const [anyExport] = await sql`
+      select 1 from public.exports where organization_id = ${orgId} limit 1`;
+    if (!anyExport) {
+      const [y = 2026, m = 1] = today.split("-").map(Number);
+      const first = new Date(Date.UTC(y, m - 2, 1));
+      const last = new Date(Date.UTC(y, m - 1, 0));
+      for (const [agency, rows, hours] of [
+        [null, 46, 9],
+        [MODULES_SCREENS.agency, 19, 10],
+      ] as const) {
+        const content = Buffer.from(
+          JSON.stringify({ format: "cloxa.export.v1", seed: true, rows: [] }),
+          "utf8",
+        );
+        await sql`
+          insert into public.exports (
+            organization_id, site_ids, period_from, period_to, format_version, created_by,
+            created_at, row_count, content_sha256, signature, signing_key_id, content,
+            interim_agency)
+          values (
+            ${orgId}, null, ${first.toISOString().slice(0, 10)}, ${last.toISOString().slice(0, 10)},
+            'cloxa.export.v1', ${ownerId}, ${new Date(last.getTime() + 2 * 86_400_000 + hours * HOUR)},
+            ${rows}, extensions.digest(${content}, 'sha256'), extensions.gen_random_bytes(64),
+            'seed', ${content}, ${agency})`;
+      }
+    }
+  } finally {
+    await sql.end();
+    for (const { userId, session } of sessions) {
+      await input.admin.auth.admin.mfa.deleteFactor({ id: session.factorId, userId });
+      await session.client.auth.signOut({ scope: "local" });
     }
   }
 }

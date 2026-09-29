@@ -58,6 +58,7 @@ export const telework: ModuleDefinition = {
   id: "telework",
   label: "modules.telework.label",
   description: "modules.telework.description",
+  summary: "modules.telework.summary",
   statutes: "all",
   configChoices: [],
   configSchema: z.strictObject({}),

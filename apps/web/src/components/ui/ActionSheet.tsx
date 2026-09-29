@@ -14,6 +14,8 @@ export interface ActionSheetAction {
   onSelect: () => void;
   /** Red, for actions that remove or undo something. */
   destructive?: boolean;
+  /** Bold, like the iOS preferred action: e.g. the last choice made. */
+  preferred?: boolean;
 }
 
 export interface ActionSheetProps {
@@ -77,7 +79,11 @@ export function ActionSheet({
             <li key={action.key} className="border-t-[0.5px] border-separator">
               <button
                 type="button"
-                className={cx(ACTION, action.destructive ? "text-danger" : "text-ink")}
+                className={cx(
+                  ACTION,
+                  action.destructive ? "text-danger" : "text-ink",
+                  action.preferred && "font-semibold",
+                )}
                 onClick={() => {
                   tap();
                   action.onSelect();

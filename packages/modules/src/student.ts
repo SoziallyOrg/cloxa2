@@ -209,6 +209,7 @@ export const student: ModuleDefinition = {
   id: "student",
   label: "modules.student.label",
   description: "modules.student.description",
+  summary: "modules.student.summary",
   statutes: ["student"],
   configChoices: [],
   configSchema: z.strictObject({}),

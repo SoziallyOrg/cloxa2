@@ -13,6 +13,8 @@ import {
   type Shift,
 } from "@cloxa/domain";
 
+import { exportModules, type EnabledModule, type ModuleId } from "@cloxa/modules";
+
 import { brusselsIsoLocal } from "./brussels";
 import {
   EXPORT_FORMAT_VERSION,
@@ -34,6 +36,23 @@ export interface SnapshotPlannedBlock extends PlannedBlock {
   readonly day: string;
 }
 
+/** The modules part of an export (ADR 008); absent when no module is on. */
+export interface SnapshotModules {
+  /** The enabled modules, in registry order; at least one. */
+  readonly enabled: readonly EnabledModule[];
+  /** Each exported employee's statute: modules apply per statute. */
+  readonly statutes: ReadonlyMap<string, string>;
+  /** Saved module data per employee and module. */
+  readonly data: ReadonlyMap<string, ReadonlyMap<ModuleId, unknown>>;
+  /**
+   * Events from 1 January of the period's first year, for employees whose
+   * modules need year-to-date time (students); superseded ones included.
+   */
+  readonly yearEvents: ReadonlyMap<string, readonly ClockEvent[]>;
+  /** Set when the export holds only this interim agency's workers. */
+  readonly interimAgency: string | null;
+}
+
 export interface SnapshotInput {
   readonly organizationId: string;
   readonly createdBy: string;
@@ -47,6 +66,7 @@ export interface SnapshotInput {
   /** All fetched events of those employees, superseded and void ones included. */
   readonly events: readonly ClockEvent[];
   readonly planned: readonly SnapshotPlannedBlock[];
+  readonly modules?: SnapshotModules | null;
 }
 
 function compare(a: string, b: string): number {
@@ -158,11 +178,28 @@ export function buildExportContent(input: SnapshotInput): ExportContent {
       bucket(block.day).planned.push({ start: block.start, end: block.end });
     }
 
+    const modules = input.modules ?? null;
+    const yearShifts =
+      modules === null
+        ? []
+        : deriveShifts(effectiveEvents(modules.yearEvents.get(employee.id) ?? []));
+    const moduleData = modules?.data.get(employee.id);
+
     for (const day of [...days.keys()].sort(compare)) {
       const entry = days.get(day);
       if (entry === undefined) continue;
       const deviation = deviationFromSchedule(entry.shifts, entry.planned);
       if (entry.shifts.length === 0 && deviation.plannedMs === 0) continue;
+      const rowModules =
+        modules === null
+          ? null
+          : exportModules(
+              modules.enabled,
+              modules.statutes.get(employee.id) ?? "other",
+              { day, shifts: entry.shifts, planned: entry.planned },
+              (id) => moduleData?.get(id) ?? null,
+              yearShifts,
+            );
       rows.push({
         day,
         employee_id: employee.id,
@@ -173,6 +210,7 @@ export function buildExportContent(input: SnapshotInput): ExportContent {
         worked_net_ms: deviation.workedNetMs,
         deviation_ms: deviation.deltaMs,
         edited: entry.exportShifts.some((shift) => shift.edited),
+        ...(rowModules === null ? {} : { modules: rowModules }),
       });
     }
   }
@@ -184,6 +222,14 @@ export function buildExportContent(input: SnapshotInput): ExportContent {
     generated_at: new Date(input.generatedAt).toISOString(),
     period: { from: period.from, to: period.to, timezone: EXPORT_TIMEZONE },
     site_ids: input.siteIds === null ? null : [...input.siteIds],
+    ...(input.modules
+      ? {
+          modules: input.modules.enabled.map(({ module }) => module.id).sort(compare),
+          ...(input.modules.interimAgency === null
+            ? {}
+            : { interim_agency: input.modules.interimAgency }),
+        }
+      : {}),
     rows,
   };
 }

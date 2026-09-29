@@ -1,12 +1,21 @@
 import "server-only";
 
 import { scheduleFor, type CloxaClient } from "@cloxa/db";
-import type { ClockEvent, ClockEventSource, ClockEventType } from "@cloxa/domain";
+import type { ClockEvent } from "@cloxa/domain";
+import { brusselsLocalToInstant } from "@cloxa/i18n";
+import { appliesTo, interimAgency, isModuleId, type ModuleId } from "@cloxa/modules";
 
 import type { ActiveMembership } from "@/lib/auth/routing";
+import { clockEventFromRow, type ClockEventRow } from "@/lib/modules/events";
+import { loadEnabledModules } from "@/lib/modules/load";
 
 import { addDays, brusselsDayStart, type ExportPeriod } from "./brussels";
-import type { SnapshotEmployee, SnapshotInput, SnapshotPlannedBlock } from "./snapshot";
+import type {
+  SnapshotEmployee,
+  SnapshotInput,
+  SnapshotModules,
+  SnapshotPlannedBlock,
+} from "./snapshot";
 
 /** PostgREST returns at most this many rows per request (supabase/config.toml max_rows). */
 const PAGE = 1000;
@@ -18,18 +27,9 @@ const IN_CHUNK = 100;
 const SCHEDULE_CONCURRENCY = 6;
 
 const EVENT_COLUMNS =
-  "id, type, occurred_at, employee_id, site_id, source, supersedes_event_id, correction_id";
+  "id, type, occurred_at, employee_id, site_id, source, supersedes_event_id, correction_id, work_location";
 
-interface EventRow {
-  id: string;
-  type: string;
-  occurred_at: string;
-  employee_id: string;
-  site_id: string;
-  source: string;
-  supersedes_event_id: string | null;
-  correction_id: string | null;
-}
+type EventRow = ClockEventRow;
 
 interface PageResult<T> {
   data: T[] | null;
@@ -58,18 +58,7 @@ function chunks<T>(items: readonly T[], size: number): T[][] {
   return result;
 }
 
-function toClockEvent(row: EventRow): ClockEvent {
-  return {
-    id: row.id,
-    type: row.type as ClockEventType,
-    occurredAt: Date.parse(row.occurred_at),
-    employeeId: row.employee_id,
-    siteId: row.site_id,
-    source: row.source as ClockEventSource,
-    ...(row.supersedes_event_id ? { supersedesEventId: row.supersedes_event_id } : {}),
-    ...(row.correction_id ? { correctionId: row.correction_id } : {}),
-  };
-}
+const toClockEvent = (row: EventRow): ClockEvent => clockEventFromRow(row);
 
 /** Sites a privileged member may export: the whole org for owner/admin, managed sites for a manager. */
 export async function loadExportableSites(
@@ -108,6 +97,13 @@ export interface LoadSnapshotOptions {
   readonly siteIds: readonly string[] | null;
   /** Only these employees (a self export). Otherwise everyone RLS lets the caller see. */
   readonly employeeIds?: readonly string[];
+  /**
+   * Add the enabled modules' columns (ADR 008). Off for self exports, which
+   * stay the plain hours.
+   */
+  readonly withModules?: boolean;
+  /** Only this interim agency's workers; needs `withModules` and the interim module. */
+  readonly interimAgency?: string | null;
 }
 
 /**
@@ -182,17 +178,56 @@ export async function loadSnapshotInput(
     }
   }
 
-  const employees: SnapshotEmployee[] = [];
+  const enabled = options.withModules
+    ? await loadEnabledModules(supabase, organizationId)
+    : [];
+  const statutes = new Map<string, string>();
+  let employees: SnapshotEmployee[] = [];
   for (const ids of chunks([...candidates], IN_CHUNK)) {
     const { data, error } = await supabase
       .from("employees")
-      .select("id, display_name, employee_code")
+      .select("id, display_name, employee_code, statute")
       .eq("organization_id", organizationId)
       .in("id", ids);
     if (error) throw new Error(`employees_unavailable:${error.code}`);
     for (const row of data) {
       employees.push({ id: row.id, code: row.employee_code, name: row.display_name });
+      statutes.set(row.id, row.statute);
     }
+  }
+
+  let modules: SnapshotModules | null = null;
+  if (enabled.length > 0) {
+    const data = await loadModuleDataFor(
+      supabase,
+      organizationId,
+      employees.map((employee) => employee.id),
+    );
+    const agency = options.interimAgency ?? null;
+    if (agency !== null) {
+      employees = employees.filter(
+        (employee) => interimAgency(data.get(employee.id)?.get("interim")) === agency,
+      );
+    }
+    const needYear = employees.filter((employee) =>
+      enabled.some(
+        ({ module }) =>
+          module.needsYearToDate &&
+          appliesTo(module, statutes.get(employee.id) ?? "other"),
+      ),
+    );
+    modules = {
+      enabled,
+      statutes,
+      data,
+      yearEvents: await loadYearEvents(supabase, {
+        organizationId,
+        periodFrom: period.from,
+        windowEnd,
+        employeeIds: needYear.map((employee) => employee.id),
+      }),
+      interimAgency: agency,
+    };
   }
 
   const planned: SnapshotPlannedBlock[] = [];
@@ -228,6 +263,89 @@ export async function loadSnapshotInput(
     siteNames,
     employees,
     events: events.filter((event) => visible.has(event.employeeId)),
-    planned,
+    planned: planned.filter((block) => visible.has(block.employeeId)),
+    modules,
   };
+}
+
+/** Module data of these employees, per employee and module. */
+async function loadModuleDataFor(
+  supabase: CloxaClient,
+  organizationId: string,
+  employeeIds: readonly string[],
+): Promise<Map<string, Map<ModuleId, unknown>>> {
+  const byEmployee = new Map<string, Map<ModuleId, unknown>>();
+  for (const ids of chunks(employeeIds, IN_CHUNK)) {
+    const { data, error } = await supabase
+      .from("employee_module_data")
+      .select("employee_id, module, data")
+      .eq("organization_id", organizationId)
+      .in("employee_id", ids);
+    if (error) throw new Error(`employee_module_data_unavailable:${error.code}`);
+    for (const row of data) {
+      if (!isModuleId(row.module)) continue;
+      const entry = byEmployee.get(row.employee_id) ?? new Map<ModuleId, unknown>();
+      entry.set(row.module, row.data);
+      byEmployee.set(row.employee_id, entry);
+    }
+  }
+  return byEmployee;
+}
+
+/**
+ * Events from 1 January of the period's first year up to the export window's
+ * end, for the year-to-date columns; corrections made since then too, so a
+ * moved event stops counting.
+ */
+async function loadYearEvents(
+  supabase: CloxaClient,
+  query: {
+    organizationId: string;
+    periodFrom: string;
+    windowEnd: string;
+    employeeIds: readonly string[];
+  },
+): Promise<Map<string, ClockEvent[]>> {
+  const byEmployee = new Map<string, ClockEvent[]>();
+  if (query.employeeIds.length === 0) return byEmployee;
+  const newYear = brusselsLocalToInstant(
+    `${query.periodFrom.slice(0, 4)}-01-01`,
+    "00:00",
+  );
+  const yearStart = new Date(newYear.getTime() - LOOKAHEAD_MS).toISOString();
+
+  const byId = new Map<string, ClockEvent>();
+  for (const ids of chunks(query.employeeIds, IN_CHUNK)) {
+    const rows = await allPages<EventRow>("clock_events", (from, to) =>
+      supabase
+        .from("clock_events")
+        .select(EVENT_COLUMNS)
+        .eq("organization_id", query.organizationId)
+        .in("employee_id", ids)
+        .gte("occurred_at", yearStart)
+        .lt("occurred_at", query.windowEnd)
+        .order("occurred_at")
+        .order("id")
+        .range(from, to),
+    );
+    const corrections = await allPages<EventRow>("clock_events", (from, to) =>
+      supabase
+        .from("clock_events")
+        .select(EVENT_COLUMNS)
+        .eq("organization_id", query.organizationId)
+        .in("employee_id", ids)
+        .eq("source", "correction")
+        .gte("server_at", yearStart)
+        .order("server_at")
+        .order("id")
+        .range(from, to),
+    );
+    for (const row of [...rows, ...corrections]) byId.set(row.id, toClockEvent(row));
+  }
+  for (const event of byId.values()) {
+    const list = byEmployee.get(event.employeeId) ?? [];
+    list.push(event);
+    byEmployee.set(event.employeeId, list);
+  }
+  return byEmployee;
 }

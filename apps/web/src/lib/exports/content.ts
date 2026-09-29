@@ -4,6 +4,7 @@
  * Brussels local twin. Field names are snake_case and stable: changing them
  * means a new format version.
  */
+import { MODULE_IDS } from "@cloxa/modules";
 import { z } from "zod";
 
 export const EXPORT_FORMAT_VERSION = "cloxa.export.v1";
@@ -33,6 +34,19 @@ export const exportShiftSchema = z.strictObject({
 });
 export type ExportShift = z.output<typeof exportShiftSchema>;
 
+const moduleId = z.enum(MODULE_IDS);
+
+/**
+ * Per employee-day, the export columns of each module that applies to the
+ * person (ADR 008). Present on every row exactly when the header lists
+ * `modules`; absent from exports of organizations without modules.
+ */
+export const exportRowModulesSchema = z.partialRecord(
+  moduleId,
+  z.record(z.string(), z.union([z.string(), z.int(), z.boolean(), z.null()])),
+);
+export type ExportRowModules = z.output<typeof exportRowModulesSchema>;
+
 export const exportRowSchema = z.strictObject({
   day,
   employee_id: z.uuid(),
@@ -44,6 +58,7 @@ export const exportRowSchema = z.strictObject({
   /** worked_net_ms - planned_ms. Factual, no judgement. */
   deviation_ms: int,
   edited: z.boolean(),
+  modules: exportRowModulesSchema.optional(),
 });
 export type ExportRow = z.output<typeof exportRowSchema>;
 
@@ -55,6 +70,10 @@ export const exportContentSchema = z.strictObject({
   period: z.strictObject({ from: day, to: day, timezone: z.literal(EXPORT_TIMEZONE) }),
   /** Null: every site of the organization. */
   site_ids: z.array(z.uuid()).nullable(),
+  /** The modules that were on, sorted; absent when none was. */
+  modules: z.array(moduleId).min(1).optional(),
+  /** Only this interim agency's workers. */
+  interim_agency: z.string().min(1).max(200).optional(),
   rows: z.array(exportRowSchema),
 });
 export type ExportContent = z.output<typeof exportContentSchema>;

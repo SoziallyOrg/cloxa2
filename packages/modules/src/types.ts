@@ -158,6 +158,8 @@ export interface ModuleDefinition {
   readonly id: ModuleId;
   readonly label: CatalogKey;
   readonly description: CatalogKey;
+  /** One sentence for the Modules list. */
+  readonly summary: CatalogKey;
   /** The statutes it applies to; `all` for everyone. */
   readonly statutes: readonly Statute[] | "all";
   /** Settings shown on the module's detail page. */

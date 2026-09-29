@@ -21,6 +21,8 @@ interface Period {
 
 export interface ExportFormProps {
   sites: readonly { id: string; name: string }[];
+  /** Interim agencies to export one of (ADR 008); empty hides the choice. */
+  agencies?: readonly string[];
   quickPicks: { previousMonth: Period; thisMonth: Period };
   action: (input: ExportFormInput) => Promise<{ ok: boolean; errorKey?: CatalogKey }>;
 }
@@ -37,12 +39,18 @@ const DATE_INPUT = cx(inputClassName, "bg-paper tabular-nums");
  * The period as quick picks (last month, this month, or your own dates) and
  * the sites; every visible site is ticked by default.
  */
-export function ExportForm({ sites, quickPicks, action }: ExportFormProps) {
+export function ExportForm({
+  sites,
+  agencies = [],
+  quickPicks,
+  action,
+}: ExportFormProps) {
   const router = useRouter();
   const [pick, setPick] = useState<Pick>("previous");
   const [from, setFrom] = useState(quickPicks.previousMonth.from);
   const [to, setTo] = useState(quickPicks.previousMonth.to);
   const [siteIds, setSiteIds] = useState<string[]>(sites.map((site) => site.id));
+  const [agency, setAgency] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [errorKey, setErrorKey] = useState<CatalogKey | null>(null);
   const [done, setDone] = useState(false);
@@ -73,7 +81,12 @@ export function ExportForm({ sites, quickPicks, action }: ExportFormProps) {
     setSubmitting(true);
     setErrorKey(null);
     setDone(false);
-    const result = await action({ from, to, siteIds });
+    const result = await action({
+      from,
+      to,
+      siteIds,
+      ...(agency ? { interimAgency: agency } : {}),
+    });
     setSubmitting(false);
     if (!result.ok) {
       setErrorKey(result.errorKey ?? "exports.errorGeneric");
@@ -158,6 +171,34 @@ export function ExportForm({ sites, quickPicks, action }: ExportFormProps) {
           ))}
         </Section>
       </fieldset>
+
+      {agencies.length > 0 ? (
+        <Section footer={t("exports.agencyFooter")}>
+          <ListItem className="py-3">
+            <label className="flex flex-col gap-1">
+              <span className="text-subhead text-ink-2">
+                {t("exports.agencyLabel")}
+              </span>
+              <select
+                id="export-agency"
+                value={agency}
+                onChange={(event) => {
+                  setAgency(event.target.value);
+                  setDone(false);
+                }}
+                className={DATE_INPUT}
+              >
+                <option value="">{t("exports.agencyAll")}</option>
+                {agencies.map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </ListItem>
+        </Section>
+      ) : null}
 
       <div className="flex flex-col gap-4">
         {done ? (

@@ -34,8 +34,9 @@ const SUCCESS_DISPLAY_MS = 2000;
 
 /** `true` on success; `"queued"` when kept on the device to send later (offline);
  * `false` leaves the button idle without celebrating (the caller is expected to
- * show its own error). */
-export type ClockActionResult = boolean | "queued";
+ * show its own error); `"cancelled"` when the person backed out of a question
+ * (nothing happened, so no error either). */
+export type ClockActionResult = boolean | "queued" | "cancelled";
 export type ClockActionCallback = () => ClockActionResult | Promise<ClockActionResult>;
 
 export interface ClockActionsProps {
@@ -91,6 +92,7 @@ export function ClockActions({
     setPending(action);
     const result = await callback();
     setPending(null);
+    if (result === "cancelled") return;
     if (!result) {
       errorHaptic();
       return;

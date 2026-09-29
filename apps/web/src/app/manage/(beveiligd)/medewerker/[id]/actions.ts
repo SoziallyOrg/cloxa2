@@ -3,7 +3,16 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { offboardEmployee, reinstateEmployee, setEmployeePin } from "@cloxa/db";
+import {
+  offboardEmployee,
+  reinstateEmployee,
+  RpcError,
+  setEmployeeModuleData,
+  setEmployeePin,
+} from "@cloxa/db";
+import { fieldsFromForm, isModuleId, moduleById } from "@cloxa/modules";
+
+import type { ModuleFieldsResult } from "@/components/modules/ModuleFieldsSheet";
 
 import { requireManager } from "@/lib/auth/context";
 import { pinErrorKey } from "@/lib/kiosk/errors";
@@ -79,5 +88,44 @@ export async function reinstateEmployeeAction(
     return { ok: false, errorKey: mapOffboardError(error) };
   }
   revalidateEmployee(id.data);
+  return { ok: true };
+}
+
+/**
+ * An employee's fields for one module (e.g. the interim agency). The module's
+ * own schema checks the shape here; the database checks who may, that the
+ * module is on and that the data stays small.
+ */
+export async function setModuleFieldsAction(
+  employeeId: string,
+  moduleId: string,
+  values: Record<string, string>,
+): Promise<ModuleFieldsResult> {
+  await requireManager();
+  const id = employeeIdSchema.safeParse(employeeId);
+  if (!id.success || !isModuleId(moduleId)) {
+    return { ok: false, errorKey: "modules.fieldsError" };
+  }
+  const form = z.record(z.string(), z.string().max(500)).safeParse(values);
+  if (!form.success) return { ok: false, errorKey: "modules.fieldsError" };
+  const fields = fieldsFromForm(moduleById(moduleId), form.data);
+  if (!fields.ok) return { ok: false, invalid: fields.invalid };
+
+  try {
+    await setEmployeeModuleData(await createClient(), {
+      employeeId: id.data,
+      module: moduleId,
+      data: fields.data,
+    });
+  } catch (error) {
+    return {
+      ok: false,
+      errorKey:
+        error instanceof RpcError && error.message === "module_disabled"
+          ? "modules.fieldsDisabled"
+          : "modules.fieldsError",
+    };
+  }
+  revalidatePath(`/manage/medewerker/${id.data}`);
   return { ok: true };
 }

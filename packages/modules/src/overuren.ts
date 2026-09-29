@@ -100,6 +100,7 @@ export const overuren: ModuleDefinition = {
   id: "overuren",
   label: "modules.overuren.label",
   description: "modules.overuren.description",
+  summary: "modules.overuren.summary",
   statutes: ["bediende", "arbeider", "other"],
   configChoices: [
     {

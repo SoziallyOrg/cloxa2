@@ -20,6 +20,8 @@ export interface QueueEntry {
   readonly siteId: string;
   /** ISO 8601 (UTC): the device time of the button press. */
   readonly capturedAt: string;
+  /** Telework (ADR 008): where this shift is worked, for a clock_in only. */
+  readonly workLocation?: "site" | "home";
   /** Sync attempts that failed for a transient reason. */
   readonly attempts: number;
 }
