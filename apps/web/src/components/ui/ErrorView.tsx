@@ -33,8 +33,13 @@ export function ErrorView({
       role="alert"
       className="flex flex-1 flex-col items-center justify-center gap-2 px-6 py-16 text-center"
     >
-      <Icon aria-hidden="true" className="mb-3 size-10 text-ink-2" strokeWidth={1.25} />
-      <Heading className="text-body font-semibold">{title}</Heading>
+      <span
+        aria-hidden="true"
+        className="mb-3 flex size-16 items-center justify-center rounded-clock bg-fill text-ink-2"
+      >
+        <Icon className="size-8" strokeWidth={1.5} />
+      </span>
+      <Heading className="text-title-2">{title}</Heading>
       <p className="max-w-sm text-body text-ink-2">{body}</p>
       <div className="mt-4">
         <Button onClick={onRetry}>{t("errors.retry")}</Button>

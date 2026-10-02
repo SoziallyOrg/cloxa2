@@ -1402,6 +1402,9 @@ export const catalog = {
   errors: {
     notFoundTitle: "Pagina niet gevonden",
     notFoundBody: "Deze pagina bestaat niet of is verplaatst.",
+    notFoundHome: "Naar de startpagina",
+    notFoundApp: "Naar mijn klok",
+    notFoundManage: "Naar Vandaag",
     genericTitle: "Er ging iets mis",
     genericBody: "Probeer het opnieuw. Als dit blijft gebeuren, neem contact op.",
     retry: "Opnieuw proberen",
