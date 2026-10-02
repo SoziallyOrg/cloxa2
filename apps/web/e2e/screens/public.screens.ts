@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { capture } from "./helpers";
+import { capture, captureFocus } from "./helpers";
 
 /**
  * The public website (`pnpm screens`): landing, request form (empty and with
@@ -45,4 +45,19 @@ test("the public website", async ({ page }) => {
   await page.goto("/privacy");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Privacyverklaring");
   await capture(page, "site-privacy");
+
+  // An unknown address.
+  await page.goto("/bestaat-niet");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "Pagina niet gevonden",
+  );
+  await capture(page, "fout-404");
+
+  // Keyboard focus: the ring on a text field and on a button.
+  await page.goto("/login");
+  await page.getByLabel("Je e-mailadres").focus();
+  await captureFocus(page, "focus-invoer");
+  await page.keyboard.press("Tab");
+  await expect(page.getByRole("button", { name: "Stuur mij een code" })).toBeFocused();
+  await captureFocus(page, "focus-knop");
 });

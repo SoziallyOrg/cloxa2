@@ -199,6 +199,13 @@ test("login, and the employee app while working", async ({ page, context }) => {
   await expect(button(page, "Opnieuw proberen")).toBeVisible(SETTLED);
   await capture(page, "fout");
   await previewState(page, null);
+
+  // An unknown address while signed in.
+  await page.goto("/app/bestaat-niet");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "Pagina niet gevonden",
+  );
+  await capture(page, "fout-404-app");
 });
 
 test("a fresh start: no hours, no questions, nothing planned", async ({ page }) => {

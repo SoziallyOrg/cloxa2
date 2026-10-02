@@ -43,10 +43,13 @@ export async function captureAt(
   name: string,
   viewports: Record<string, { width: number; height: number }>,
   whole = true,
+  keepFocus = false,
 ): Promise<void> {
   // No hover state or focus ring left from the last click.
   await page.mouse.move(0, 0);
-  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  if (!keepFocus) {
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  }
   await page.emulateMedia({ reducedMotion: "reduce" });
   for (const [viewport, size] of Object.entries(viewports)) {
     await page.setViewportSize(size);
@@ -71,6 +74,12 @@ export async function captureAt(
       animations: "disabled",
     });
   }
+}
+
+/** Phone and desktop with the focus ring left on (for the keyboard focus review). */
+export async function captureFocus(page: Page, name: string): Promise<void> {
+  await captureAt(page, name, VIEWPORTS, false, true);
+  await page.setViewportSize(VIEWPORTS.phone);
 }
 
 /** The same shot at 1100x800 (the side panel is a sheet there), `-midden`. */

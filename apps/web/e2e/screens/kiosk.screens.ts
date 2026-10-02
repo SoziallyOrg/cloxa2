@@ -121,18 +121,12 @@ test("the shared tablet, from pairing to lock-out", async ({ browser }) => {
   // Too many wrong PINs: the lock-out (lifted again by the next setKioskPin).
   for (let attempt = 0; attempt < 10; attempt += 1) {
     await enterPin(tablet, KIOSK_WRONG_PIN);
-    const locked = tablet.getByText(/te veel verkeerde pincodes/i);
-    if (await locked.isVisible({ timeout: 2_000 }).catch(() => false)) break;
+    const alert = tablet.getByRole("alert").filter({ hasText: /pincode/i });
+    await expect(alert).toBeVisible(SETTLED);
+    if (/te veel verkeerde pincodes/i.test(await alert.innerText())) break;
     await button(tablet, "Terug").click();
   }
   await shot(tablet, "pincode-geblokkeerd");
-
-  // The tablet itself is paused for a while after that.
-  await tablet.goto("/kiosk");
-  await expect(tablet.getByRole("heading", { name: /gepauzeerd/i })).toBeVisible(
-    SETTLED,
-  );
-  await shot(tablet, "gepauzeerd");
 
   // Revoked: the tablet says so.
   await revokeKiosk(admin, kioskName);

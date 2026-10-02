@@ -220,6 +220,11 @@ test("the manager area of a bakery with a team", async ({ page }) => {
   await captureLoading(page, "/manage/meer/kiosks", "laden-beheer-kiosks");
   await captureLoading(page, "/manage/meer/audit", "laden-beheer-audit");
 
+  // An employee that does not exist: Pagina niet gevonden inside the frame.
+  await page.goto("/manage/medewerker/00000000-0000-4000-8000-000000000000");
+  await expect(heading(page)).toHaveText("Pagina niet gevonden", SETTLED);
+  await capture(page, "fout-404-beheer");
+
   // A page that fails to load.
   await previewState(page, "fout");
   await page.goto("/manage/team");
