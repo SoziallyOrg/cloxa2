@@ -8,20 +8,25 @@ import {
   type ClockEventType,
   type Shift,
 } from "@cloxa/domain";
-import { formatBrusselsLongDay, formatBrusselsTime, t } from "@cloxa/i18n";
+import {
+  brusselsLocalToInstant,
+  formatBrusselsLongDay,
+  formatBrusselsTime,
+  t,
+  type CatalogKey,
+} from "@cloxa/i18n";
 
+import { DEFAULT_RING_MS, formatBarTime } from "@/components/clock/clock-bar";
 import { formatDurationMs } from "@/components/clock/format";
 import { brusselsWeekRange, workedMs } from "@/components/clock/week-total";
 import { AutoRefresh } from "@/components/manage/AutoRefresh";
 import { SiteFilter } from "@/components/manage/SiteFilter";
-import {
-  TeamTimeline,
-  type TeamTimelinePerson,
-} from "@/components/manage/TeamTimeline";
-import { NavBar } from "@/components/ui/NavBar";
-import { NumbersRow } from "@/components/ui/NumbersRow";
+import { TodayBoard } from "@/components/manage/TodayBoard";
+import type { PersonBlock, TodayPerson } from "@/components/manage/today-types";
+import { NavBar, NavBarButton } from "@/components/ui/NavBar";
 import { PageTransition } from "@/components/ui/PageTransition";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
+import { StatBlock } from "@/components/ui/StatBlock";
 import { requireManager } from "@/lib/auth/context";
 import { nowMs } from "@/lib/clock/now";
 import {
@@ -33,6 +38,9 @@ import {
   type ScheduledStart,
 } from "@/lib/manage/attention";
 import { boardCounts, type BoardPerson } from "@/lib/manage/board-counts";
+import { GROUP_LABEL_KEY } from "@/lib/manage/labels";
+import { loadRequests } from "@/lib/manage/requests";
+import { statusGroup, trackTone } from "@/lib/manage/today-board";
 import {
   boardWindow,
   nightLookbackStart,
@@ -46,11 +54,29 @@ import { blocksForOpenShift, plannedEndForOpenShift } from "@/lib/schedule/open-
 import { previewHold } from "@/lib/preview";
 import { createClient } from "@/lib/supabase/server";
 
+import { approveCorrectionAction, rejectCorrectionAction } from "./vragen/actions";
+
 // Wide enough to still catch a shift forgotten open from the previous
 // Brussels day, without loading unbounded history.
 const EVENTS_LOOKBACK_MS = 3 * 24 * 3600 * 1000;
 
 const time = (at: number) => formatBrusselsTime(new Date(at));
+
+const EVENT_LABEL_KEY: Partial<Record<ClockEventType, CatalogKey>> = {
+  clock_in: "manageToday.eventClockIn",
+  clock_out: "manageToday.eventClockOut",
+  break_start: "manageToday.eventBreakStart",
+  break_end: "manageToday.eventBreakEnd",
+};
+
+const SOURCE_LABEL_KEY = {
+  app: "manageToday.sourceApp",
+  kiosk: "manageToday.sourceKiosk",
+  mobile: "manageToday.sourceMobile",
+  correction: "manageToday.sourceCorrection",
+} as const;
+
+const sum = (values: readonly number[]) => values.reduce((a, b) => a + b, 0);
 
 interface NoteContext {
   scheduledStart: ScheduledStart | undefined;
@@ -158,6 +184,7 @@ export default async function ManagePage({
   if (pendingError)
     throw new Error(`correction_requests_unavailable:${pendingError.code}`);
 
+  const week = brusselsWeekRange(now);
   const employeeIds = visibleEmployees.map((employee) => employee.id);
   const { data: eventRows, error: eventsError } =
     employeeIds.length === 0
@@ -168,7 +195,10 @@ export default async function ManagePage({
             "id, type, occurred_at, employee_id, site_id, source, supersedes_event_id, correction_id, offline",
           )
           .in("employee_id", employeeIds)
-          .gte("occurred_at", new Date(now - EVENTS_LOOKBACK_MS).toISOString())
+          .gte(
+            "occurred_at",
+            new Date(Math.min(now - EVENTS_LOOKBACK_MS, week.start)).toISOString(),
+          )
           .order("occurred_at");
   if (eventsError) throw new Error(`clock_events_unavailable:${eventsError.code}`);
 
@@ -182,7 +212,7 @@ export default async function ManagePage({
           .select("employee_id, occurred_at, server_at")
           .eq("offline", true)
           .in("employee_id", employeeIds)
-          .gte("server_at", new Date(brusselsWeekRange(now).start).toISOString())
+          .gte("server_at", new Date(week.start).toISOString())
           .order("server_at");
   if (offlineError) throw new Error(`clock_events_unavailable:${offlineError.code}`);
   const employeeNames = new Map(
@@ -217,11 +247,15 @@ export default async function ManagePage({
 
   const scheduleResults = await Promise.all(
     visibleEmployees.map((employee) =>
-      // From yesterday on: an overnight block (21:30–06:00) started then.
+      // From yesterday on (an overnight block started then) or the start of
+      // the week, whichever is earlier, to Sunday: the panel's "gepland".
       scheduleFor(supabase, {
         employeeId: employee.id,
-        from: brusselsDayKey(nightLookbackStart(todayKey)),
-        to: todayKey,
+        from: [
+          brusselsDayKey(nightLookbackStart(todayKey)),
+          brusselsDayKey(week.start),
+        ].sort()[0]!,
+        to: brusselsDayKey(week.end - 1),
       }),
     ),
   );
@@ -239,15 +273,36 @@ export default async function ManagePage({
   const scheduledStarts: ScheduledStart[] = [];
   const clockedInEmployeeIds = new Set<string>();
   const boardShiftsByEmployee = new Map<string, Shift[]>();
+  const weekWorkedByEmployee = new Map<string, number>();
+  const weekPlannedByEmployee = new Map<string, number>();
+  const effectiveByEmployee = new Map<string, readonly ClockEvent[]>();
   const blocksByEmployee = new Map<string, PlannedBlock[]>();
   const boardPeople: BoardPerson[] = [];
 
   for (const employee of visibleEmployees) {
-    const shifts = deriveShifts(
-      effectiveEvents(eventsByEmployee.get(employee.id) ?? []),
-    );
-    const blocks: PlannedBlock[] = (scheduleByEmployee.get(employee.id) ?? []).map(
+    const effective = effectiveEvents(eventsByEmployee.get(employee.id) ?? []);
+    effectiveByEmployee.set(employee.id, effective);
+    const shifts = deriveShifts(effective);
+    const scheduled: PlannedBlock[] = (scheduleByEmployee.get(employee.id) ?? []).map(
       (block) => ({ start: Date.parse(block.start_at), end: Date.parse(block.end_at) }),
+    );
+    // The board only draws the plan up to today; the rest of the week is just a total.
+    const blocks = scheduled.filter((block) => brusselsDayKey(block.start) <= todayKey);
+    weekWorkedByEmployee.set(
+      employee.id,
+      sum(
+        shifts
+          .filter((shift) => shift.start >= week.start && shift.start < week.end)
+          .map((shift) => workedMs(shift, now)),
+      ),
+    );
+    weekPlannedByEmployee.set(
+      employee.id,
+      sum(
+        scheduled
+          .filter((block) => block.start >= week.start && block.start < week.end)
+          .map((block) => block.end - block.start),
+      ),
     );
     const todayBlocks = blocks.filter(
       (block) => brusselsDayKey(block.start) === todayKey,
@@ -299,11 +354,10 @@ export default async function ManagePage({
       });
     }
   }
-  const {
-    working: workingCount,
-    onBreak: onBreakCount,
-    notStarted: notStartedCount,
-  } = boardCounts(boardPeople, now);
+  const { working: workingCount, onBreak: onBreakCount } = boardCounts(
+    boardPeople,
+    now,
+  );
 
   const day = boardWindow({
     dayKey: todayKey,
@@ -325,9 +379,15 @@ export default async function ManagePage({
   // Pending requests have their own count on Aanvragen; here only people.
   const attentionByPerson = attentionByEmployee(attentionItems);
 
-  const people: TeamTimelinePerson[] = visibleEmployees.map((employee) => {
+  const people: TodayPerson[] = visibleEmployees.map((employee) => {
     const todays = boardShiftsByEmployee.get(employee.id) ?? [];
     const blocks = blocksByEmployee.get(employee.id) ?? [];
+    const todayBlocks = (scheduleByEmployee.get(employee.id) ?? [])
+      .map((block) => ({
+        start: Date.parse(block.start_at),
+        end: Date.parse(block.end_at),
+      }))
+      .filter((block) => brusselsDayKey(block.start) === todayKey);
     const todayFirstStart = scheduledStarts.find(
       (entry) => entry.employeeId === employee.id,
     )?.startAt;
@@ -335,13 +395,11 @@ export default async function ManagePage({
     const lastToday = todays.at(-1);
 
     let status: string;
-    let statusWord: string | null = null;
     if (open?.openBreak) {
-      status = t("manage.statusBreakSince", {
+      status = t("manageToday.statusBreakSince", {
         time: time(open.breaks.at(-1)?.start ?? open.start),
       });
     } else if (open) {
-      statusWord = t("manage.statusWorkingLabel");
       status = t("manage.sinceLabel", {
         time:
           brusselsDayKey(open.start) === todayKey
@@ -349,53 +407,154 @@ export default async function ManagePage({
             : t("manage.yesterdayAt", { time: time(open.start) }),
       });
     } else if (lastToday?.end) {
-      status = t("manage.statusStoppedAt", { time: time(lastToday.end) });
+      status = t("manageToday.statusStoppedAt", { time: time(lastToday.end) });
     } else if (todayFirstStart !== undefined) {
-      status = t("manage.statusStartAt", { time: time(todayFirstStart) });
+      status = t("manageToday.statusPlannedFrom", { time: time(todayFirstStart) });
     } else {
-      status = t("manage.statusFree");
+      status = t("manageToday.statusFree");
     }
 
     const net = todays.reduce((total, shift) => total + workedMs(shift, now), 0);
     const personAttention = attentionByPerson.get(employee.id);
-    const attention: TeamTimelinePerson["attention"] = personAttention
-      ? (() => {
-          const context: NoteContext = {
-            scheduledStart: scheduledStarts.find(
-              (entry) => entry.employeeId === employee.id,
-            ),
-            offlineEvents,
-            today: todayKey,
-            now,
-          };
-          return {
-            summary: noteFor(personAttention.primary, context),
-            extra: personAttention.extra,
-            href: `/manage/medewerker/${employee.id}`,
-            items: personAttention.items.map((item) => ({
-              id: item.id,
-              label: noteFor(item, context),
-              action: actionFor(item),
-            })),
-          };
-        })()
+    const noteContext: NoteContext = {
+      scheduledStart: scheduledStarts.find((entry) => entry.employeeId === employee.id),
+      offlineEvents,
+      today: todayKey,
+      now,
+    };
+    const attentionItemsOfPerson = personAttention
+      ? personAttention.items.map((item) => ({
+          id: item.id,
+          label: noteFor(item, noteContext),
+          action: actionFor(item),
+          fix: item.reason === "forgotClockOut" || item.reason === "notStarted",
+        }))
+      : [];
+    const attentionSummary = personAttention
+      ? [
+          noteFor(personAttention.primary, noteContext),
+          personAttention.extra > 0
+            ? t("manage.attentionMore", { count: personAttention.extra })
+            : null,
+        ]
+          .filter(Boolean)
+          .join(" ")
       : null;
+
+    const group = statusGroup({
+      open: open !== undefined,
+      onBreak: open?.openBreak ?? false,
+      hasAttention: personAttention !== undefined,
+    });
+
+    // The ring measures against today's plan, or an 8-hour day without one.
+    const plannedToday = sum(todayBlocks.map((block) => block.end - block.start));
+    const block: PersonBlock = open
+      ? {
+          tone: open.openBreak ? "break" : "working",
+          title: open.openBreak
+            ? status
+            : t("manageToday.blockWorkingSince", {
+                time:
+                  brusselsDayKey(open.start) === todayKey
+                    ? time(open.start)
+                    : t("manage.yesterdayAt", { time: time(open.start) }),
+              }),
+          time: formatBarTime(net),
+          spoken: formatDurationMs(net),
+          progress: Math.min(
+            1,
+            net / (plannedToday > 0 ? plannedToday : DEFAULT_RING_MS),
+          ),
+          running: !open.openBreak,
+        }
+      : {
+          tone: "idle",
+          title: status,
+          time: net > 0 ? formatBarTime(net) : null,
+          spoken: net > 0 ? formatDurationMs(net) : null,
+          progress: Math.min(
+            1,
+            net / (plannedToday > 0 ? plannedToday : DEFAULT_RING_MS),
+          ),
+          running: false,
+        };
+
+    // Today's events (and those of a shift still open from earlier), as written.
+    const eventsFrom = Math.min(
+      brusselsLocalToInstant(todayKey, "00:00").getTime(),
+      open?.start ?? Infinity,
+    );
+    const todaysEvents = (effectiveByEmployee.get(employee.id) ?? []).filter(
+      (event) => event.occurredAt >= eventsFrom,
+    );
+    const events: TodayPerson["events"][number][] = todaysEvents.flatMap((event) => {
+      const labelKey = EVENT_LABEL_KEY[event.type];
+      return labelKey
+        ? [
+            {
+              time: time(event.occurredAt),
+              label: t("manageToday.eventWithSource", {
+                label: t(labelKey),
+                source: t(SOURCE_LABEL_KEY[event.source]),
+              }),
+              muted: false,
+            },
+          ]
+        : [];
+    });
+    if (
+      open &&
+      !open.openBreak &&
+      !todaysEvents.some((e) => e.type === "break_start")
+    ) {
+      events.push({
+        time: t("common.none"),
+        label: t("manageToday.noBreakYet"),
+        muted: true,
+      });
+    }
+    const plannedEnd = todayBlocks.at(-1)?.end;
+    if (plannedEnd !== undefined) {
+      events.push({
+        time: time(plannedEnd),
+        label: t("manageToday.plannedEnd"),
+        muted: true,
+      });
+    }
+
+    const weekWorked = weekWorkedByEmployee.get(employee.id) ?? 0;
+    const weekPlanned = weekPlannedByEmployee.get(employee.id) ?? 0;
 
     return {
       id: employee.id,
       name: employee.display_name,
-      status,
-      statusWord,
-      attention,
-      net: net > 0 ? formatDurationMs(net) : null,
+      group,
+      tone: trackTone({
+        open: open !== undefined,
+        hasAttention: personAttention !== undefined,
+      }),
       track: timelineRow({
         shifts: todays,
         planned: blocks,
         now,
         window: day,
       }),
+      hours: net > 0 ? formatBarTime(net) : null,
+      hoursSpoken: net > 0 ? formatDurationMs(net) : null,
+      status,
+      statusWord: t(GROUP_LABEL_KEY[group]),
+      attentionSummary,
+      attentionItems: attentionItemsOfPerson,
+      href: `/manage/medewerker/${employee.id}`,
+      block,
+      events,
+      weekWorked: weekWorked > 0 ? formatBarTime(weekWorked) : null,
+      weekPlanned: weekPlanned > 0 ? formatBarTime(weekPlanned) : null,
     };
   });
+
+  const pendingRequests = await loadRequests(supabase, "pending");
 
   const siteName = selectedSiteId
     ? siteRows.find((site) => site.id === selectedSiteId)?.name
@@ -405,48 +564,69 @@ export default async function ManagePage({
   const subtitle = [formatBrusselsLongDay(new Date(now)), siteName]
     .filter(Boolean)
     .join(" · ");
+  const idleCount = Math.max(0, visibleEmployees.length - workingCount - onBreakCount);
 
   return (
     <PageTransition>
       <AutoRefresh />
       <PullToRefresh>
         <NavBar
-          title={t("manage.todayHeading")}
+          title={t("manageToday.heading")}
           subtitle={subtitle}
           wide
           trailing={
-            siteRows.length > 1 ? (
-              <SiteFilter sites={siteRows} selectedSiteId={selectedSiteId} />
-            ) : null
+            <>
+              {siteRows.length > 1 ? (
+                <SiteFilter sites={siteRows} selectedSiteId={selectedSiteId} />
+              ) : null}
+              <span className="hidden items-center gap-2 md:flex">
+                <NavBarButton href="/manage/meer/exports">
+                  {t("manageToday.exportAction")}
+                </NavBarButton>
+                <NavBarButton href="/manage/team" strong>
+                  {t("manageTeam.inviteButton")}
+                </NavBarButton>
+              </span>
+            </>
           }
         />
-        <div className="flex flex-col gap-8 px-gutter pb-10 md:px-gutter-desktop">
-          <NumbersRow
-            label={t("manage.numbersLabel")}
-            items={[
-              {
-                key: "working",
-                label: t("manage.counterWorking"),
-                value: workingCount,
-              },
-              { key: "break", label: t("manage.counterBreak"), value: onBreakCount },
-              {
-                key: "notStarted",
-                label: t("manage.counterNotStarted"),
-                value: notStartedCount,
-              },
-              {
-                key: "attention",
-                label: t("manage.counterAttention"),
-                value: attentionByPerson.size,
-                attention: true,
-              },
-            ]}
-          />
-          <TeamTimeline
+        <div className="@container flex flex-col gap-5 px-gutter pb-10 md:px-gutter-desktop">
+          <div
+            role="group"
+            aria-label={t("manage.numbersLabel")}
+            aria-live="polite"
+            className="grid grid-cols-2 gap-3 @xl:grid-cols-4"
+          >
+            <StatBlock
+              tone="forest"
+              value={workingCount}
+              label={t("manageToday.statWorking")}
+            />
+            <StatBlock
+              tone="break"
+              value={onBreakCount}
+              label={t("manageToday.statBreak")}
+            />
+            <StatBlock
+              tone="idle"
+              value={idleCount}
+              label={t("manageToday.statIdle")}
+            />
+            <StatBlock
+              tone="danger"
+              value={attentionByPerson.size}
+              label={t("manageToday.statAttention")}
+            />
+          </div>
+          <TodayBoard
             people={people}
             nowPct={nowPct(now, day)}
             ticks={windowTicks(day)}
+            nowLabel={time(now)}
+            windowLabel={`${time(day.start)} – ${time(day.end)}`}
+            requests={pendingRequests}
+            approveAction={approveCorrectionAction}
+            rejectAction={rejectCorrectionAction}
           />
         </div>
       </PullToRefresh>

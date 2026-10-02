@@ -11,6 +11,7 @@ import { SubmitButton } from "../ui/SubmitButton";
 import { inputClassName } from "../ui/TextInput";
 
 export interface RejectRequestProps {
+  size?: "md" | "sm";
   id: string;
   employeeName: string;
   action: (formData: FormData) => Promise<void>;
@@ -19,10 +20,15 @@ export interface RejectRequestProps {
 const NOTE_MAX = 280;
 
 /**
- * "Afwijzen" never happens in one tap: a sheet asks for the reason the
+ * "Weigeren" never happens in one tap: a sheet asks for the reason the
  * employee will read. The note is required, here and in the action.
  */
-export function RejectRequest({ id, employeeName, action }: RejectRequestProps) {
+export function RejectRequest({
+  id,
+  employeeName,
+  action,
+  size = "md",
+}: RejectRequestProps) {
   const [open, setOpen] = useState(false);
   const [note, setNote] = useState("");
   const [missing, setMissing] = useState(false);
@@ -30,7 +36,13 @@ export function RejectRequest({ id, employeeName, action }: RejectRequestProps) 
 
   return (
     <>
-      <Button variant="plain" wide aria-haspopup="dialog" onClick={() => setOpen(true)}>
+      <Button
+        variant="secondary"
+        size={size}
+        wide
+        aria-haspopup="dialog"
+        onClick={() => setOpen(true)}
+      >
         {t("manageVragen.reject")}
       </Button>
       <Sheet

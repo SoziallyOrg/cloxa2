@@ -21,7 +21,9 @@ import {
   type KioskPerson,
 } from "@/lib/kiosk/machine";
 
-import { ClockActions } from "../clock/ClockActions";
+import { ClockActions, type ClockSurface } from "../clock/ClockActions";
+import { Logo } from "../brand/Logo";
+import { cx } from "../ui/cx";
 import { Notice } from "../ui/Notice";
 import { Button } from "../ui/Button";
 import { KioskHome, type KioskEmployee } from "./KioskHome";
@@ -35,6 +37,33 @@ const DONE_KEY: Record<KioskClockType, CatalogKey> = {
   clock_out: "kiosk.doneClockOut",
   break_start: "kiosk.doneBreakStart",
   break_end: "kiosk.doneBreakEnd",
+};
+
+/** The confirmation is a full colour block, like the status: forest working, amber pause, grey stopped. */
+const DONE_TONE: Record<
+  KioskClockType,
+  { block: string; check: string; button: "action" | "primary" }
+> = {
+  clock_in: {
+    block: "on-forest bg-forest text-white",
+    check: "bg-lime text-forest-deep",
+    button: "action",
+  },
+  break_end: {
+    block: "on-forest bg-forest text-white",
+    check: "bg-lime text-forest-deep",
+    button: "action",
+  },
+  break_start: {
+    block: "bg-break text-break-ink",
+    check: "bg-forest text-white",
+    button: "primary",
+  },
+  clock_out: {
+    block: "bg-idle text-ink",
+    check: "bg-forest text-white",
+    button: "primary",
+  },
 };
 
 /** New names and a lifted pause show up without anyone touching the tablet. */
@@ -151,47 +180,96 @@ export function KioskScreen({ employees }: KioskScreenProps) {
   }
 
   if (phase.kind === "done") {
+    const tone = DONE_TONE[phase.clockType];
     return (
       <div
         role="status"
-        className="mx-auto flex min-h-screen w-full max-w-lg flex-col items-center justify-center gap-6 p-6 text-center"
+        className={cx(
+          "flex min-h-dvh flex-col items-center justify-center gap-8 p-6 text-center",
+          tone.block,
+        )}
       >
-        <Check aria-hidden="true" className="size-24 text-working" />
-        <p className="text-3xl font-bold">
+        <span
+          aria-hidden="true"
+          className={cx(
+            "flex size-32 items-center justify-center rounded-hero",
+            tone.check,
+          )}
+        >
+          <Check className="size-16" strokeWidth={2.5} />
+        </span>
+        <p className="max-w-2xl text-large-title">
           {t(DONE_KEY[phase.clockType], {
             time: phase.time,
             name: firstName(phase.person.name),
           })}
         </p>
-        <Button
-          variant="secondary"
-          size="md"
-          onClick={() => dispatch({ type: "back" })}
-        >
-          {t("kiosk.doneBack")}
-        </Button>
+        <div className="w-full max-w-sm">
+          <Button
+            variant={tone.button}
+            size="lg"
+            onClick={() => dispatch({ type: "back" })}
+          >
+            {t("kiosk.doneBack")}
+          </Button>
+        </div>
       </div>
     );
   }
 
   if (phase.kind === "action") {
+    // The block takes the person's current status colour; the words say it too.
+    const surface: ClockSurface =
+      phase.state === "working"
+        ? "forest"
+        : phase.state === "on_break"
+          ? "amber"
+          : "light";
     return (
-      <div className="mx-auto flex min-h-screen w-full max-w-lg flex-col justify-center gap-8 p-6">
-        <h1 className="text-center text-3xl font-bold">
-          {t("kiosk.actionTitle", { name: firstName(phase.person.name) })}
-        </h1>
-        {phase.error ? <Notice tone="error">{errorText(phase.error)}</Notice> : null}
-        <ClockActions
-          state={phase.state}
-          disabled={phase.busy}
-          onStartWork={() => clock("clock_in")}
-          onStopWork={() => clock("clock_out")}
-          onStartBreak={() => clock("break_start")}
-          onStopBreak={() => clock("break_end")}
-        />
-        <Button variant="plain" size="md" onClick={() => dispatch({ type: "back" })}>
-          {t("kiosk.pinBack")}
-        </Button>
+      <div
+        className={cx(
+          "flex min-h-dvh flex-col",
+          surface === "forest"
+            ? "on-forest bg-forest text-white"
+            : surface === "amber"
+              ? "bg-break text-break-ink"
+              : "bg-paper text-ink",
+        )}
+      >
+        <div className="px-8 pt-6">
+          <Logo size="lg" tone={surface === "forest" ? "on-forest" : "on-light"} />
+        </div>
+        <div className="mx-auto flex w-full max-w-lg flex-1 flex-col justify-center gap-6 p-6">
+          <div className="flex flex-col items-center gap-2 text-center">
+            <h1 className="text-large-title">
+              {t("kiosk.actionTitle", { name: firstName(phase.person.name) })}
+            </h1>
+            <p className="text-title-3">
+              {phase.state === "working"
+                ? t("kiosk.stateWorking")
+                : phase.state === "on_break"
+                  ? t("kiosk.stateBreak")
+                  : t("kiosk.stateOff")}
+            </p>
+          </div>
+          {phase.error ? <Notice tone="error">{errorText(phase.error)}</Notice> : null}
+          <ClockActions
+            state={phase.state}
+            surface={surface}
+            disabled={phase.busy}
+            onStartWork={() => clock("clock_in")}
+            onStopWork={() => clock("clock_out")}
+            onStartBreak={() => clock("break_start")}
+            onStopBreak={() => clock("break_end")}
+          />
+          <Button
+            variant={surface === "forest" ? "ghost-on-forest" : "plain"}
+            size="md"
+            onClick={() => dispatch({ type: "back" })}
+          >
+            {t("kiosk.pinBack")}
+          </Button>
+        </div>
       </div>
     );
   }

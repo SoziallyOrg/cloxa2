@@ -98,7 +98,7 @@ test("the manager area of a bakery with a team", async ({ page }) => {
   // The account sheet from the sidebar (desktop only has the sidebar).
   await page.setViewportSize(VIEWPORTS.desktop);
   await page.goto("/manage");
-  await page.getByRole("complementary").getByRole("button").click();
+  await page.getByRole("complementary").first().getByRole("button").click();
   await expect(dialog(page)).toBeVisible();
   await capture(page, "beheer-account", false);
   await closeSheet(page);
@@ -107,7 +107,7 @@ test("the manager area of a bakery with a team", async ({ page }) => {
   // Aanvragen: open, the reject sheet, decided.
   await open(page, "/manage/vragen", "Aanvragen");
   await capture(page, "beheer-aanvragen");
-  await page.getByRole("button", { name: "Afwijzen", exact: true }).first().click();
+  await page.getByRole("button", { name: "Weigeren", exact: true }).first().click();
   await expect(dialog(page)).toBeVisible();
   await capture(page, "beheer-aanvragen-afwijzen", false);
   await closeSheet(page);

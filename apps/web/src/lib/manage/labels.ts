@@ -9,3 +9,11 @@ export const STATUTE_LABEL_KEY: Record<string, CatalogKey> = {
   interim: "manageTeam.statuteInterim",
   other: "manageTeam.statuteOther",
 };
+
+/** The word for each Vandaag status group ("Aan het werk", "Op pauze", ...). */
+export const GROUP_LABEL_KEY = {
+  working: "manageToday.groupWorking",
+  break: "manageToday.groupBreak",
+  attention: "manageToday.groupAttention",
+  idle: "manageToday.groupIdle",
+} as const satisfies Record<"working" | "break" | "attention" | "idle", CatalogKey>;

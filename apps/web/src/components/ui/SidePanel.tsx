@@ -34,6 +34,11 @@ function subscribeDesktop(onChange: () => void): () => void {
 const isDesktop = () => window.matchMedia(DESKTOP_QUERY).matches;
 const noDesktopOnServer = () => false;
 
+/** Whether the side panel column exists (>= 1024px); false while server-rendering. */
+export function useIsDesktop(): boolean {
+  return useSyncExternalStore(subscribeDesktop, isDesktop, noDesktopOnServer);
+}
+
 /**
  * Main column plus the optional 330px side panel (docs/design.md). The panel
  * renders nothing, takes no space, until a page fills it with `SidePanel`.

@@ -1,150 +1,112 @@
 import { t } from "@cloxa/i18n";
 
-import type { TimelineRowModel } from "@/lib/manage/timeline";
+import type { RequestModel } from "@/lib/manage/requests";
 
-import { StatusLine, type StatusTone } from "../ui/StatusLine";
+import { cx } from "../ui/cx";
+import { StatusLine } from "../ui/StatusLine";
 import { SubmitButton } from "../ui/SubmitButton";
 import { RejectRequest } from "./RejectRequest";
-import { TimelineAxis, TimelineTrack } from "./Timeline";
-
-export interface RequestCardChange {
-  readonly typeLabel: string;
-  readonly beforeLabel: string | null;
-  readonly afterLabel: string | null;
-}
-
-export interface RequestCardDecision {
-  readonly tone: StatusTone;
-  readonly statusLabel: string;
-  readonly note: string | null;
-}
 
 export interface RequestCardProps {
-  readonly id: string;
-  readonly employeeName: string;
-  /** "Maandag 28 september". */
-  readonly dayLabel: string;
-  /** What was asked, in plain Dutch: "Vergeten in te klokken". */
-  readonly kindLabel: string;
-  /** Queued offline and too late to fit: shown as a small tag. */
-  readonly offline: boolean;
-  readonly changes: readonly RequestCardChange[];
-  readonly resultingShiftLabel: string | null;
-  /** The day as it is now, and as it would be once approved. */
-  readonly before: TimelineRowModel;
-  readonly after: TimelineRowModel;
-  /** Null once the requester was anonymised (ADR 007). */
-  readonly reason: string | null;
-  /** Present for "Behandeld"; absent (open) shows the decide buttons. */
-  readonly decision?: RequestCardDecision;
+  readonly request: RequestModel;
+  /** `soft`: grey card for the white side panel. `plain`: white card on the paper page. */
+  readonly surface?: "soft" | "plain";
   readonly approveAction?: (formData: FormData) => Promise<void>;
   readonly rejectAction?: (formData: FormData) => Promise<void>;
 }
 
-// An outline, not a fill, like the employee's shift tags.
-const TAG =
-  "shrink-0 rounded-full border-[0.5px] border-separator px-2 text-subhead leading-6 text-ink-2";
-const PART = "ml-4 border-t-[0.5px] border-separator py-3 pr-4";
-
 /**
- * One correction request as a soft group: who and which day, what was asked,
- * the day before and after on a small timeline, the reason, and the two
- * decisions. Approving is one tap; rejecting asks for a note in a sheet.
+ * One correction request in identity D: who and which day, the employee's
+ * own words, then two tiles, "Was" on white and "Wordt" on forest, and the
+ * decisions: Goedkeuren is one tap, Weigeren asks for a note first. The
+ * caller wraps it (`li` on a page, a plain div in the panel).
  */
 export function RequestCard({
-  id,
-  employeeName,
-  dayLabel,
-  kindLabel,
-  offline,
-  changes,
-  resultingShiftLabel,
-  before,
-  after,
-  reason,
-  decision,
+  request,
+  surface = "plain",
   approveAction,
   rejectAction,
 }: RequestCardProps) {
+  const { id, employeeName, decision } = request;
   return (
-    <li className="overflow-hidden rounded-list bg-surface">
-      <div className="flex items-start gap-3 px-4 py-3">
-        <div className="flex min-w-0 flex-1 flex-col">
-          <h2 className="truncate text-headline">{employeeName}</h2>
-          <p className="text-subhead text-ink-2">{dayLabel}</p>
+    <div
+      className={cx(
+        "flex flex-col gap-3 rounded-card p-4",
+        surface === "soft" ? "bg-paper" : "bg-card shadow-card",
+      )}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 flex-col">
+          <h3 className="text-headline break-words">{employeeName}</h3>
+          <p className="text-subhead text-ink-2">
+            {request.dayLabel} · {request.kindLabel}
+          </p>
         </div>
         {decision ? (
           <StatusLine size="sm" tone={decision.tone} label={decision.statusLabel} />
-        ) : offline ? (
-          <span className={TAG}>{t("offline.shiftBadge")}</span>
+        ) : request.offline ? (
+          <span className="shrink-0 rounded-control border border-line px-2 text-caption leading-6 text-ink-2">
+            {t("offline.shiftBadge")}
+          </span>
         ) : null}
       </div>
 
-      <div className={PART}>
-        <p className="text-body font-medium">{kindLabel}</p>
-        {changes.map((change, index) => (
-          <p key={index} className="text-subhead text-ink-2">
-            {change.typeLabel}:{" "}
-            {change.beforeLabel ? (
-              <span className="tabular-nums">
-                {change.beforeLabel} {t("manageVragen.arrow")}{" "}
-              </span>
-            ) : null}
-            <span className="font-medium text-ink tabular-nums">
-              {change.afterLabel ?? t("manageVragen.removedValue")}
-            </span>
-          </p>
-        ))}
-        {resultingShiftLabel ? (
-          <p className="text-subhead text-ink-2">
-            {t("manageVragen.resultingShiftLabel", { value: resultingShiftLabel })}
-          </p>
-        ) : null}
-      </div>
+      {request.reason ? (
+        <p className="text-subhead break-words text-ink-2">
+          <span className="sr-only">{t("manageVragen.reasonLabel")}: </span>
+          {t("manageVragen.reasonQuote", { reason: request.reason })}
+        </p>
+      ) : null}
 
-      <div className={PART}>
-        <div
-          role="img"
-          aria-label={t("manageVragen.timelineLabel")}
-          className="grid grid-cols-[2.5rem_minmax(0,1fr)] items-center gap-x-3 gap-y-2"
-        >
-          <span />
-          <TimelineAxis />
-          <span className="text-footnote text-ink-2">
-            {t("manageVragen.beforeLabel")}
+      <div className="grid grid-cols-2 gap-2">
+        <div className="flex min-w-0 flex-col rounded-control border border-line bg-card px-3 py-2">
+          <span className="text-caption-2 text-ink-2">
+            {t("manageVragen.wasLabel")}
           </span>
-          <TimelineTrack {...before} size="sm" />
-          <span className="text-footnote font-semibold text-ink">
-            {t("manageVragen.afterLabel")}
+          <span className="text-title-3 break-words tabular-nums">
+            {request.was ?? t("manageVragen.noneValue")}
           </span>
-          <TimelineTrack {...after} size="sm" />
+        </div>
+        <div className="flex min-w-0 flex-col rounded-control bg-forest px-3 py-2 text-white">
+          <span className="text-caption-2 text-on-forest-2">
+            {t("manageVragen.wordtLabel")}
+          </span>
+          <span className="text-title-3 break-words tabular-nums">
+            {request.wordt ?? t("manageVragen.removedValue")}
+          </span>
         </div>
       </div>
 
-      {reason ? (
-        <div className={PART}>
-          <p className="text-subhead text-ink-2">{t("manageVragen.reasonLabel")}</p>
-          <p className="text-body break-words">{reason}</p>
-        </div>
+      {request.resultingShiftLabel ? (
+        <p className="text-subhead text-ink-2">
+          {t("manageVragen.resultingShiftLabel", {
+            value: request.resultingShiftLabel,
+          })}
+        </p>
       ) : null}
 
       {decision?.note ? (
-        <div className={PART}>
-          <p className="text-subhead break-words text-ink-2">
-            {t("manageVragen.decidedNote", { note: decision.note })}
-          </p>
-        </div>
+        <p className="text-subhead break-words text-ink-2">
+          {t("manageVragen.decidedNote", { note: decision.note })}
+        </p>
       ) : null}
 
       {approveAction && rejectAction ? (
-        <div className="grid grid-cols-2 gap-3 border-t-[0.5px] border-separator p-3">
+        <div className="grid grid-cols-2 gap-2">
           <form action={approveAction} className="contents">
             <input type="hidden" name="id" value={id} />
-            <SubmitButton wide>{t("manageVragen.approve")}</SubmitButton>
+            <SubmitButton wide size={surface === "soft" ? "sm" : "md"}>
+              {t("manageVragen.approve")}
+            </SubmitButton>
           </form>
-          <RejectRequest id={id} employeeName={employeeName} action={rejectAction} />
+          <RejectRequest
+            id={id}
+            employeeName={employeeName}
+            action={rejectAction}
+            size={surface === "soft" ? "sm" : "md"}
+          />
         </div>
       ) : null}
-    </li>
+    </div>
   );
 }

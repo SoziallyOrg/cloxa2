@@ -5,10 +5,12 @@ import { useState, useTransition } from "react";
 import { t } from "@cloxa/i18n";
 
 import { Button } from "../ui/Button";
-import { ListItem, Row, Section } from "../ui/List";
 import { Notice } from "../ui/Notice";
 import { Sheet } from "../ui/Sheet";
-import { StatusLine, type StatusTone } from "../ui/StatusLine";
+import type { StatusTone } from "../ui/StatusLine";
+import { ChangeTiles } from "./ChangeTiles";
+import type { RequestChange } from "./request-changes";
+import { StatusChip } from "./StatusChip";
 
 /** One question, formatted on the server. */
 export interface RequestRow {
@@ -24,6 +26,10 @@ export interface RequestRow {
   pending: boolean;
   reason: string | null;
   managerNote: string | null;
+  /** Was / Wordt per registration; empty when the proposal could not be read. */
+  changes: readonly RequestChange[];
+  /** The day the change is about, when known. */
+  dayLabel: string | null;
 }
 
 export interface RequestsListProps {
@@ -32,21 +38,28 @@ export interface RequestsListProps {
 }
 
 /**
- * The questions as an inset grouped list: what it is about, its status and
- * the reason. Tapping one opens its detail; a question still waiting can be
- * withdrawn there.
+ * The questions as white cards: what it is about, a coloured status chip with
+ * its word, and Was / Wordt. Choosing one opens its detail; a question still
+ * waiting can be withdrawn there.
  */
 export function RequestsList({ rows, withdrawAction }: RequestsListProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [withdrawn, setWithdrawn] = useState(false);
+  const [failed, setFailed] = useState(false);
   const [pending, startTransition] = useTransition();
   const selected = rows.find((row) => row.id === selectedId) ?? null;
 
   function withdraw(id: string) {
+    setFailed(false);
     startTransition(async () => {
       const formData = new FormData();
       formData.set("id", id);
-      await withdrawAction(formData);
+      try {
+        await withdrawAction(formData);
+      } catch {
+        setFailed(true);
+        return;
+      }
       setSelectedId(null);
       setWithdrawn(true);
     });
@@ -59,29 +72,34 @@ export function RequestsList({ rows, withdrawAction }: RequestsListProps) {
           {t("questions.withdrawDone")}
         </Notice>
       ) : null}
-      <Section>
+      <ul className="grid gap-3 lg:grid-cols-2">
         {rows.map((row) => (
-          <Row
-            key={row.id}
-            aria-haspopup="dialog"
-            title={row.title}
-            subtitle={
-              <>
-                <StatusLine tone={row.statusTone} label={row.statusLabel} size="sm" />
-                {` · ${row.shortDate}`}
-                {row.reason ? (
-                  <>
-                    <br />
-                    {row.reason}
-                  </>
-                ) : null}
-              </>
-            }
-            chevron
-            onClick={() => setSelectedId(row.id)}
-          />
+          <li key={row.id}>
+            <button
+              type="button"
+              aria-haspopup="dialog"
+              onClick={() => setSelectedId(row.id)}
+              className="focus-ring flex h-full w-full pressable flex-col gap-3 rounded-card bg-card p-4 text-left shadow-card"
+            >
+              <span className="flex items-start justify-between gap-3">
+                <span className="flex min-w-0 flex-col">
+                  <span className="text-headline break-words">{row.title}</span>
+                  <span className="text-subhead text-ink-2">
+                    {row.dayLabel ?? row.shortDate}
+                  </span>
+                </span>
+                <StatusChip tone={row.statusTone} label={row.statusLabel} />
+              </span>
+              {row.changes.map((change, index) => (
+                <ChangeTiles key={index} {...change} />
+              ))}
+              {row.reason ? (
+                <span className="line-clamp-2 text-body text-ink-2">{row.reason}</span>
+              ) : null}
+            </button>
+          </li>
         ))}
-      </Section>
+      </ul>
       <Sheet
         open={selected !== null}
         onClose={() => setSelectedId(null)}
@@ -89,33 +107,36 @@ export function RequestsList({ rows, withdrawAction }: RequestsListProps) {
       >
         {selected ? (
           <>
-            <Section>
-              <Row
-                title={t("questions.detailStatus")}
-                value={
-                  <StatusLine
-                    tone={selected.statusTone}
-                    label={selected.statusLabel}
-                    size="sm"
-                  />
-                }
-              />
-              <Row title={t("questions.detailAsked")} value={selected.date} />
-            </Section>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <StatusChip tone={selected.statusTone} label={selected.statusLabel} />
+              <p className="text-subhead text-ink-2">{selected.date}</p>
+            </div>
+            {selected.changes.map((change, index) => (
+              <ChangeTiles key={index} {...change} />
+            ))}
             {selected.reason ? (
-              <Section header={t("questions.detailReason")}>
-                <ListItem className="text-body break-words">{selected.reason}</ListItem>
-              </Section>
+              <section className="flex flex-col gap-1 rounded-card bg-card p-4 shadow-card">
+                <h3 className="text-footnote font-bold text-ink-2">
+                  {t("questions.detailReason")}
+                </h3>
+                <p className="text-body break-words">{selected.reason}</p>
+              </section>
             ) : null}
             {selected.managerNote ? (
-              <Section header={t("questions.detailNote")}>
-                <ListItem className="text-body break-words">
-                  {selected.managerNote}
-                </ListItem>
-              </Section>
+              <section className="flex flex-col gap-1 rounded-card bg-card p-4 shadow-card">
+                <h3 className="text-footnote font-bold text-ink-2">
+                  {t("questions.detailNote")}
+                </h3>
+                <p className="text-body break-words">{selected.managerNote}</p>
+              </section>
             ) : null}
             {selected.pending ? (
               <div className="flex flex-col gap-2">
+                {failed ? (
+                  <Notice tone="error" onDismiss={() => setFailed(false)}>
+                    {t("questions.withdrawFailed")}
+                  </Notice>
+                ) : null}
                 <Button
                   variant="danger"
                   wide

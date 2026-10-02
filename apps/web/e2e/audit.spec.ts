@@ -40,7 +40,8 @@ test("owner reads the activity log and verifies the integrity chains", async ({
   // The owner's own TOTP enrolment and this navigation already wrote audit
   // rows (memberships/logins aren't the log's business, but the seeded
   // organization has plenty from dev-seed and earlier specs).
-  await expect(page.getByRole("listitem").first()).toBeVisible();
+  // Desktop: a table, the header row first.
+  await expect(page.getByRole("row").nth(1)).toBeVisible();
 
   // 2. Integrity check.
   await page.getByRole("button", { name: "Controleer integriteit" }).click();

@@ -8,6 +8,7 @@ import { t } from "@cloxa/i18n";
 import { Notice } from "../ui/Notice";
 import { Button } from "../ui/Button";
 import { cx } from "../ui/cx";
+import { KioskShell } from "./KioskShell";
 
 export interface KioskEmployee {
   readonly id: string;
@@ -87,127 +88,142 @@ export function KioskHome({
 
   if (selected === null) {
     return (
-      <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 p-6">
-        <h1 className="text-2xl font-bold">{t("kiosk.chooseEmployee")}</h1>
+      <KioskShell tagline className="items-center">
+        <div className="flex w-full max-w-5xl flex-col gap-6 p-6 md:p-8">
+          <h1 className="text-large-title">{t("kiosk.chooseEmployee")}</h1>
 
-        {employees.length > SEARCH_THRESHOLD ? (
-          <label className="flex items-center gap-3 rounded-md border-2 border-line bg-card px-4 py-3">
-            <Search aria-hidden="true" className="size-6" />
-            <input
-              type="search"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder={t("kiosk.searchPlaceholder")}
-              aria-label={t("common.search")}
-              className="focus-ring w-full text-lg"
-            />
-          </label>
-        ) : null}
+          {employees.length > SEARCH_THRESHOLD ? (
+            <label className="flex min-h-16 items-center gap-3 rounded-clock border-[1.5px] border-field bg-card px-5 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-forest">
+              <Search aria-hidden="true" className="size-6 text-ink-2" />
+              <input
+                type="search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder={t("kiosk.searchPlaceholder")}
+                aria-label={t("common.search")}
+                className="w-full bg-transparent text-body outline-none"
+              />
+            </label>
+          ) : null}
 
-        {employees.length === 0 ? (
-          <p className="text-lg">{t("kiosk.noEmployees")}</p>
-        ) : null}
+          {employees.length === 0 ? (
+            <div className="rounded-card bg-card p-8 text-center shadow-card">
+              <p className="text-body">{t("kiosk.noEmployees")}</p>
+            </div>
+          ) : null}
 
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-          {filtered.map((employee) => (
-            <button
-              key={employee.id}
-              type="button"
-              onClick={() => {
-                setPin("");
-                onSelect(employee);
-              }}
-              className="focus-ring flex min-h-kiosk-tile w-full min-w-0 flex-col items-center justify-center gap-2 rounded-lg border border-line bg-card p-3"
-            >
-              <span
-                aria-hidden="true"
-                className="flex size-12 shrink-0 items-center justify-center rounded-full bg-forest text-lg font-bold text-white"
-              >
-                {employee.initials ?? initialsOf(employee.name)}
-              </span>
-              <span className="line-clamp-2 w-full text-center text-base font-semibold break-words">
-                {employee.name}
-              </span>
-            </button>
-          ))}
+          <ul className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+            {filtered.map((employee) => (
+              <li key={employee.id} className="min-w-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPin("");
+                    onSelect(employee);
+                  }}
+                  className="focus-ring flex min-h-kiosk-tile w-full min-w-0 pressable flex-col items-center justify-center gap-3 rounded-clock bg-card p-4 shadow-card"
+                >
+                  <span
+                    aria-hidden="true"
+                    className="on-forest flex size-14 shrink-0 items-center justify-center rounded-clock bg-forest text-title-3 text-white"
+                  >
+                    {employee.initials ?? initialsOf(employee.name)}
+                  </span>
+                  <span className="line-clamp-2 w-full text-center text-title-3 break-words">
+                    {employee.name}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
         </div>
-      </div>
+      </KioskShell>
     );
   }
 
   if (selected.hasPin === false) {
     return (
-      <div className="mx-auto flex w-full max-w-md flex-col items-center gap-6 p-6">
-        <h1 className="text-2xl font-bold">{selected.name}</h1>
-        <p className="text-center text-lg">{t("kiosk.noPin")}</p>
-        <Button variant="secondary" size="md" onClick={back}>
-          {t("kiosk.pinBack")}
-        </Button>
-      </div>
+      <KioskShell className="items-center justify-center p-6">
+        <div className="flex w-full max-w-md flex-col items-center gap-6 rounded-hero bg-card p-8 text-center shadow-card">
+          <h1 className="text-title-1">{selected.name}</h1>
+          <p className="text-body">{t("kiosk.noPin")}</p>
+          <Button variant="secondary" size="lg" onClick={back}>
+            {t("kiosk.pinBack")}
+          </Button>
+        </div>
+      </KioskShell>
     );
   }
 
   const slots = Math.max(PIN_MIN_LENGTH, pin.length);
 
   return (
-    <div className="mx-auto flex w-full max-w-md flex-col items-center gap-6 p-6">
-      <h1 className="text-2xl font-bold">{t("kiosk.pinTitle")}</h1>
-      <p className="text-lg">{selected.name}</p>
+    <KioskShell className="items-center justify-center p-6">
+      <div className="flex w-full max-w-md flex-col items-center gap-6 rounded-hero bg-card p-6 shadow-card md:p-8">
+        <div className="flex flex-col items-center gap-1 text-center">
+          <h1 className="text-title-1">{t("kiosk.pinTitle")}</h1>
+          <p className="text-title-3 text-ink-2">{selected.name}</p>
+        </div>
 
-      {error ? <Notice tone="error">{error}</Notice> : null}
+        {error ? <Notice tone="error">{error}</Notice> : null}
 
-      <div className="flex gap-3" aria-hidden="true">
-        {Array.from({ length: slots }, (_, index) => (
-          <span
-            key={index}
-            className={cx(
-              "size-4 rounded-full border-2 border-forest",
-              index < pin.length ? "bg-forest" : "bg-transparent",
-            )}
-          />
-        ))}
-      </div>
-      <p className="sr-only" role="status">
-        {t("kiosk.pinEntered", { count: pin.length })}
-      </p>
+        <div className="flex h-5 gap-3" aria-hidden="true">
+          {Array.from({ length: slots }, (_, index) => (
+            <span
+              key={index}
+              className={cx(
+                "size-5 rounded-full border-2 border-forest",
+                index < pin.length ? "bg-forest" : "bg-transparent",
+              )}
+            />
+          ))}
+        </div>
+        <p className="sr-only" role="status">
+          {t("kiosk.pinEntered", { count: pin.length })}
+        </p>
 
-      <div className="grid grid-cols-3 gap-4">
-        {DIGIT_ROWS.flat().map((digit) => (
+        <div className="grid w-full grid-cols-3 gap-3">
+          {DIGIT_ROWS.flat().map((digit) => (
+            <button
+              key={digit}
+              type="button"
+              disabled={busy}
+              onClick={() => pressDigit(digit)}
+              className={PIN_KEY}
+            >
+              {digit}
+            </button>
+          ))}
+          <Button variant="plain" size="md" disabled={busy} onClick={() => setPin("")}>
+            {t("kiosk.pinClear")}
+          </Button>
           <button
-            key={digit}
             type="button"
             disabled={busy}
-            onClick={() => pressDigit(digit)}
-            className="focus-ring size-pin-key rounded-lg border border-line bg-card text-2xl font-bold"
+            onClick={() => pressDigit(ZERO_DIGIT)}
+            className={PIN_KEY}
           >
-            {digit}
+            {ZERO_DIGIT}
           </button>
-        ))}
-        <Button variant="plain" size="md" disabled={busy} onClick={() => setPin("")}>
-          {t("kiosk.pinClear")}
-        </Button>
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => pressDigit(ZERO_DIGIT)}
-          className="focus-ring size-pin-key rounded-lg border border-line bg-card text-2xl font-bold"
-        >
-          {ZERO_DIGIT}
-        </button>
-        <Button
-          variant="primary"
-          size="md"
-          loading={busy}
-          disabled={pin.length < PIN_MIN_LENGTH}
-          onClick={submit}
-        >
-          {t("kiosk.pinConfirm")}
+          <Button
+            variant="primary"
+            size="md"
+            loading={busy}
+            disabled={pin.length < PIN_MIN_LENGTH}
+            onClick={submit}
+          >
+            {t("kiosk.pinConfirm")}
+          </Button>
+        </div>
+
+        <Button variant="plain" size="md" onClick={back}>
+          {t("kiosk.pinBack")}
         </Button>
       </div>
-
-      <Button variant="plain" size="md" onClick={back}>
-        {t("kiosk.pinBack")}
-      </Button>
-    </div>
+    </KioskShell>
   );
 }
+
+/** Large round-rect keys (88px) on the white pad card: easy with gloves and cold hands. */
+const PIN_KEY =
+  "focus-ring pressable min-h-pin-key w-full rounded-clock border-[1.5px] border-line bg-paper text-title-1 disabled:cursor-not-allowed disabled:opacity-60";

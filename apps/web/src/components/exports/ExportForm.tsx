@@ -99,78 +99,81 @@ export function ExportForm({
   return (
     <form
       onSubmit={(event) => void handleSubmit(event)}
-      className="flex flex-col gap-8"
+      className="flex max-w-readable flex-col gap-8"
     >
-      <section className="flex flex-col gap-3">
-        <h2 className="px-4 text-subhead text-ink-2">{t("exports.periodLabel")}</h2>
-        <SegmentedControl
-          label={t("exports.quickPicksLabel")}
-          value={pick}
-          onValueChange={choose}
-          options={[
-            { value: "previous", label: t("exports.previousMonth") },
-            { value: "this", label: t("exports.thisMonth") },
-            { value: "custom", label: t("exports.customPeriod") },
-          ]}
-        />
-        <Section>
-          {pick === "custom" ? (
-            <ListItem className="py-3">
-              <div className="grid grid-cols-2 gap-3">
-                <label className="flex flex-col gap-1">
-                  <span className="text-subhead text-ink-2">
-                    {t("exports.fromLabel")}
-                  </span>
-                  <input
-                    id="export-from"
-                    type="date"
-                    value={from}
-                    required
-                    onChange={(event) => setFrom(event.target.value)}
-                    className={DATE_INPUT}
-                  />
-                </label>
-                <label className="flex flex-col gap-1">
-                  <span className="text-subhead text-ink-2">
-                    {t("exports.toLabel")}
-                  </span>
-                  <input
-                    id="export-to"
-                    type="date"
-                    value={to}
-                    required
-                    onChange={(event) => setTo(event.target.value)}
-                    className={DATE_INPUT}
-                  />
-                </label>
-              </div>
-            </ListItem>
-          ) : (
-            <Row title={t("exports.periodValue", { from: day(from), to: day(to) })} />
-          )}
-        </Section>
-      </section>
+      {/* Period and sites side by side from 768px (a form never wider than 720px). */}
+      <div className="grid gap-8 md:grid-cols-2 md:items-start">
+        <section className="flex flex-col gap-3">
+          <h2 className="px-4 text-subhead text-ink-2">{t("exports.periodLabel")}</h2>
+          <SegmentedControl
+            label={t("exports.quickPicksLabel")}
+            value={pick}
+            onValueChange={choose}
+            options={[
+              { value: "previous", label: t("exports.previousMonth") },
+              { value: "this", label: t("exports.thisMonth") },
+              { value: "custom", label: t("exports.customPeriod") },
+            ]}
+          />
+          <Section>
+            {pick === "custom" ? (
+              <ListItem className="py-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="flex flex-col gap-1">
+                    <span className="text-subhead text-ink-2">
+                      {t("exports.fromLabel")}
+                    </span>
+                    <input
+                      id="export-from"
+                      type="date"
+                      value={from}
+                      required
+                      onChange={(event) => setFrom(event.target.value)}
+                      className={DATE_INPUT}
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1">
+                    <span className="text-subhead text-ink-2">
+                      {t("exports.toLabel")}
+                    </span>
+                    <input
+                      id="export-to"
+                      type="date"
+                      value={to}
+                      required
+                      onChange={(event) => setTo(event.target.value)}
+                      className={DATE_INPUT}
+                    />
+                  </label>
+                </div>
+              </ListItem>
+            ) : (
+              <Row title={t("exports.periodValue", { from: day(from), to: day(to) })} />
+            )}
+          </Section>
+        </section>
 
-      <fieldset className="flex flex-col gap-2">
-        <legend className="px-4 pb-2 text-subhead text-ink-2">
-          {t("exports.sitesLabel")}
-        </legend>
-        <Section>
-          {sites.map((site) => (
-            <ListItem key={site.id} className="py-0">
-              <label className="flex min-h-row cursor-pointer items-center gap-3 text-body">
-                <input
-                  type="checkbox"
-                  className="size-5 shrink-0 accent-ink"
-                  checked={siteIds.includes(site.id)}
-                  onChange={() => toggleSite(site.id)}
-                />
-                <span className="min-w-0 truncate">{site.name}</span>
-              </label>
-            </ListItem>
-          ))}
-        </Section>
-      </fieldset>
+        <fieldset className="flex flex-col gap-2">
+          <legend className="px-4 pb-2 text-subhead text-ink-2">
+            {t("exports.sitesLabel")}
+          </legend>
+          <Section>
+            {sites.map((site) => (
+              <ListItem key={site.id} className="py-0">
+                <label className="flex min-h-row cursor-pointer items-center gap-3 text-body">
+                  <input
+                    type="checkbox"
+                    className="size-5 shrink-0 accent-ink"
+                    checked={siteIds.includes(site.id)}
+                    onChange={() => toggleSite(site.id)}
+                  />
+                  <span className="min-w-0 truncate">{site.name}</span>
+                </label>
+              </ListItem>
+            ))}
+          </Section>
+        </fieldset>
+      </div>
 
       {agencies.length > 0 ? (
         <Section footer={t("exports.agencyFooter")}>
@@ -211,9 +214,11 @@ export function ExportForm({
             {t(errorKey)}
           </Notice>
         ) : null}
-        <Button type="submit" wide loading={submitting}>
-          {t("exports.submit")}
-        </Button>
+        <div className="md:max-w-xs">
+          <Button type="submit" wide loading={submitting}>
+            {t("exports.submit")}
+          </Button>
+        </div>
       </div>
     </form>
   );

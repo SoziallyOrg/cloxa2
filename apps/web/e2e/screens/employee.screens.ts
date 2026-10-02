@@ -108,13 +108,19 @@ test("login, and the employee app while working", async ({ page, context }) => {
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Mijn uren");
   await capture(page, "uren");
   await captureScrolled(page, "uren-ingeklapt");
-  await page.getByRole("main").getByRole("listitem").nth(1).getByRole("button").click();
-  await expect(page.getByRole("dialog")).toBeVisible();
-  await capture(page, "uren-dag", false);
   await page
-    .getByRole("dialog")
-    .getByRole("link", { name: "Klopt er iets niet?" })
+    .getByRole("main")
+    .getByRole("list", { name: "Je uren per dag" })
+    .getByRole("button")
+    .first()
     .click();
+  // A sheet on phones, the side panel on desktop.
+  const dayDetail = page
+    .getByRole("dialog")
+    .or(page.getByRole("complementary", { name: "Details" }));
+  await expect(dayDetail).toBeVisible();
+  await capture(page, "uren-dag", false);
+  await dayDetail.getByRole("link", { name: "Klopt er iets niet?" }).click();
   await button(page, "Een tijd klopt niet").click();
   await button(page, "Volgende").click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Welk moment?");
@@ -239,7 +245,7 @@ test("the email link, choosing an organization, and no access", async ({ page })
 test("the clock on a break", async ({ page }) => {
   test.setTimeout(120_000);
   await loginWithEmailCode(page, ON_BREAK);
-  await expect(button(page, "Stop pauze")).toBeVisible(SETTLED);
+  await expect(button(page, "Verder werken")).toBeVisible(SETTLED);
   await capture(page, "klok-pauze");
 });
 
@@ -257,9 +263,10 @@ test("the confirmation after clocking", async ({ page }) => {
   await expect(
     button(page, "Start werk")
       .or(button(page, "Stop werk"))
-      .or(button(page, "Stop pauze")),
+      .or(button(page, "Verder werken")),
   ).toBeVisible(SETTLED);
-  if (await button(page, "Stop pauze").isVisible()) await press(page, "Stop pauze");
+  if (await button(page, "Verder werken").isVisible())
+    await press(page, "Verder werken");
   if (await button(page, "Stop werk").isVisible()) await press(page, "Stop werk");
 
   // Frozen for the photo: it normally goes after 2 seconds.

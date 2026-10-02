@@ -10,7 +10,6 @@ import { pinFormProblem, pinProblemKey, type PinActionResult } from "@/lib/kiosk
 import { Notice } from "../ui/Notice";
 import { Button } from "../ui/Button";
 import { Field } from "../ui/Field";
-import { Row, Section } from "../ui/List";
 import { Stack } from "../ui/Stack";
 import { TextInput } from "../ui/TextInput";
 
@@ -20,9 +19,8 @@ export interface PinFormProps {
   submitLabel: string;
   savedMessage: string;
   /**
-   * `list`: iOS settings style (employee app): both fields as rows of one
-   * inset group, the button at the bottom. `stack` (default): labelled
-   * fields above each other (manager pages).
+   * `list`: the employee app: both fields in one white card, the button at the
+   * bottom. `stack` (default): labelled fields above each other (manager pages).
    */
   variant?: "stack" | "list";
   action: (input: { pin: string; confirmation: string }) => Promise<PinActionResult>;
@@ -73,60 +71,44 @@ export function PinForm({
   const error = errorKey ? t(errorKey) : undefined;
 
   if (variant === "list") {
-    const hintId = `${id}-hint`;
-    const errorId = `${id}-error`;
-    const input = (
-      inputId: string,
-      value: string,
-      onChange: (next: string) => void,
-    ) => (
-      <input
-        id={inputId}
-        type="password"
-        inputMode="numeric"
-        autoComplete="new-password"
-        maxLength={6}
-        value={value}
-        aria-describedby={error ? `${hintId} ${errorId}` : hintId}
-        aria-invalid={error ? true : undefined}
-        placeholder="••••"
-        onChange={(event) => onChange(digitsOnly(event.target.value))}
-        className="focus-ring min-h-touch-target w-28 shrink-0 rounded-md border-0 bg-transparent px-2 text-right text-body tracking-[0.2em] text-ink placeholder:tracking-normal placeholder:text-ink-3"
-      />
-    );
-
     return (
       <form
         onSubmit={(event) => void handleSubmit(event)}
         noValidate
-        className="flex flex-1 flex-col gap-8 pb-6"
+        className="flex flex-1 flex-col gap-6 pb-6 lg:max-w-readable"
       >
         {saved ? (
           <Notice tone="success" onDismiss={() => setSaved(false)}>
             {savedMessage}
           </Notice>
         ) : null}
-        <Section
-          footer={
-            <span className="flex flex-col gap-1">
-              {error ? (
-                <span id={errorId} role="alert" className="font-semibold text-danger">
-                  {error}
-                </span>
-              ) : null}
-              <span id={hintId}>{t("kiosk.pinSettingsHint")}</span>
-            </span>
-          }
-        >
-          <Row
-            title={<label htmlFor={`${id}-pin`}>{t("kiosk.pinNewLabel")}</label>}
-            accessory={input(`${id}-pin`, pin, setPin)}
-          />
-          <Row
-            title={<label htmlFor={`${id}-repeat`}>{t("kiosk.pinRepeatLabel")}</label>}
-            accessory={input(`${id}-repeat`, confirmation, setConfirmation)}
-          />
-        </Section>
+        <div className="flex flex-col gap-5 rounded-card bg-card p-5 shadow-card">
+          <Field
+            id={`${id}-pin`}
+            label={t("kiosk.pinNewLabel")}
+            hint={t("kiosk.pinSettingsHint")}
+            {...(error ? { error } : {})}
+          >
+            <TextInput
+              type="password"
+              inputMode="numeric"
+              autoComplete="new-password"
+              maxLength={6}
+              value={pin}
+              onChange={(event) => setPin(digitsOnly(event.target.value))}
+            />
+          </Field>
+          <Field id={`${id}-repeat`} label={t("kiosk.pinRepeatLabel")}>
+            <TextInput
+              type="password"
+              inputMode="numeric"
+              autoComplete="new-password"
+              maxLength={6}
+              value={confirmation}
+              onChange={(event) => setConfirmation(digitsOnly(event.target.value))}
+            />
+          </Field>
+        </div>
         <div className="mt-auto md:mt-0">
           <Button type="submit" wide loading={submitting}>
             {submitLabel}

@@ -22,12 +22,21 @@ const SUCCESS_KEY: Record<
   stopBreak: "breakStoppedAt",
 };
 
-/** The check takes the colour of the state the person is in now. */
-const SUCCESS_TONE: Record<ActionKind, string> = {
-  startWork: "bg-working/12 text-working",
-  stopBreak: "bg-working/12 text-working",
-  startBreak: "bg-break-tint text-break-ink",
-  stopWork: "bg-fill text-ink",
+/**
+ * The confirmation is a full colour block, like the status itself: forest when
+ * working, amber on pause, grey when done. The words always say it too.
+ */
+const SUCCESS_BLOCK: Record<ActionKind, { block: string; check: string }> = {
+  startWork: {
+    block: "on-forest bg-forest text-white",
+    check: "bg-lime text-forest-deep",
+  },
+  stopBreak: {
+    block: "on-forest bg-forest text-white",
+    check: "bg-lime text-forest-deep",
+  },
+  startBreak: { block: "bg-break text-break-ink", check: "bg-forest text-white" },
+  stopWork: { block: "bg-idle text-ink", check: "bg-forest text-white" },
 };
 
 const SUCCESS_DISPLAY_MS = 2000;
@@ -39,8 +48,13 @@ const SUCCESS_DISPLAY_MS = 2000;
 export type ClockActionResult = boolean | "queued" | "cancelled";
 export type ClockActionCallback = () => ClockActionResult | Promise<ClockActionResult>;
 
+/** The colour of the block the buttons sit on: it decides which variants read well. */
+export type ClockSurface = "light" | "forest" | "amber";
+
 export interface ClockActionsProps {
   state: ShiftState;
+  /** `forest` (Klok working, kiosk): lime main action, glass secondary. `amber` (on pause) and `light`: forest main action. */
+  surface?: ClockSurface;
   onStartWork: ClockActionCallback;
   onStopWork: ClockActionCallback;
   onStartBreak: ClockActionCallback;
@@ -69,6 +83,7 @@ interface Success {
  */
 export function ClockActions({
   state,
+  surface = "light",
   onStartWork,
   onStopWork,
   onStartBreak,
@@ -76,6 +91,8 @@ export function ClockActions({
   disabled = false,
   previewSuccess,
 }: ClockActionsProps) {
+  const mainVariant = surface === "forest" ? "action" : "primary";
+  const sideVariant = surface === "forest" ? "ghost-on-forest" : "secondary";
   const [pending, setPending] = useState<ActionKind | null>(null);
   const [success, setSuccess] = useState<Success | null>(previewSuccess ?? null);
 
@@ -111,24 +128,25 @@ export function ClockActions({
       <div
         role="status"
         className={cx(
-          "inset-0 z-50 flex flex-col items-center justify-center gap-6 bg-paper px-gutter text-center motion-safe:animate-fade-in",
-          previewSuccess ? "relative min-h-96 rounded-group" : "fixed",
+          "inset-0 z-50 flex flex-col items-center justify-center gap-6 px-gutter text-center motion-safe:animate-fade-in",
+          SUCCESS_BLOCK[success.action].block,
+          previewSuccess ? "relative min-h-96 rounded-hero" : "fixed",
         )}
       >
         <span
           aria-hidden="true"
           className={cx(
             "flex size-32 items-center justify-center rounded-full motion-safe:animate-pop-in",
-            SUCCESS_TONE[success.action],
+            SUCCESS_BLOCK[success.action].check,
           )}
         >
           <Check aria-hidden="true" className="size-16" strokeWidth={2.25} />
         </span>
-        <p className="text-title-1 font-semibold">
+        <p className="text-title-1">
           {t(`actions.${SUCCESS_KEY[success.action]}`, { time: success.time })}
         </p>
         {success.queued ? (
-          <p className="max-w-xs text-body text-ink-2">{t("offline.savedOnDevice")}</p>
+          <p className="max-w-xs text-body">{t("offline.savedOnDevice")}</p>
         ) : null}
       </div>
     );
@@ -139,7 +157,8 @@ export function ClockActions({
   if (state === "off") {
     return (
       <Button
-        size="lg"
+        size="xl"
+        variant={mainVariant}
         loading={pending === "startWork"}
         disabled={busy}
         onClick={() => void run("startWork", onStartWork)}
@@ -153,7 +172,8 @@ export function ClockActions({
     return (
       <div className="flex flex-col gap-3">
         <Button
-          size="lg"
+          size="xl"
+          variant={mainVariant}
           loading={pending === "stopWork"}
           disabled={busy}
           onClick={() => void run("stopWork", onStopWork)}
@@ -161,13 +181,13 @@ export function ClockActions({
           {t("actions.stopWork")}
         </Button>
         <Button
-          variant="secondary"
+          variant={sideVariant}
           wide
           loading={pending === "startBreak"}
           disabled={busy}
           onClick={() => void run("startBreak", onStartBreak)}
         >
-          {t("actions.startBreak")}
+          {t("actions.takeBreak")}
         </Button>
       </div>
     );
@@ -175,12 +195,13 @@ export function ClockActions({
 
   return (
     <Button
-      size="lg"
+      size="xl"
+      variant={mainVariant}
       loading={pending === "stopBreak"}
       disabled={busy}
       onClick={() => void run("stopBreak", onStopBreak)}
     >
-      {t("actions.stopBreak")}
+      {t("actions.resumeWork")}
     </Button>
   );
 }

@@ -80,6 +80,22 @@ export function AccountProvider({
   );
 }
 
+/** The profile card on Ik: a forest tile with the initials, and the full name. */
+export function AccountCard() {
+  const { account } = useAccount();
+  return (
+    <div className="flex items-center gap-4 rounded-card bg-card p-4 shadow-card">
+      <span
+        aria-hidden="true"
+        className="on-forest flex size-14 shrink-0 items-center justify-center rounded-clock bg-forest text-title-3 text-white"
+      >
+        {initials(account.fullName)}
+      </span>
+      <p className="min-w-0 text-title-3 break-words">{account.fullName}</p>
+    </div>
+  );
+}
+
 export interface AccountButtonProps {
   /**
    * `header`: the name, top right on Klok (phones). `bar`: the name as a
@@ -96,7 +112,7 @@ export function AccountButton({ placement }: AccountButtonProps) {
   const avatar = (
     <span
       aria-hidden="true"
-      className="flex size-9 shrink-0 items-center justify-center rounded-full bg-fill text-footnote font-bold text-forest"
+      className="flex size-9 shrink-0 items-center justify-center rounded-control bg-fill text-footnote font-bold text-forest"
     >
       {initials(account.fullName)}
     </span>

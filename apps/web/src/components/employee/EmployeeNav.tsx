@@ -12,6 +12,7 @@ import { PhoneTopBar, SidebarHead } from "../shell/FrameParts";
 import { SidebarLayout, SidebarNav } from "../ui/SidebarLayout";
 import { TabBar, type NavItem } from "../ui/TabBar";
 import { AccountButton } from "./Account";
+import { CanManageProvider } from "./roles";
 
 function navItems(pathname: string, pendingQuestions: number): NavItem[] {
   return [
@@ -72,27 +73,33 @@ export function EmployeeFrame({
   const items = navItems(pathname, pendingQuestions);
   const label = t("bottomNav.label");
   const roles = { current: "app", hasEmployee: true, canManage } as const;
+  // Klok draws its own top row inside the status block; Uren has a wide table.
+  const onKlok = pathname === "/app";
+  const wide = onKlok || pathname.startsWith("/app/uren");
 
   return (
     <ClockBarProvider data={clockBar}>
-      <SidebarLayout
-        topBar={<PhoneTopBar {...roles} />}
-        contentEnd={<ClockBarSpacer placement="content" />}
-        sidebar={
-          <>
-            <SidebarHead {...roles} />
-            <SidebarNav items={items} label={label} />
-            <div className="mt-auto flex flex-col gap-3">
-              <ClockBarSpacer placement="sidebar" />
-              <AccountButton placement="sidebar" />
-            </div>
-          </>
-        }
-        tabBar={<TabBar items={items} label={label} />}
-      >
-        {children}
-      </SidebarLayout>
-      <ClockBar data={clockBar} />
+      <CanManageProvider canManage={canManage}>
+        <SidebarLayout
+          wide={wide}
+          {...(onKlok ? {} : { topBar: <PhoneTopBar {...roles} /> })}
+          contentEnd={<ClockBarSpacer placement="content" />}
+          sidebar={
+            <>
+              <SidebarHead {...roles} />
+              <SidebarNav items={items} label={label} />
+              <div className="mt-auto flex flex-col gap-3">
+                <ClockBarSpacer placement="sidebar" />
+                <AccountButton placement="sidebar" />
+              </div>
+            </>
+          }
+          tabBar={<TabBar items={items} label={label} />}
+        >
+          {children}
+        </SidebarLayout>
+        <ClockBar data={clockBar} />
+      </CanManageProvider>
     </ClockBarProvider>
   );
 }

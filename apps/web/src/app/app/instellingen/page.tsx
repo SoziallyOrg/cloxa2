@@ -2,6 +2,7 @@ import { Download, KeyRound } from "lucide-react";
 
 import { t } from "@cloxa/i18n";
 
+import { AccountCard } from "@/components/employee/Account";
 import { SettingsSessionRows } from "@/components/employee/SettingsSessionRows";
 import { List, Row, Section } from "@/components/ui/List";
 import { NavBar } from "@/components/ui/NavBar";
@@ -27,7 +28,8 @@ export default async function EmployeeSettingsPage() {
   return (
     <PageTransition>
       <NavBar title={t("kiosk.settingsTitle")} />
-      <List className="pb-10">
+      <List className="pb-10 lg:max-w-readable">
+        <AccountCard />
         <Section footer={t("kiosk.pinSettingsIntro")}>
           <Row
             href="/app/instellingen/pincode"

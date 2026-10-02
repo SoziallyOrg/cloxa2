@@ -1,16 +1,25 @@
-import { Skeleton, SkeletonList, SkeletonTitle } from "@/components/ui/Skeleton";
+import { t } from "@cloxa/i18n";
 
-/** The correction wizard while it loads: the step dots and three choices. */
+import { Skeleton, SkeletonTitle } from "@/components/ui/Skeleton";
+
+/** The correction wizard while it loads: the steps and three choices. */
 export default function NewQuestionLoading() {
   return (
-    <div className="flex flex-col gap-8 pb-10">
+    <div role="status" className="flex flex-col gap-6 pb-10">
+      <span className="sr-only">{t("ui.loadingContent")}</span>
       <SkeletonTitle />
-      <div className="flex flex-col gap-8 px-gutter md:px-gutter-desktop">
-        <div aria-hidden="true" className="flex items-center gap-3 px-4">
-          <Skeleton className="h-2 w-10" />
-          <Skeleton className="h-3.5 w-20" />
+      <div
+        aria-hidden="true"
+        className="flex flex-col gap-4 px-gutter md:px-gutter-desktop lg:max-w-readable"
+      >
+        <div className="flex gap-2">
+          <Skeleton className="h-2 w-12 rounded-full" />
+          <Skeleton className="h-2 w-12 rounded-full" />
+          <Skeleton className="h-2 w-12 rounded-full" />
         </div>
-        <SkeletonList rows={3} />
+        <Skeleton className="h-16 w-full rounded-card" />
+        <Skeleton className="h-16 w-full rounded-card" />
+        <Skeleton className="h-16 w-full rounded-card" />
       </div>
     </div>
   );

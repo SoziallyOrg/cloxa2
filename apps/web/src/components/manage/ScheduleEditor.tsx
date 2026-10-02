@@ -306,9 +306,11 @@ export function ScheduleEditor({
             {t(errorKey as CatalogKey)}
           </Notice>
         ) : null}
-        <Button type="submit" wide loading={submitting} disabled={hasErrors}>
-          {t("schedule.submit")}
-        </Button>
+        <div className="md:max-w-xs">
+          <Button type="submit" wide loading={submitting} disabled={hasErrors}>
+            {t("schedule.submit")}
+          </Button>
+        </div>
       </div>
     </form>
   );

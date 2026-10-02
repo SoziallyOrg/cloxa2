@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { kioskRoster, type KioskRosterEntry } from "@cloxa/db";
 import { t } from "@cloxa/i18n";
 
+import { KioskShell } from "@/components/kiosk/KioskShell";
 import { KioskScreen } from "@/components/kiosk/KioskScreen";
 import { AutoRefresh } from "@/components/manage/AutoRefresh";
 import { Button, buttonClassName } from "@/components/ui/Button";
@@ -27,10 +28,14 @@ function Message({
   children?: ReactNode;
 }) {
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-lg flex-col justify-center gap-6 p-6">
-      <Heading level={1}>{title}</Heading>
-      <p className="text-lg">{body}</p>
-      {children}
+    <main>
+      <KioskShell className="items-center justify-center p-6">
+        <div className="flex w-full max-w-lg flex-col gap-6 rounded-hero bg-card p-8 shadow-card">
+          <Heading level={1}>{title}</Heading>
+          <p className="text-body">{body}</p>
+          {children}
+        </div>
+      </KioskShell>
     </main>
   );
 }
@@ -47,7 +52,7 @@ export default async function KioskPage() {
       <Message title={t("kiosk.unpairedTitle")} body={t("kiosk.unpairedBody")}>
         <Link
           href={"/kiosk/koppelen" as Route}
-          className={buttonClassName("primary", "lg")}
+          className={buttonClassName("primary", "xl")}
         >
           {t("kiosk.unpairedAction")}
         </Link>
@@ -65,7 +70,7 @@ export default async function KioskPage() {
       return (
         <Message title={t("kiosk.revokedTitle")} body={t("kiosk.revokedBody")}>
           <form action={forgetKioskAction}>
-            <Button type="submit" size="lg">
+            <Button type="submit" size="xl">
               {t("kiosk.revokedAction")}
             </Button>
           </form>

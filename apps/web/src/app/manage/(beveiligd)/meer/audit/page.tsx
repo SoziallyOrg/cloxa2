@@ -6,6 +6,7 @@ import { brusselsDayKey } from "@cloxa/domain";
 import {
   brusselsLocalToInstant,
   formatBrusselsLongDay,
+  formatBrusselsShortDate,
   formatBrusselsTime,
   t,
 } from "@cloxa/i18n";
@@ -13,8 +14,9 @@ import {
 import { AuditFilterSheet } from "@/components/manage/AuditFilterSheet";
 import { AuditPager } from "@/components/manage/AuditPager";
 import { AuditVerifyButton } from "@/components/manage/AuditVerifyButton";
+import { DataHead, DataTable, Td, Th, Tr } from "@/components/ui/DataTable";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { List, Row, Section } from "@/components/ui/List";
+import { Row, Section } from "@/components/ui/List";
 import { NavBar } from "@/components/ui/NavBar";
 import { PageTransition } from "@/components/ui/PageTransition";
 import { requireManager } from "@/lib/auth/context";
@@ -239,8 +241,10 @@ export default async function ManageAuditPage({
           />
         }
       />
-      <List className="pb-10">
-        <p className="-mt-2 px-4 text-subhead text-ink-2">{t("audit.intro")}</p>
+      <div className="flex flex-col gap-7 px-gutter pb-10 md:px-gutter-desktop">
+        <p className="-mt-2 max-w-readable text-subhead text-ink-2">
+          {t("audit.intro")}
+        </p>
 
         <AuditVerifyButton
           isOwner={context.membership.role === "owner"}
@@ -259,38 +263,77 @@ export default async function ManageAuditPage({
         ) : null}
 
         {days.length === 0 ? (
-          <EmptyState
-            icon={ScrollText}
-            title={t("audit.empty")}
-            body={t("audit.intro")}
-          />
+          <div className="rounded-card bg-card shadow-card">
+            <EmptyState
+              icon={ScrollText}
+              title={t("audit.empty")}
+              body={t("audit.intro")}
+            />
+          </div>
         ) : (
-          days.map((day) => (
-            <Section key={day.key} header={day.label}>
-              {day.rows.map((row) => {
-                const entityKey = entityLabelKey(row.entity);
-                return (
-                  <Row
-                    key={row.id}
-                    title={t(describeAction(row.action))}
-                    subtitle={[
-                      t("audit.rowDetail", {
-                        time: formatBrusselsTime(new Date(row.created_at)),
-                        actor: actorText(row),
-                      }),
-                      t("audit.entityLabel", {
-                        entity: `${entityKey ? t(entityKey) : row.entity} ${shortId(row.entity_id)}`,
-                      }),
-                    ].join(" · ")}
-                  />
-                );
-              })}
-            </Section>
-          ))
+          <>
+            <div className="hidden lg:block">
+              <DataTable label={t("audit.heading")}>
+                <DataHead>
+                  <Th>{t("audit.timeColumn")}</Th>
+                  <Th>{t("audit.actorColumn")}</Th>
+                  <Th>{t("audit.actionColumn")}</Th>
+                  <Th>{t("audit.entityColumn")}</Th>
+                </DataHead>
+                <tbody>
+                  {page.items.map((row) => {
+                    const entityKey = entityLabelKey(row.entity);
+                    const at = new Date(row.created_at);
+                    return (
+                      <Tr key={row.id}>
+                        <Td className="whitespace-nowrap tabular-nums">
+                          {formatBrusselsShortDate(at)} {formatBrusselsTime(at)}
+                        </Td>
+                        <Td>{actorText(row)}</Td>
+                        <Td className="font-semibold">
+                          {t(describeAction(row.action))}
+                        </Td>
+                        <Td className="text-ink-2">
+                          {entityKey ? t(entityKey) : row.entity}{" "}
+                          {shortId(row.entity_id)}
+                        </Td>
+                      </Tr>
+                    );
+                  })}
+                </tbody>
+              </DataTable>
+            </div>
+            <div className="flex flex-col gap-7 lg:hidden">
+              {days.map((day) => (
+                <Section key={day.key} header={day.label}>
+                  {day.rows.map((row) => {
+                    const entityKey = entityLabelKey(row.entity);
+                    return (
+                      <Row
+                        key={row.id}
+                        title={t(describeAction(row.action))}
+                        subtitle={[
+                          t("audit.rowDetail", {
+                            time: formatBrusselsTime(new Date(row.created_at)),
+                            actor: actorText(row),
+                          }),
+                          t("audit.entityLabel", {
+                            entity: `${entityKey ? t(entityKey) : row.entity} ${shortId(row.entity_id)}`,
+                          }),
+                        ].join(" · ")}
+                      />
+                    );
+                  })}
+                </Section>
+              ))}
+            </div>
+          </>
         )}
 
-        <AuditPager hasPrevious={cursor !== null} nextHref={nextHref} />
-      </List>
+        <div className="max-w-readable">
+          <AuditPager hasPrevious={cursor !== null} nextHref={nextHref} />
+        </div>
+      </div>
     </PageTransition>
   );
 }

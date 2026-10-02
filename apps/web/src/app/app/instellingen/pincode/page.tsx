@@ -30,8 +30,8 @@ export default async function KioskPinPage() {
         title={t("kiosk.pinSettingsHeading")}
         back={{ href: "/app/instellingen", label: t("kiosk.settingsTitle") }}
       />
-      <List className="flex-1">
-        <div className="flex flex-col gap-2 px-4 text-subhead text-ink-2">
+      <List className="flex-1 lg:max-w-readable">
+        <div className="flex flex-col gap-2 rounded-card bg-fill p-4 text-subhead text-ink-2">
           <p>{t("kiosk.pinSettingsIntro")}</p>
           <p>{t("kiosk.pinAllEmployers")}</p>
           {pin ? <p className="font-medium text-ink">{t("kiosk.pinIsSet")}</p> : null}

@@ -14,7 +14,7 @@ import { OfflineBanner } from "../clock/OfflineBanner";
 import type { ClockActionResult } from "../clock/ClockActions";
 import { useClockRunner } from "../clock/use-clock-runner";
 import type { PlannedDay } from "../clock/clock-face";
-import { EmployeeHome } from "./EmployeeHome";
+import { EmployeeHome, type LatestEvent, type WeekFacts } from "./EmployeeHome";
 
 export interface EmployeeHomeContainerProps {
   /** The signed-in employee: queued actions are kept per employee. */
@@ -26,6 +26,10 @@ export interface EmployeeHomeContainerProps {
   todayShifts: readonly Shift[];
   /** Today's schedule, or `null` when nothing is planned. */
   planned?: PlannedDay | null;
+  /** The site's name, only when the person has more than one. */
+  siteName?: string | null;
+  week?: WeekFacts | null;
+  latest?: readonly LatestEvent[];
   /** The employee's site to clock at, once chosen (`SitePicker` handles `null`). */
   siteId: string;
   /**
@@ -68,6 +72,9 @@ export function EmployeeHomeContainer({
   initialNow,
   todayShifts,
   planned = null,
+  siteName = null,
+  week = null,
+  latest = [],
   siteId,
   askWorkLocation = false,
 }: EmployeeHomeContainerProps) {
@@ -130,6 +137,9 @@ export function EmployeeHomeContainer({
         todayShifts={todayShifts}
         pending={queue.pending}
         planned={planned}
+        siteName={siteName}
+        week={week}
+        latest={latest}
         actionsDisabled={!online && !queue.supported}
         onStartWork={startWork}
         onStopWork={() => run("clock_out")}

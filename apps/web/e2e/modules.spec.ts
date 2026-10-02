@@ -58,7 +58,7 @@ async function switchOn(page: Page, label: string): Promise<void> {
 async function ensureOff(page: Page): Promise<void> {
   const start = button(page, "Start werk");
   const stop = button(page, "Stop werk");
-  const endBreak = button(page, "Stop pauze");
+  const endBreak = button(page, "Verder werken");
   await expect(start.or(stop).or(endBreak)).toBeVisible(SETTLED);
   if (await endBreak.isVisible()) {
     await endBreak.click();

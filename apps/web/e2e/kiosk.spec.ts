@@ -63,7 +63,7 @@ async function ensureOff(tablet: Page): Promise<void> {
     await expect(
       tablet.getByRole("heading", { name: `Hallo ${FIRST_NAME}` }),
     ).toBeVisible();
-    const next = ["Stop pauze", "Stop werk"];
+    const next = ["Verder werken", "Stop werk"];
     const open: string[] = [];
     for (const name of next) {
       if (await button(tablet, name).isVisible()) open.push(name);
@@ -103,7 +103,11 @@ test("admin pairs a kiosk; an employee without login clocks in with a PIN", asyn
 
   // A new kiosk for site 1, reached from Meer.
   await admin.goto("/manage/meer");
-  await admin.getByRole("link", { name: "Kiosks", exact: true }).click();
+  // The desktop sidebar has a Kiosks item too: take the one in the page.
+  await admin
+    .getByRole("main")
+    .getByRole("link", { name: "Kiosks", exact: true })
+    .click();
   await expect(admin).toHaveURL(/\/manage\/meer\/kiosks$/);
   await button(admin, "Nieuwe kiosk").click();
   await admin.getByLabel("Locatie").selectOption({ label: SITE_NAME });
@@ -150,9 +154,9 @@ test("admin pairs a kiosk; an employee without login clocks in with a PIN", asyn
 
   // Tidy up: revoke this run's kiosk; the tablet then says so.
   await admin.reload();
-  const item = admin.getByRole("listitem").filter({ hasText: kioskName });
-  // The row offers the choices; revoking asks once more in an alert.
-  await item.getByRole("button").click();
+  const item = admin.getByRole("row").filter({ hasText: kioskName });
+  // The row offers the choices ("Beheren"); revoking asks once more in an alert.
+  await item.getByRole("button", { name: "Beheren" }).click();
   await admin.getByRole("dialog").getByRole("button", { name: "Intrekken" }).click();
   await admin
     .getByRole("alertdialog")

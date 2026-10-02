@@ -49,7 +49,7 @@ export interface ClockFace {
 const time = (ms: number) => formatBrusselsTime(new Date(ms));
 
 /** Closed break time and an open break's start, for the open shift. */
-function openShiftBreaks(
+export function openShiftBreaks(
   since: number,
   todayShifts: readonly Shift[],
   pending: readonly PendingClockAction[],

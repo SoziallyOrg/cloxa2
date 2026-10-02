@@ -3,9 +3,10 @@ import { Tablet } from "lucide-react";
 
 import { formatBrusselsDate, formatBrusselsTime, t } from "@cloxa/i18n";
 
-import { KioskRow, NewKiosk } from "@/components/manage/KioskSheets";
+import { KioskRow, KioskTableRow, NewKiosk } from "@/components/manage/KioskSheets";
+import { DataHead, DataTable, Th } from "@/components/ui/DataTable";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { List, Section } from "@/components/ui/List";
+import { Section } from "@/components/ui/List";
 import { NavBar } from "@/components/ui/NavBar";
 import { PageTransition } from "@/components/ui/PageTransition";
 import { requireManager } from "@/lib/auth/context";
@@ -97,34 +98,73 @@ export default async function ManageKiosksPage() {
           ) : null
         }
       />
-      <List className="pb-10">
-        <p className="-mt-2 px-4 text-subhead text-ink-2">{t("manageKiosks.intro")}</p>
+      <div className="flex flex-col gap-7 px-gutter pb-10 md:px-gutter-desktop">
+        <p className="-mt-2 max-w-readable text-subhead text-ink-2">
+          {t("manageKiosks.intro")}
+        </p>
         {sitesWithDevices.length === 0 ? (
-          <EmptyState
-            icon={Tablet}
-            title={t("manageKiosks.emptyTitle")}
-            body={t("manageKiosks.emptyBody")}
-          />
+          <div className="rounded-card bg-card shadow-card">
+            <EmptyState
+              icon={Tablet}
+              title={t("manageKiosks.emptyTitle")}
+              body={t("manageKiosks.emptyBody")}
+            />
+          </div>
         ) : (
-          sitesWithDevices.map(({ site, devices: siteDevices }) => (
-            <Section key={site.id} header={site.name}>
-              {siteDevices.map((device) => (
-                <KioskRow
-                  key={device.id}
-                  deviceId={device.id}
-                  deviceName={device.name}
-                  subtitle={lastSeen(device)}
-                  statusLabel={deviceStatus(device, now)}
-                  active={device.status === "active"}
-                  pairUrl={pairUrl}
-                  newCodeAction={newPairingCodeAction}
-                  revokeAction={revokeKioskAction}
-                />
+          <>
+            <div className="hidden lg:block">
+              <DataTable label={t("manageKiosks.heading")}>
+                <DataHead>
+                  <Th>{t("manageKiosks.nameColumn")}</Th>
+                  <Th>{t("manageKiosks.siteLabel")}</Th>
+                  <Th>{t("manageKiosks.statusColumn")}</Th>
+                  <Th>{t("manageKiosks.lastSeenColumn")}</Th>
+                  <Th>
+                    <span className="sr-only">{t("manageKiosks.manage")}</span>
+                  </Th>
+                </DataHead>
+                <tbody>
+                  {sitesWithDevices.flatMap(({ site, devices: siteDevices }) =>
+                    siteDevices.map((device) => (
+                      <KioskTableRow
+                        key={device.id}
+                        siteName={site.name}
+                        deviceId={device.id}
+                        deviceName={device.name}
+                        subtitle={lastSeen(device)}
+                        statusLabel={deviceStatus(device, now)}
+                        active={device.status === "active"}
+                        pairUrl={pairUrl}
+                        newCodeAction={newPairingCodeAction}
+                        revokeAction={revokeKioskAction}
+                      />
+                    )),
+                  )}
+                </tbody>
+              </DataTable>
+            </div>
+            <div className="flex flex-col gap-7 lg:hidden">
+              {sitesWithDevices.map(({ site, devices: siteDevices }) => (
+                <Section key={site.id} header={site.name}>
+                  {siteDevices.map((device) => (
+                    <KioskRow
+                      key={device.id}
+                      deviceId={device.id}
+                      deviceName={device.name}
+                      subtitle={lastSeen(device)}
+                      statusLabel={deviceStatus(device, now)}
+                      active={device.status === "active"}
+                      pairUrl={pairUrl}
+                      newCodeAction={newPairingCodeAction}
+                      revokeAction={revokeKioskAction}
+                    />
+                  ))}
+                </Section>
               ))}
-            </Section>
-          ))
+            </div>
+          </>
         )}
-      </List>
+      </div>
     </PageTransition>
   );
 }

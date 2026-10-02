@@ -30,7 +30,7 @@ const button = (page: Page, name: string) =>
 async function ensureOff(page: Page): Promise<void> {
   const start = button(page, "Start werk");
   const stop = button(page, "Stop werk");
-  const endBreak = button(page, "Stop pauze");
+  const endBreak = button(page, "Verder werken");
   await expect(start.or(stop).or(endBreak)).toBeVisible();
   if (await endBreak.isVisible()) {
     await endBreak.click();
@@ -143,15 +143,18 @@ test("manager approves a correction and invites a new team member", async ({
   await managerPage.goto("/manage/vragen");
   await expect(managerPage.getByRole("heading", { level: 1 })).toHaveText("Aanvragen");
 
-  const request = managerPage.getByRole("listitem").filter({ hasText: reason });
-  await expect(request).toBeVisible();
-  await expect(request).toContainText(EMPLOYEE_NAME);
-  await expect(request).toContainText("Na"); // "voor -> na" diff is shown.
+  // Desktop: a table of requests; choosing a row puts its detail in the side panel.
+  const row = managerPage.getByRole("row").filter({ hasText: EMPLOYEE_NAME });
+  await expect(row).toBeVisible();
+  await row.getByRole("button", { name: EMPLOYEE_NAME }).click();
+  const detail = managerPage.getByRole("complementary", { name: "Details" });
+  await expect(detail).toContainText(reason);
+  await expect(detail).toContainText("Wordt"); // the "was -> wordt" tiles are shown.
 
-  await request.getByRole("button", { name: "Goedkeuren" }).click();
+  await detail.getByRole("button", { name: "Goedkeuren" }).click();
   await expect(managerPage).toHaveURL(/\/manage\/vragen$/);
   await expect(
-    managerPage.getByRole("listitem").filter({ hasText: reason }),
+    managerPage.getByRole("row").filter({ hasText: EMPLOYEE_NAME }),
   ).toHaveCount(0);
 
   // 3. The employee's detail page shows the resulting "aangepast" shift.

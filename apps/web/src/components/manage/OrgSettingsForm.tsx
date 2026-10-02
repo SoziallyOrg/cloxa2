@@ -215,9 +215,11 @@ export function OrgSettingsForm({ initial, action }: OrgSettingsFormProps) {
             {t(errorKey)}
           </Notice>
         ) : null}
-        <Button type="submit" wide loading={submitting}>
-          {t("orgSettings.submit")}
-        </Button>
+        <div className="md:max-w-xs">
+          <Button type="submit" wide loading={submitting}>
+            {t("orgSettings.submit")}
+          </Button>
+        </div>
       </div>
     </form>
   );

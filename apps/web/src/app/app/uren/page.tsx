@@ -2,18 +2,18 @@ import { CalendarDays } from "lucide-react";
 
 import { scheduleFor } from "@cloxa/db";
 import { brusselsDayKey, deriveShifts, effectiveEvents } from "@cloxa/domain";
-import { formatBrusselsDate, t } from "@cloxa/i18n";
+import { brusselsLocalToInstant, t } from "@cloxa/i18n";
 import { modulesFor } from "@cloxa/modules";
 
-import { formatDurationMs } from "@/components/clock/format";
-import { formatShiftRow } from "@/components/clock/shift-row";
-import { weekTotalMs, workedMs } from "@/components/clock/week-total";
-import { HoursList, type HoursRow } from "@/components/employee/HoursList";
+import { formatBarTime } from "@/components/clock/clock-bar";
+import { HoursList } from "@/components/employee/HoursList";
+import { buildHoursWeek, weekRangeLabel } from "@/components/employee/hours-week";
+import { WeekSwitcher } from "@/components/employee/WeekSwitcher";
 import { ScheduleBlocksList } from "@/components/employee/ScheduleBlocksList";
 import { SelfExportLink } from "@/components/exports/SelfExportLink";
 import { ModuleSection } from "@/components/modules/ModuleSection";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { List, Row, Section } from "@/components/ui/List";
+import { List } from "@/components/ui/List";
 import { NavBar } from "@/components/ui/NavBar";
 import { PageTransition } from "@/components/ui/PageTransition";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
@@ -23,7 +23,8 @@ import { clockEventFromRow } from "@/lib/modules/events";
 import { loadEnabledModules, loadModuleData, loadYearFacts } from "@/lib/modules/load";
 import { viewModule } from "@/lib/modules/message";
 import { nowMs } from "@/lib/clock/now";
-import { nextWeekRange, thisWeekRange } from "@/lib/schedule/week-range";
+import { addDays } from "@/lib/corrections/days";
+import { mondayOfWeek, nextWeekRange, thisWeekRange } from "@/lib/schedule/week-range";
 import { createClient } from "@/lib/supabase/server";
 
 type EmployeeArea = Awaited<ReturnType<typeof requireEmployeeArea>>;
@@ -61,10 +62,8 @@ async function moduleViews(
   );
 }
 
-const WINDOW_DAYS = 14;
-const WINDOW_MS = WINDOW_DAYS * 24 * 3600 * 1000;
-// Extra lookback so a shift that started just before the window still shows fully.
-const FETCH_BUFFER_MS = 24 * 3600 * 1000;
+const DAY_MS = 24 * 3600 * 1000;
+const WEEK_PARAM = /^d{4}-d{2}-d{2}$/;
 
 export default async function HoursPage({
   searchParams,
@@ -75,118 +74,130 @@ export default async function HoursPage({
   await previewHold();
   const now = nowMs();
   const params = await searchParams;
-  const voorRaw = Array.isArray(params.voor) ? params.voor[0] : params.voor;
-  const parsedVoor = voorRaw ? Date.parse(voorRaw) : Number.NaN;
-  const windowEnd = Number.isFinite(parsedVoor) ? parsedVoor : now;
-  const windowStart = windowEnd - WINDOW_MS;
+  const weekRaw = Array.isArray(params.week) ? params.week[0] : params.week;
+
+  const todayKey = brusselsDayKey(now);
+  const currentMonday = mondayOfWeek(todayKey);
+  // Any date in a past week works; the future and nonsense fall back to this week.
+  const requested =
+    weekRaw &&
+    WEEK_PARAM.test(weekRaw) &&
+    !Number.isNaN(Date.parse(`${weekRaw}T12:00:00Z`))
+      ? mondayOfWeek(weekRaw)
+      : currentMonday;
+  const mondayKey = requested > currentMonday ? currentMonday : requested;
+  const isCurrent = mondayKey === currentMonday;
+  const weekStart = brusselsLocalToInstant(mondayKey, "00:00").getTime();
+  const weekEnd = brusselsLocalToInstant(addDays(mondayKey, 7), "00:00").getTime();
 
   const supabase = await createClient();
+  // A day's buffer before the week, so a night shift from Sunday still derives right.
   const { data: eventRows, error } = await supabase
     .from("clock_events")
     .select(
       "id, type, occurred_at, employee_id, site_id, source, supersedes_event_id, correction_id, offline, work_location",
     )
     .eq("employee_id", context.employeeId)
-    .gte("occurred_at", new Date(windowStart - FETCH_BUFFER_MS).toISOString())
-    .lt("occurred_at", new Date(windowEnd).toISOString())
+    .gte("occurred_at", new Date(weekStart - DAY_MS).toISOString())
+    .lt("occurred_at", new Date(weekEnd).toISOString())
     .order("occurred_at");
   if (error) throw new Error(`clock_events_unavailable:${error.code}`);
 
-  const shifts = deriveShifts(effectiveEvents(eventRows.map(clockEventFromRow)))
-    .filter((shift) => shift.start >= windowStart)
-    .sort((a, b) => b.start - a.start);
+  const shifts = deriveShifts(effectiveEvents(eventRows.map(clockEventFromRow)));
 
-  // The week total only makes sense for the current window, not an older page.
-  const showWeekTotal = !voorRaw;
-  const weekTotal = showWeekTotal ? weekTotalMs(shifts, now) : null;
+  // Module counters (ADR 008) that apply to this employee, on the current week only.
+  const modules = await moduleViews(context, supabase, now, isCurrent);
 
-  // Module counters (ADR 008) that apply to this employee, on the current page only.
-  const modules = await moduleViews(context, supabase, now, showWeekTotal);
-
-  const olderHref = `/app/uren?voor=${encodeURIComponent(new Date(windowStart).toISOString())}`;
-
-  const todayKey = brusselsDayKey(now);
   const thisWeek = thisWeekRange(todayKey);
   const nextWeek = nextWeekRange(todayKey);
+  const viewedTo = addDays(mondayKey, 6);
   const scheduleRows = await scheduleFor(supabase, {
     employeeId: context.employeeId,
-    from: thisWeek.from,
-    to: nextWeek.to,
+    from: mondayKey < thisWeek.from ? mondayKey : thisWeek.from,
+    to: viewedTo > nextWeek.to ? viewedTo : nextWeek.to,
   });
-  const thisWeekRows = scheduleRows.filter((row) => row.day <= thisWeek.to);
-  const nextWeekRows = scheduleRows.filter((row) => row.day >= nextWeek.from);
+  const thisWeekRows = scheduleRows.filter(
+    (row) => row.day >= thisWeek.from && row.day <= thisWeek.to,
+  );
+  const nextWeekRows = scheduleRows.filter(
+    (row) => row.day >= nextWeek.from && row.day <= nextWeek.to,
+  );
 
-  const rows: HoursRow[] = shifts.map((shift, index) => {
-    const row = formatShiftRow(shift);
-    return {
-      key: `${shift.start}-${index}`,
-      date: row.date,
-      longDate: formatBrusselsDate(new Date(shift.start)),
-      range: row.range,
-      pause: row.pause,
-      // An open shift counts up to now, like the week total.
-      net: shift.open ? formatDurationMs(workedMs(shift, now)) : row.net,
-      edited: row.edited,
-      offline: row.offline,
-      home: shift.workLocation === "home",
-      offlineSkew: row.offlineSkew,
-      correctionHref: `/app/vragen/nieuw?datum=${brusselsDayKey(shift.start)}&dienst=${encodeURIComponent(new Date(shift.start).toISOString())}`,
-    };
+  const week = buildHoursWeek({
+    shifts,
+    now,
+    mondayKey,
+    todayKey,
+    planned: scheduleRows,
   });
+  const hasHours = week.days.some((day) => day.hasShifts);
 
   return (
     <PageTransition>
       <PullToRefresh>
         <NavBar title={t("hours.heading")} />
         <List className="pb-10">
-          {weekTotal !== null ? (
-            <section className="flex flex-col gap-0.5">
-              <p className="text-subhead text-ink-2">{t("hours.weekLabel")}</p>
-              <p className="text-number">{formatDurationMs(weekTotal)}</p>
-              <p className="text-subhead text-ink-2">{t("hours.indicative")}</p>
-            </section>
-          ) : null}
+          <WeekSwitcher
+            label={weekRangeLabel(mondayKey)}
+            previousHref={`/app/uren?week=${addDays(mondayKey, -7)}`}
+            nextHref={isCurrent ? null : `/app/uren?week=${addDays(mondayKey, 7)}`}
+            currentHref={isCurrent ? null : "/app/uren"}
+          />
+
+          <section className="flex flex-wrap items-end justify-between gap-4 rounded-card bg-card p-5 shadow-card">
+            <div className="flex flex-col gap-1">
+              <p className="text-subhead text-ink-2">{t("hours.weekTotalLabel")}</p>
+              <p className="text-number">{formatBarTime(week.workedMs)}</p>
+            </div>
+            <div className="flex flex-col items-end gap-2">
+              <span className="rounded-control bg-fill px-3 py-1 text-caption font-bold text-ink-2">
+                {t("hours.indicative")}
+              </span>
+              {week.plannedMs !== null ? (
+                <p className="text-subhead text-ink-2">
+                  {t("hours.weekPlannedLabel", {
+                    value: formatBarTime(week.plannedMs),
+                  })}
+                </p>
+              ) : null}
+            </div>
+          </section>
 
           {modules.map((view) => (
             <ModuleSection key={view.id} view={view} />
           ))}
 
-          {rows.length === 0 ? (
-            <EmptyState
-              icon={CalendarDays}
-              title={t("shifts.emptyTitle")}
-              body={t("shifts.emptyBody")}
-            />
+          {hasHours ? (
+            <HoursList days={week.days} />
           ) : (
-            <HoursList
-              heading={voorRaw ? t("hours.olderHeading") : t("hours.recentHeading")}
-              rows={rows}
-            />
-          )}
-
-          <Section>
-            <Row href={olderHref} title={t("hours.olderLink")} />
-          </Section>
-
-          <section className="flex flex-col gap-3">
-            <h2 className="px-4 text-title-3 font-semibold">
-              {t("schedule.myScheduleHeading")}
-            </h2>
-            <div className="flex flex-col gap-8">
-              <ScheduleBlocksList
-                heading={t("schedule.myScheduleThisWeek")}
-                rows={thisWeekRows}
-                testId="schedule-this-week"
-              />
-              <ScheduleBlocksList
-                heading={t("schedule.myScheduleNextWeek")}
-                rows={nextWeekRows}
-                testId="schedule-next-week"
+            <div className="rounded-card bg-card shadow-card">
+              <EmptyState
+                icon={CalendarDays}
+                title={t("hours.emptyWeekTitle")}
+                body={t("hours.emptyWeekBody")}
               />
             </div>
-          </section>
+          )}
 
-          <SelfExportLink heading={t("hours.downloadHeading")} />
+          <div className="flex flex-col gap-7 lg:max-w-readable">
+            <section className="flex flex-col gap-3">
+              <h2 className="px-1 text-title-3">{t("schedule.myScheduleHeading")}</h2>
+              <div className="flex flex-col gap-6">
+                <ScheduleBlocksList
+                  heading={t("schedule.myScheduleThisWeek")}
+                  rows={thisWeekRows}
+                  testId="schedule-this-week"
+                />
+                <ScheduleBlocksList
+                  heading={t("schedule.myScheduleNextWeek")}
+                  rows={nextWeekRows}
+                  testId="schedule-next-week"
+                />
+              </div>
+            </section>
+
+            <SelfExportLink heading={t("hours.downloadHeading")} />
+          </div>
         </List>
       </PullToRefresh>
     </PageTransition>

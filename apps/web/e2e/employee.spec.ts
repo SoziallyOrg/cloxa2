@@ -11,7 +11,6 @@ import { collectConsoleErrors, loginWithEmailCode } from "./support";
 const EMPLOYEE = "jan@demo.test";
 const REASON_PREFIX = "E2E-test";
 const TIME = /\d{1,2}[:.]\d{2}/;
-const RANGE = /(\d{1,2}[:.]\d{2})–(\d{1,2}[:.]\d{2})/;
 
 // After a clock action: the server round trip plus the 2.5 s confirmation.
 const SETTLED = { timeout: 15_000 };
@@ -23,7 +22,7 @@ const button = (page: Page, name: string) =>
 async function ensureOff(page: Page): Promise<void> {
   const start = button(page, "Start werk");
   const stop = button(page, "Stop werk");
-  const endBreak = button(page, "Stop pauze");
+  const endBreak = button(page, "Verder werken");
   await expect(start.or(stop).or(endBreak)).toBeVisible();
   if (await endBreak.isVisible()) {
     await endBreak.click();
@@ -68,22 +67,28 @@ test("employee clocks a shift with a break, sees it in Mijn uren and asks for a 
 
   await page.goto("/app");
   await ensureOff(page);
-  await expect(page.getByText("Niet aan het werk", { exact: true })).toBeVisible();
+  await expect(button(page, "Start werk")).toBeVisible();
 
   // Clock in: the confirmation, then the working state from the server.
   await button(page, "Start werk").click();
   await expect(page.getByRole("status")).toContainText("Gestart om", SETTLED);
-  await expect(page.getByText("Aan het werk", { exact: true })).toBeVisible(SETTLED);
-  const since = page.getByText(/^Gestart om \d{1,2}[:.]\d{2} · geen pauze$/);
+  await expect(page.getByText("Je werkt", { exact: true })).toBeVisible(SETTLED);
+  // The ring says "sinds 08:02"; "Vandaag" lists Gestart and Pauze: geen.
+  const since = page.getByText(/^sinds \d{1,2}[:.]\d{2}$/);
   await expect(since).toBeVisible(SETTLED);
   const startedAt = TIME.exec(await since.innerText())![0];
 
-  await button(page, "Pauze").click();
-  await expect(page.getByText("Met pauze", { exact: true })).toBeVisible(SETTLED);
-  await expect(page.getByText(/ · pauze sinds \d{1,2}[:.]\d{2}$/)).toBeVisible();
-  await button(page, "Stop pauze").click();
+  await button(page, "Pauze nemen").click();
+  await expect(page.getByText("Je bent op pauze", { exact: true })).toBeVisible(
+    SETTLED,
+  );
+  await expect(page.getByText(/^sinds \d{1,2}[:.]\d{2}$/)).toBeVisible();
+  await button(page, "Verder werken").click();
   await expect(button(page, "Stop werk")).toBeVisible(SETTLED);
   await button(page, "Stop werk").click();
+  const stopped = page.getByRole("status").filter({ hasText: "Gestopt om" });
+  await expect(stopped).toBeVisible(SETTLED);
+  const stoppedAt = TIME.exec(await stopped.innerText())![0];
   await expect(button(page, "Start werk")).toBeVisible(SETTLED);
   await expect(page.getByRole("main").getByRole("alert")).toHaveCount(0);
 
@@ -92,16 +97,24 @@ test("employee clocks a shift with a break, sees it in Mijn uren and asks for a 
   await page.getByRole("link", { name: "Uren", exact: true }).click();
   await expect(page).toHaveURL(/\/app\/uren$/);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Mijn uren");
-  await expect(page.getByText("Deze week gewerkt", { exact: true })).toBeVisible();
+  await expect(page.getByText("Totaal deze week", { exact: true })).toBeVisible();
   await expect(page.getByText("indicatief", { exact: true })).toBeVisible();
-  const newest = page.getByRole("main").getByRole("listitem").first();
-  const range = RANGE.exec(await newest.innerText());
-  expect(range?.[1]).toBe(startedAt);
+  // Days, newest first: today's row. A phone shows "08:02–16:31", the desktop
+  // table has Start and Einde columns, so check the two times.
+  const newest = page
+    .getByRole("main")
+    .getByRole("list", { name: "Je uren per dag" })
+    .getByRole("listitem")
+    .first();
+  await expect(newest).toContainText(startedAt);
+  await expect(newest).toContainText(stoppedAt);
 
-  // The day's detail opens in a sheet, with "Klopt er iets niet?".
+  // The day's detail opens in the side panel (desktop) or a sheet, with "Klopt er iets niet?".
   await newest.getByRole("button").click();
-  const detail = page.getByRole("dialog");
-  await expect(detail).toContainText(range![0]);
+  const detail = page
+    .getByRole("dialog")
+    .or(page.getByRole("complementary", { name: "Details" }));
+  await expect(detail).toContainText(`${startedAt}–${stoppedAt}`);
 
   // Correction, in three steps: the clock-out "does not belong here".
   await detail.getByRole("link", { name: "Klopt er iets niet?" }).click();
@@ -117,7 +130,7 @@ test("employee clocks a shift with a break, sees it in Mijn uren and asks for a 
   );
   const targets = page.getByRole("main").getByRole("list").getByRole("button");
   await expect(targets).toHaveCount(4);
-  await button(page, `Gestopt met werken om ${range![2]}`).click();
+  await button(page, `Gestopt met werken om ${stoppedAt}`).click();
   await button(page, "Volgende").click();
 
   await expect(page.getByText("Stap 3 van 3")).toBeVisible();

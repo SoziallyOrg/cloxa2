@@ -6,16 +6,28 @@ import type { Shift, ShiftState } from "@cloxa/domain";
 import { t } from "@cloxa/i18n";
 
 import { EmptyState } from "../ui/EmptyState";
-import { ProgressTrack } from "../ui/ProgressTrack";
-import { StatusLine } from "../ui/StatusLine";
-import { Timer } from "../ui/Timer";
 import { ClockActions, type ClockActionCallback } from "../clock/ClockActions";
-import {
-  clockFace,
-  type PendingClockAction,
-  type PlannedDay,
-} from "../clock/clock-face";
-import { statusTone, statusWord } from "../clock/format";
+import { type PendingClockAction, type PlannedDay } from "../clock/clock-face";
+import { formatBarTime } from "../clock/clock-bar";
+import { klokHero, type HeroRow } from "../clock/klok-hero";
+import { StatusHero } from "./StatusHero";
+
+/** One registration in "Laatste registraties", formatted on the server. */
+export interface LatestEvent {
+  readonly key: string;
+  /** "Begonnen met werken". */
+  readonly label: string;
+  /** "08:02", or "ma 28 sep 08:02" for an earlier day. */
+  readonly when: string;
+}
+
+/** This week's indicative figures, for the desktop column. */
+export interface WeekFacts {
+  /** Net worked time of the closed shifts this week; the open shift is added live. */
+  readonly closedWorkedMs: number;
+  /** Planned working time this week, or `null` when no schedule is known. */
+  readonly plannedMs: number | null;
+}
 
 export interface EmployeeHomeProps {
   shiftState: ShiftState;
@@ -26,11 +38,15 @@ export interface EmployeeHomeProps {
   pending?: readonly PendingClockAction[];
   /** Today's schedule, or `null` when nothing is planned. */
   planned?: PlannedDay | null;
+  /** The site's name, only when the person has more than one. */
+  siteName?: string | null;
+  week?: WeekFacts | null;
+  latest?: readonly LatestEvent[];
   onStartWork: ClockActionCallback;
   onStopWork: ClockActionCallback;
   onStartBreak: ClockActionCallback;
   onStopBreak: ClockActionCallback;
-  /** Above the clock: the offline banner and sync messages, if any. */
+  /** Under the hero: the offline banner and sync messages, if any. */
   notice?: ReactNode;
   /** Right above the buttons: what went wrong with the last press. */
   error?: ReactNode;
@@ -38,10 +54,31 @@ export interface EmployeeHomeProps {
   actionsDisabled?: boolean;
 }
 
+const GROUP_LABEL =
+  "px-1 pb-2 text-caption font-bold tracking-wide text-ink-2 uppercase";
+const WHITE_ROW =
+  "flex min-h-12 items-center justify-between gap-4 rounded-control bg-card px-4 py-2 shadow-card";
+
+function FactRows({ rows }: { rows: readonly HeroRow[] }) {
+  return (
+    <ul className="flex flex-col gap-2">
+      {rows.map((row) => (
+        <li key={row.key} className={WHITE_ROW}>
+          <span className="text-body">{row.label}</span>
+          <span className="text-right text-body font-bold tabular-nums">
+            {row.value}
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 /**
- * Klok: the status line, the timer, "Gestart om 08:02 · geen pauze" and the
- * progress against today's schedule; the actions sit at the bottom, in reach
- * of the thumb. Works from 320px wide with no horizontal scroll.
+ * Klok: the status hero (colour = status, the ring is the timer, the clock
+ * buttons under it) and "Vandaag" as white rows. On desktop the hero is a
+ * card in a ~420px column and the other column holds today's facts, this
+ * week's indicative totals and the latest registrations.
  */
 export function EmployeeHome({
   shiftState,
@@ -50,6 +87,9 @@ export function EmployeeHome({
   todayShifts,
   pending = [],
   planned = null,
+  siteName = null,
+  week = null,
+  latest = [],
   onStartWork,
   onStopWork,
   onStartBreak,
@@ -58,62 +98,94 @@ export function EmployeeHome({
   error,
   actionsDisabled = false,
 }: EmployeeHomeProps) {
-  const face = clockFace({
+  const hero = klokHero({
     state: shiftState,
     since,
     now,
     todayShifts,
     pending,
     planned,
+    siteName,
   });
 
-  const nothingPlanned = shiftState === "off" && face.plannedLine === null;
+  const weekWorked = week ? week.closedWorkedMs + hero.liveWorkedMs : null;
 
   return (
-    <div className="flex flex-1 flex-col px-gutter pb-6 md:justify-center md:px-gutter-desktop md:py-16">
+    <div className="flex flex-1 flex-col lg:grid lg:grid-cols-[420px_minmax(0,1fr)] lg:content-start lg:items-start lg:gap-8 lg:p-8">
       <h1 className="sr-only">{t("app.heading")}</h1>
-      {notice ? <div className="flex flex-col gap-3 pt-2 pb-4">{notice}</div> : null}
 
-      <section className="flex flex-col pt-8 md:pt-0">
-        <StatusLine tone={statusTone(shiftState)} label={statusWord(shiftState)} live />
-        {face.timerMs !== null && face.timerSpoken !== null ? (
-          <div className="mt-5 -ml-1.5">
-            <Timer valueMs={face.timerMs} spoken={face.timerSpoken} />
-          </div>
-        ) : null}
-        {face.subline ? (
-          <p className="mt-3 text-subhead text-ink-2">{face.subline}</p>
-        ) : null}
-        {face.plannedLine ? (
-          <p className="mt-5 text-large-title font-light">{face.plannedLine}</p>
-        ) : null}
-        {face.progress ? (
-          <div className="mt-10">
-            <ProgressTrack label={t("clock.progressLabel")} {...face.progress} />
-          </div>
-        ) : null}
-      </section>
-
-      {nothingPlanned ? (
-        <div className="flex flex-1 flex-col justify-center md:flex-none md:pt-8">
-          <EmptyState
-            icon={CalendarDays}
-            title={t("clock.nothingPlannedTitle")}
-            body={t("clock.nothingPlannedBody")}
+      <div className="flex flex-col gap-4">
+        <StatusHero hero={hero}>
+          {error}
+          <ClockActions
+            state={shiftState}
+            surface={hero.surface}
+            onStartWork={onStartWork}
+            onStopWork={onStopWork}
+            onStartBreak={onStartBreak}
+            onStopBreak={onStopBreak}
+            disabled={actionsDisabled}
           />
-        </div>
-      ) : null}
+        </StatusHero>
+        {notice ? (
+          <div className="flex flex-col gap-3 px-gutter lg:px-0">{notice}</div>
+        ) : null}
+      </div>
 
-      <div className="mt-auto flex flex-col gap-4 pt-10 md:mt-14 md:pt-0">
-        {error}
-        <ClockActions
-          state={shiftState}
-          onStartWork={onStartWork}
-          onStopWork={onStopWork}
-          onStartBreak={onStartBreak}
-          onStopBreak={onStopBreak}
-          disabled={actionsDisabled}
-        />
+      <div className="flex flex-col gap-7 px-gutter pt-6 pb-8 lg:p-0">
+        <section>
+          <h2 className={GROUP_LABEL}>{t("clock.todayHeading")}</h2>
+          {hero.rows.length > 0 ? (
+            <FactRows rows={hero.rows} />
+          ) : (
+            <div className="rounded-card bg-card shadow-card">
+              <EmptyState
+                icon={CalendarDays}
+                title={t("clock.nothingPlannedTitle")}
+                body={t("clock.nothingPlannedBody")}
+              />
+            </div>
+          )}
+        </section>
+
+        {week && weekWorked !== null ? (
+          <section className="hidden lg:block">
+            <h2 className={GROUP_LABEL}>{t("clock.weekHeading")}</h2>
+            <FactRows
+              rows={[
+                {
+                  key: "worked",
+                  label: t("clock.weekWorked"),
+                  value: formatBarTime(weekWorked),
+                },
+                ...(week.plannedMs !== null
+                  ? [
+                      {
+                        key: "planned",
+                        label: t("clock.weekPlanned"),
+                        value: formatBarTime(week.plannedMs),
+                      },
+                    ]
+                  : []),
+              ]}
+            />
+          </section>
+        ) : null}
+
+        <section className="hidden lg:block">
+          <h2 className={GROUP_LABEL}>{t("clock.latestHeading")}</h2>
+          {latest.length > 0 ? (
+            <FactRows
+              rows={latest.map((event) => ({
+                key: event.key,
+                label: event.label,
+                value: event.when,
+              }))}
+            />
+          ) : (
+            <p className="px-1 text-body text-ink-2">{t("clock.latestEmpty")}</p>
+          )}
+        </section>
       </div>
     </div>
   );

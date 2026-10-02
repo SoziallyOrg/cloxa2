@@ -1,4 +1,10 @@
-import { formatBrusselsDate, t, type CatalogKey } from "@cloxa/i18n";
+import {
+  formatBrusselsDate,
+  formatBrusselsShortDate,
+  formatBrusselsTime,
+  t,
+  type CatalogKey,
+} from "@cloxa/i18n";
 
 import { InviteSheet } from "@/components/manage/InviteSheet";
 import { TeamList, type TeamListRow } from "@/components/manage/TeamList";
@@ -8,11 +14,22 @@ import { PageTransition } from "@/components/ui/PageTransition";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { SegmentNav } from "@/components/ui/SegmentNav";
 import { requireManager } from "@/lib/auth/context";
+import { nowMs } from "@/lib/clock/now";
 import { STATUTE_LABEL_KEY } from "@/lib/manage/labels";
 import { previewHold } from "@/lib/preview";
 import { createClient } from "@/lib/supabase/server";
 
 import { inviteMemberAction, revokeInvitationAction } from "./actions";
+
+const ROLE_LABEL_KEY: Record<string, CatalogKey> = {
+  owner: "manageTeam.roleOwner",
+  admin: "manageTeam.roleAdmin",
+  manager: "manageTeam.roleManager",
+  employee: "manageTeam.roleEmployee",
+};
+
+/** "Laatste klok" looks back this far; older than that shows a dash. */
+const LAST_CLOCK_DAYS = 14;
 
 const STATUS_LABEL_KEY: Record<string, CatalogKey> = {
   active: "manageTeam.statusActive",
@@ -76,7 +93,7 @@ export default async function ManageTeamPage({
       ? { data: [], error: null }
       : await supabase
           .from("memberships")
-          .select("user_id, status")
+          .select("user_id, status, role")
           .in("user_id", userIds);
   if (membershipsError) {
     throw new Error(`memberships_unavailable:${membershipsError.code}`);
@@ -84,6 +101,33 @@ export default async function ManageTeamPage({
   const membershipStatusByUser = new Map(
     membershipRows.map((row) => [row.user_id, row.status]),
   );
+  // Managers only see their own membership (RLS): the role column is for
+  // owners and admins.
+  const canSeeRoles =
+    context.membership.role === "owner" || context.membership.role === "admin";
+  const roleByUser = new Map(membershipRows.map((row) => [row.user_id, row.role]));
+
+  // The latest event per person, from the last two weeks (RLS-scoped read).
+  const now = nowMs();
+  const { data: clockRows, error: clockError } = await supabase
+    .from("clock_events")
+    .select("employee_id, occurred_at")
+    .gte(
+      "occurred_at",
+      new Date(now - LAST_CLOCK_DAYS * 24 * 3600 * 1000).toISOString(),
+    )
+    .order("occurred_at", { ascending: false })
+    .limit(5000);
+  if (clockError) throw new Error(`clock_events_unavailable:${clockError.code}`);
+  const lastClockByEmployee = new Map<string, string>();
+  for (const row of clockRows) {
+    if (lastClockByEmployee.has(row.employee_id)) continue;
+    const at = new Date(row.occurred_at);
+    lastClockByEmployee.set(
+      row.employee_id,
+      `${formatBrusselsShortDate(at)} ${formatBrusselsTime(at)}`,
+    );
+  }
 
   // "linked" invitations (the auth user exists but hasn't accepted yet) are
   // still outstanding, exactly like "pending" ones elsewhere in the schema
@@ -134,6 +178,12 @@ export default async function ManageTeamPage({
       status: t("manageTeam.statusInvited"),
       href: null,
       invitationId: invitation.id,
+      role: ROLE_LABEL_KEY[invitation.role]
+        ? t(ROLE_LABEL_KEY[invitation.role]!)
+        : null,
+      statute: null,
+      sites: [],
+      lastClock: null,
     }));
     empty = { title: t("manageTeam.noInvited"), body: t("manageTeam.noInvitedBody") };
   } else {
@@ -154,6 +204,16 @@ export default async function ManageTeamPage({
               ? null
               : t(STATUS_LABEL_KEY[statusOf(employee)] ?? "manageTeam.statusActive"),
         href: `/manage/medewerker/${employee.id}`,
+        role:
+          canSeeRoles && employee.user_id && roleByUser.has(employee.user_id)
+            ? t(
+                ROLE_LABEL_KEY[roleByUser.get(employee.user_id)!] ??
+                  "manageTeam.roleEmployee",
+              )
+            : null,
+        statute: t(STATUTE_LABEL_KEY[employee.statute] ?? "manageTeam.statuteOther"),
+        sites: sitesByEmployee.get(employee.id) ?? [],
+        lastClock: lastClockByEmployee.get(employee.id) ?? null,
       }));
     empty = left
       ? { title: t("manageTeam.noLeftEmployees"), body: t("manageTeam.noLeftBody") }
@@ -193,13 +253,15 @@ export default async function ManageTeamPage({
             />
           }
         />
-        <div className="flex flex-col gap-6 px-gutter pb-10 md:px-gutter-desktop">
-          <SegmentNav
-            key={segment}
-            label={t("manageTeam.filterLabel")}
-            options={segments}
-            value={segment}
-          />
+        <div className="flex flex-col gap-5 px-gutter pb-10 md:px-gutter-desktop">
+          <div className="max-w-readable">
+            <SegmentNav
+              key={segment}
+              label={t("manageTeam.filterLabel")}
+              options={segments}
+              value={segment}
+            />
+          </div>
           {justInvited && segment === "uitgenodigd" ? (
             <Notice tone="success">{t("manageTeam.invited")}</Notice>
           ) : null}
@@ -207,6 +269,8 @@ export default async function ManageTeamPage({
             key={segment}
             rows={rows}
             empty={empty}
+            showRoles={canSeeRoles}
+            siteNames={siteRows.map((site) => site.name)}
             revokeAction={revokeInvitationAction}
           />
         </div>

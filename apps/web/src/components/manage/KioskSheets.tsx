@@ -10,6 +10,7 @@ import type { PairingCodeResult } from "@/app/manage/(beveiligd)/meer/kiosks/act
 import { ActionSheet } from "../ui/ActionSheet";
 import { Alert } from "../ui/Alert";
 import { Button } from "../ui/Button";
+import { Badge, Td, Tr } from "../ui/DataTable";
 import { Field } from "../ui/Field";
 import { Row } from "../ui/List";
 import { NavBarButton } from "../ui/NavBar";
@@ -136,15 +137,13 @@ export interface KioskRowProps {
 }
 
 /**
- * One tablet. Tapping it offers a new pairing code (for a replacement
- * tablet) or revoking it; revoking asks once more in an alert.
+ * The choices for one tablet, shared by the phone row and the desktop table
+ * row: a new pairing code (for a replacement tablet) or revoking it, which
+ * asks once more in an alert.
  */
-export function KioskRow({
+function useKioskDevice({
   deviceId,
   deviceName,
-  subtitle,
-  statusLabel,
-  active,
   pairUrl,
   newCodeAction,
   revokeAction,
@@ -154,10 +153,6 @@ export function KioskRow({
   const [code, setCode] = useState<ShownCode | null>(null);
   const [errorKey, setErrorKey] = useState<CatalogKey | null>(null);
   const [pending, startTransition] = useTransition();
-
-  if (!active) {
-    return <Row title={deviceName} subtitle={subtitle} value={statusLabel} />;
-  }
 
   function newCode() {
     setErrorKey(null);
@@ -179,6 +174,61 @@ export function KioskRow({
     });
   }
 
+  const dialogs = (
+    <>
+      <ActionSheet
+        open={choosing}
+        onClose={() => setChoosing(false)}
+        title={deviceName}
+        actions={[
+          { key: "code", label: t("manageKiosks.newCode"), onSelect: newCode },
+          {
+            key: "revoke",
+            label: t("manageKiosks.revoke"),
+            destructive: true,
+            onSelect: () => setConfirming(true),
+          },
+        ]}
+      />
+      <Alert
+        open={confirming}
+        onClose={() => setConfirming(false)}
+        title={t("manageKiosks.revokeTitle", { name: deviceName })}
+        message={t("manageKiosks.revokeBody")}
+        confirmLabel={t("manageKiosks.revokeConfirmButton")}
+        destructive
+        onConfirm={revoke}
+      />
+      <Sheet
+        open={code !== null}
+        onClose={() => setCode(null)}
+        title={t("manageKiosks.newCode")}
+        closeLabel={t("ui.done")}
+      >
+        {code ? (
+          <PairingCodeCard
+            deviceName={code.name}
+            code={code.code}
+            expiresAt={code.expiresAt}
+            pairUrl={pairUrl}
+          />
+        ) : null}
+      </Sheet>
+    </>
+  );
+
+  return { setChoosing, pending, errorKey, dialogs };
+}
+
+/** One tablet on a phone: a row. Tapping it offers the choices. */
+export function KioskRow(props: KioskRowProps) {
+  const { deviceName, subtitle, statusLabel, active } = props;
+  const { setChoosing, pending, errorKey, dialogs } = useKioskDevice(props);
+
+  if (!active) {
+    return <Row title={deviceName} subtitle={subtitle} value={statusLabel} />;
+  }
+
   return (
     <>
       <Row
@@ -193,45 +243,41 @@ export function KioskRow({
       />
       {/* The dialogs sit in a presentational item: a <ul> only holds <li>s. */}
       <li role="presentation" className="contents">
-        <ActionSheet
-          open={choosing}
-          onClose={() => setChoosing(false)}
-          title={deviceName}
-          actions={[
-            { key: "code", label: t("manageKiosks.newCode"), onSelect: newCode },
-            {
-              key: "revoke",
-              label: t("manageKiosks.revoke"),
-              destructive: true,
-              onSelect: () => setConfirming(true),
-            },
-          ]}
-        />
-        <Alert
-          open={confirming}
-          onClose={() => setConfirming(false)}
-          title={t("manageKiosks.revokeTitle", { name: deviceName })}
-          message={t("manageKiosks.revokeBody")}
-          confirmLabel={t("manageKiosks.revokeConfirmButton")}
-          destructive
-          onConfirm={revoke}
-        />
-        <Sheet
-          open={code !== null}
-          onClose={() => setCode(null)}
-          title={t("manageKiosks.newCode")}
-          closeLabel={t("ui.done")}
-        >
-          {code ? (
-            <PairingCodeCard
-              deviceName={code.name}
-              code={code.code}
-              expiresAt={code.expiresAt}
-              pairUrl={pairUrl}
-            />
-          ) : null}
-        </Sheet>
+        {dialogs}
       </li>
     </>
+  );
+}
+
+/** One tablet on desktop: a table row, with "Beheren" for the same choices. */
+export function KioskTableRow(props: KioskRowProps & { siteName: string }) {
+  const { deviceName, subtitle, statusLabel, active, siteName } = props;
+  const { setChoosing, pending, errorKey, dialogs } = useKioskDevice(props);
+
+  return (
+    <Tr>
+      <Td className="font-bold">{deviceName}</Td>
+      <Td>{siteName}</Td>
+      <Td>
+        <Badge tone={active ? "forest" : "neutral"}>{statusLabel}</Badge>
+      </Td>
+      <Td className="text-ink-2">{errorKey ? t(errorKey) : subtitle}</Td>
+      <Td align="right">
+        {active ? (
+          <>
+            <Button
+              variant="secondary"
+              size="sm"
+              aria-haspopup="dialog"
+              loading={pending}
+              onClick={() => setChoosing(true)}
+            >
+              {t("manageKiosks.manage")}
+            </Button>
+            {dialogs}
+          </>
+        ) : null}
+      </Td>
+    </Tr>
   );
 }

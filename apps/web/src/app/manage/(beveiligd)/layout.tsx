@@ -47,6 +47,9 @@ export default async function SecuredManageLayout({
         employeeId: context.employeeId,
       }}
       pendingRequests={pendingRequests}
+      canAdmin={
+        context.membership.role === "owner" || context.membership.role === "admin"
+      }
       clockBar={clockBar}
     >
       {children}

@@ -30,6 +30,7 @@ import { NavBar } from "../ui/NavBar";
 import { Notice } from "../ui/Notice";
 import { PageTransition } from "../ui/PageTransition";
 import { POP, PUSH } from "../ui/transitions";
+import { ChangeTiles } from "./ChangeTiles";
 
 export interface CorrectionFormProps {
   siteId: string;
@@ -74,22 +75,24 @@ const eventLabel = (type: CorrectionEventType) =>
 /** One screen of the wizard; each is "pushed" onto the one before it. */
 type View = "kind" | "day" | "moment" | "reason" | "done";
 
-/** Three dots plus "Stap 1 van 3": where you are in the wizard. */
+/** Three bars plus "Stap 1 van 3": where you are in the wizard (the words carry it, not the colour). */
 function StepDots({ step }: { step: 1 | 2 | 3 }) {
   return (
-    <div className="flex items-center gap-3 px-4">
+    <div className="flex items-center gap-3 px-1">
       <span aria-hidden="true" className="flex gap-1.5">
-        {[1, 2, 3].map((dot) => (
+        {[1, 2, 3].map((bar) => (
           <span
-            key={dot}
+            key={bar}
             className={cx(
-              "size-2 rounded-full",
-              dot === step ? "bg-forest" : dot < step ? "bg-ink-3" : "bg-separator",
+              "h-2 w-10 rounded-full",
+              bar <= step ? "bg-forest" : "bg-track",
             )}
           />
         ))}
       </span>
-      <p className="text-subhead text-ink-2">{t("correctionForm.stepOf", { step })}</p>
+      <p className="text-subhead font-semibold text-ink-2">
+        {t("correctionForm.stepOf", { step })}
+      </p>
     </div>
   );
 }
@@ -97,7 +100,7 @@ function StepDots({ step }: { step: 1 | 2 | 3 }) {
 /** The bottom action, in reach of the thumb and above the tab bar on phones. */
 function BottomAction({ children }: { children: React.ReactNode }) {
   return (
-    <div className="sticky bottom-[calc(var(--spacing-tab-bar)+env(safe-area-inset-bottom))] mt-auto flex flex-col gap-3 bg-paper px-gutter pt-2 pb-4 md:static md:mt-0 md:bg-transparent md:px-gutter-desktop md:pb-10">
+    <div className="sticky bottom-[calc(var(--spacing-tab-bar)+env(safe-area-inset-bottom))] mt-auto flex flex-col gap-3 bg-paper px-gutter pt-2 pb-4 md:static md:mt-0 md:bg-transparent md:px-gutter-desktop md:pb-10 lg:max-w-readable">
       {children}
     </div>
   );
@@ -222,7 +225,7 @@ export function CorrectionForm({
           <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 py-12 text-center">
             <span
               aria-hidden="true"
-              className="mb-2 flex size-16 items-center justify-center rounded-full bg-working-tint text-working motion-safe:animate-pop-in"
+              className="on-forest mb-2 flex size-20 items-center justify-center rounded-hero bg-forest text-lime motion-safe:animate-pop-in"
             >
               <Check className="size-8" strokeWidth={2.5} />
             </span>
@@ -245,7 +248,7 @@ export function CorrectionForm({
         </>
       ) : (
         <>
-          <List className="pb-6">
+          <List className="pb-6 lg:max-w-readable">
             <StepDots step={state.step} />
             {view === "kind" ? (
               <Section>
@@ -409,7 +412,7 @@ function MomentStep({ state, targets, setState }: StepProps) {
             onChange={(event) =>
               setState((current) => ({ ...current, time: event.target.value }))
             }
-            className="min-h-16 w-full rounded-control border border-field bg-card px-4 text-large-title font-light text-ink tabular-nums outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest"
+            className="min-h-16 w-full rounded-control border border-field bg-card px-4 text-large-title text-ink tabular-nums outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest"
           />
         </div>
       ) : null}
@@ -438,6 +441,25 @@ function ReasonStep({
           })
         : null;
 
+  const targetTime = target ? formatBrusselsTime(new Date(target.occurredAtIso)) : null;
+  // "Was / Wordt" of what is being asked, the same tiles the manager decides on.
+  const change =
+    state.kind === "add" && state.eventType && state.time
+      ? {
+          label: eventLabel(state.eventType),
+          was: t("questions.wasNone"),
+          willBe: state.time,
+        }
+      : state.kind === "adjust" && target && targetTime && state.time
+        ? { label: eventLabel(target.type), was: targetTime, willBe: state.time }
+        : state.kind === "remove" && target && targetTime
+          ? {
+              label: eventLabel(target.type),
+              was: targetTime,
+              willBe: t("questions.willBeRemoved"),
+            }
+          : null;
+
   return (
     <>
       <Section footer={<span id="reason-hint">{t("correctionForm.reasonHint")}</span>}>
@@ -458,6 +480,8 @@ function ReasonStep({
           />
         </ListItem>
       </Section>
+
+      {change ? <ChangeTiles {...change} /> : null}
 
       <Section header={t("correctionForm.summaryTitle")}>
         <ListItem className="gap-1 text-body">

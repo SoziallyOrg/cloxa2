@@ -8,12 +8,20 @@ import {
   type ShiftState,
 } from "@cloxa/domain";
 import { myStatus, scheduleFor } from "@cloxa/db";
-import { formatBrusselsTime, t } from "@cloxa/i18n";
+import {
+  formatBrusselsShortDate,
+  formatBrusselsTime,
+  t,
+  type CatalogKey,
+} from "@cloxa/i18n";
 
 import { MapPin } from "lucide-react";
 
 import type { PlannedDay } from "@/components/clock/clock-face";
+import { brusselsWeekRange } from "@/components/clock/week-total";
 import { EmployeeHomeContainer } from "@/components/employee/EmployeeHomeContainer";
+import type { LatestEvent } from "@/components/employee/EmployeeHome";
+import { KlokTopBar } from "@/components/employee/roles";
 import { SitePicker } from "@/components/clock/SitePicker";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { PageTransition } from "@/components/ui/PageTransition";
@@ -24,16 +32,26 @@ import { nowMs } from "@/lib/clock/now";
 import { readChosenSiteId } from "@/lib/clock/site-cookie";
 import { loadEnabledModules } from "@/lib/modules/load";
 import { nightLookbackStart } from "@/lib/manage/timeline";
+import { thisWeekRange } from "@/lib/schedule/week-range";
 import { blocksForOpenShift } from "@/lib/schedule/open-shift";
 import { createClient } from "@/lib/supabase/server";
 
 import { chooseSiteAction } from "./actions";
 
 const RECENT_EVENTS_WINDOW_MS = 3 * 24 * 3600 * 1000;
+const DAY_MS = 24 * 3600 * 1000;
+const LATEST_EVENTS = 5;
+
+const EVENT_LABEL: Partial<Record<ClockEventType, CatalogKey>> = {
+  clock_in: "correctionForm.eventTypeClockIn",
+  clock_out: "correctionForm.eventTypeClockOut",
+  break_start: "correctionForm.eventTypeBreakStart",
+  break_end: "correctionForm.eventTypeBreakEnd",
+};
 
 /**
- * Klok is the hero page, so no large title. The logo, the role switch and
- * the account (the Ik tab) live in the app frame.
+ * Klok is the hero page, so no large title. The status block draws the logo
+ * and the role switch itself (see `KlokTopBar`); the account is the Ik tab.
  */
 function KlokFrame({ children }: { children: React.ReactNode }) {
   return (
@@ -73,6 +91,7 @@ export default async function EmployeeAppPage() {
   if (sites.length === 0) {
     return (
       <KlokFrame>
+        <KlokTopBar onForest={false} />
         <h1 className="sr-only">{t("app.heading")}</h1>
         <div className="flex flex-1 flex-col justify-center">
           <EmptyState
@@ -96,6 +115,7 @@ export default async function EmployeeAppPage() {
   if (siteId === null) {
     return (
       <PageTransition>
+        <KlokTopBar onForest={false} />
         <SitePicker sites={sites} action={chooseSiteAction} />
       </PageTransition>
     );
@@ -109,7 +129,17 @@ export default async function EmployeeAppPage() {
         "id, type, occurred_at, employee_id, site_id, source, supersedes_event_id, correction_id, offline",
       )
       .eq("employee_id", context.employeeId)
-      .gte("occurred_at", new Date(now - RECENT_EVENTS_WINDOW_MS).toISOString())
+      // Three days back, or the start of this week (a day earlier for a night
+      // shift) when that is further: the week totals need the whole week.
+      .gte(
+        "occurred_at",
+        new Date(
+          Math.min(
+            now - RECENT_EVENTS_WINDOW_MS,
+            brusselsWeekRange(now).start - DAY_MS,
+          ),
+        ).toISOString(),
+      )
       .order("occurred_at"),
     // Telework asks where at "Start werk". A module never blocks clocking:
     // when this read fails, the question is simply left out.
@@ -142,6 +172,7 @@ export default async function EmployeeAppPage() {
   }));
   const shifts = deriveShifts(effectiveEvents(events));
   const todayKey = brusselsDayKey(now);
+  const effective = effectiveEvents(events);
   const todayShifts = shifts.filter(
     (shift) =>
       shift.open ||
@@ -151,11 +182,19 @@ export default async function EmployeeAppPage() {
 
   // From yesterday on: a night shift started 21:30 belongs to yesterday's
   // block (21:30–06:00), and that is the plan its progress track measures.
-  const scheduleRows = await scheduleFor(supabase, {
+  const lookbackKey = brusselsDayKey(nightLookbackStart(todayKey));
+  const weekRange = thisWeekRange(todayKey);
+  const allScheduleRows = await scheduleFor(supabase, {
     employeeId: context.employeeId,
-    from: brusselsDayKey(nightLookbackStart(todayKey)),
-    to: todayKey,
+    from: weekRange.from < lookbackKey ? weekRange.from : lookbackKey,
+    to: weekRange.to > todayKey ? weekRange.to : todayKey,
   });
+  const scheduleRows = allScheduleRows.filter(
+    (row) => row.day >= lookbackKey && row.day <= todayKey,
+  );
+  const weekRows = allScheduleRows.filter(
+    (row) => row.day >= weekRange.from && row.day <= weekRange.to,
+  );
   const scheduleToday =
     initialSince === null
       ? scheduleRows.filter(
@@ -187,6 +226,28 @@ export default async function EmployeeAppPage() {
             .join(", "),
         };
 
+  // Indicative week figures and the latest registrations (desktop column).
+  const { start: weekStart, end: weekEnd } = brusselsWeekRange(now);
+  const closedWorkedMs = shifts
+    .filter((shift) => !shift.open && shift.start >= weekStart && shift.start < weekEnd)
+    .reduce((sum, shift) => sum + shift.netMs, 0);
+  const plannedWeekMs = weekRows.reduce(
+    (sum, row) => sum + Date.parse(row.end_at) - Date.parse(row.start_at),
+    0,
+  );
+  const latest: LatestEvent[] = effective
+    .filter((event) => EVENT_LABEL[event.type] !== undefined)
+    .slice(-LATEST_EVENTS)
+    .reverse()
+    .map((event) => ({
+      key: event.id,
+      label: t(EVENT_LABEL[event.type]!),
+      when:
+        brusselsDayKey(event.occurredAt) === todayKey
+          ? formatBrusselsTime(new Date(event.occurredAt))
+          : `${formatBrusselsShortDate(new Date(event.occurredAt))} ${formatBrusselsTime(new Date(event.occurredAt))}`,
+    }));
+
   return (
     <KlokFrame>
       <EmployeeHomeContainer
@@ -196,6 +257,13 @@ export default async function EmployeeAppPage() {
         initialNow={now}
         todayShifts={todayShifts}
         planned={planned}
+        siteName={
+          sites.length > 1
+            ? (sites.find((site) => site.id === siteId)?.name ?? null)
+            : null
+        }
+        week={{ closedWorkedMs, plannedMs: weekRows.length > 0 ? plannedWeekMs : null }}
+        latest={latest}
         siteId={siteId}
         askWorkLocation={askWorkLocation}
       />

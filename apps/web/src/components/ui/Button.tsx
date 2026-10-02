@@ -13,8 +13,8 @@ import { cx } from "./cx";
  */
 export type ButtonVariant =
   "primary" | "action" | "secondary" | "ghost-on-forest" | "plain" | "danger";
-/** `lg`: Klok's main action (72px, full width). `md`: 56px, everything else. */
-export type ButtonSize = "lg" | "md";
+/** `xl`: the Klok hero's action (76px). `lg`: main action (72px, full width). `md`: 56px, everything else. `sm`: 48px, compact (side panel). */
+export type ButtonSize = "xl" | "lg" | "md" | "sm";
 
 export interface ButtonProps extends Omit<
   ButtonHTMLAttributes<HTMLButtonElement>,
@@ -40,8 +40,10 @@ const VARIANT_CLASSES: Record<ButtonVariant, string> = {
 };
 
 const SIZE_CLASSES: Record<ButtonSize, string> = {
+  xl: "min-h-[76px] w-full rounded-clock text-title-2",
   lg: "min-h-primary-action w-full rounded-clock text-title-3",
   md: "min-h-control rounded-control text-headline",
+  sm: "min-h-touch-target rounded-control text-callout font-bold",
 };
 
 /** Button looks for a link that navigates (never nest a `<button>` in an `<a>`). */
@@ -54,7 +56,7 @@ export function buttonClassName(
     "pressable focus-ring inline-flex items-center justify-center gap-3 text-center select-none",
     VARIANT_CLASSES[variant],
     SIZE_CLASSES[size],
-    variant === "plain" ? "px-3" : "px-6",
+    variant === "plain" || size === "sm" ? "px-3" : "px-6",
     wide && "w-full",
   );
 }

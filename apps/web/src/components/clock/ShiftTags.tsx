@@ -8,6 +8,8 @@ export interface ShiftTagsProps {
   home?: boolean;
   /** One more quiet note, e.g. "verstuurd 2 u later". */
   extra?: string | null;
+  /** Classes for the range, e.g. to show it on phones only. */
+  rangeClassName?: string;
 }
 
 // An outline, not a fill: secondary text keeps AA on rows and sheets alike.
@@ -21,10 +23,11 @@ export function ShiftTags({
   offline,
   home = false,
   extra = null,
+  rangeClassName,
 }: ShiftTagsProps) {
   return (
     <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-      <span>{range}</span>
+      <span className={rangeClassName}>{range}</span>
       {edited ? <span className={TAG}>{t("shifts.edited")}</span> : null}
       {offline ? <span className={TAG}>{t("offline.shiftBadge")}</span> : null}
       {home ? <span className={TAG}>{t("modules.telework.shiftHome")}</span> : null}

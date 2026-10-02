@@ -25,7 +25,7 @@ import {
   ReinstateSection,
   SignOutSection,
 } from "@/components/manage/EmploymentActions";
-import { List, ListItem, Row, Section } from "@/components/ui/List";
+import { ListItem, Row, Section } from "@/components/ui/List";
 import { NavBar } from "@/components/ui/NavBar";
 import { PageTransition } from "@/components/ui/PageTransition";
 import { StatusLine } from "@/components/ui/StatusLine";
@@ -234,186 +234,191 @@ export default async function ManageEmployeeDetailPage({
         }
         back={{ href: "/manage/team", label: t("manageTeam.heading") }}
       />
-      <List className="pb-10">
-        <Section header={t("manageEmployee.shiftsHeading")}>
-          {shifts.length === 0 ? (
-            <ListItem className="text-body text-ink-2">
-              {t("manageEmployee.noShifts")}
-            </ListItem>
-          ) : (
-            shifts.map((shift) => {
-              const row = formatShiftRow(shift);
-              return (
-                <Row
-                  key={shift.start}
-                  title={row.date}
-                  subtitle={
-                    <ShiftTags
-                      range={row.range}
-                      edited={row.edited}
-                      offline={row.offline}
-                      home={shift.workLocation === "home"}
-                      extra={
-                        row.offlineSkew
-                          ? t("offline.skewLabel", { value: row.offlineSkew })
-                          : null
-                      }
-                    />
-                  }
-                  value={
-                    !shift.open
-                      ? row.net
-                      : brusselsDayKey(shift.start) === todayKey
-                        ? formatDurationMs(workedMs(shift, now))
-                        : // Left open since an earlier day: no running total.
-                          t("common.none")
-                  }
-                />
-              );
-            })
-          )}
-        </Section>
-
-        {correctionRows.length > 0 ? (
-          <Section header={t("manageEmployee.correctionsHeading")}>
-            {correctionRows.map((row) => (
-              <Row
-                key={row.id}
-                title={formatBrusselsDate(new Date(row.created_at))}
-                subtitle={
-                  [
-                    row.reason,
-                    row.decision_note
-                      ? t("questions.managerNote", { note: row.decision_note })
-                      : null,
-                  ]
-                    .filter(Boolean)
-                    .join(" · ") || undefined
-                }
-                value={t(STATUS_LABEL_KEY[row.status] ?? "questions.statusPending")}
-              />
-            ))}
-          </Section>
-        ) : null}
-
-        <Section
-          header={t("manageEmployee.upcomingHeading")}
-          footer={
-            scheduleRows.length > 0
-              ? t("manageEmployee.scheduleSummaryHours", {
-                  hours: formatWeeklyHours(plannedMinutes),
-                })
-              : t("manageEmployee.noSchedule")
-          }
-        >
-          {upcoming.map((day) => (
-            <Row key={day.key} title={day.label} value={day.value} />
-          ))}
-          <Row
-            href={`/manage/medewerker/${employee.id}/rooster`}
-            icon={CalendarDays}
-            title={t("manageEmployee.scheduleEditLink")}
-          />
-        </Section>
-
-        {moduleSections.map(({ module, data, view }) => (
-          <ModuleSection key={module.id} view={view}>
-            {/* No children at all without fields: an empty group is not shown. */}
-            {module.fields.length > 0 ? (
-              <>
-                {module.fields.map((field) => {
-                  const value = fieldValue(field, data);
-                  // The value under the name: both can be long on a phone.
-                  return (
-                    <Row
-                      key={field.key}
-                      title={t(field.label)}
-                      subtitle={
-                        value === null ? t("modules.fieldNotSet") : renderValue(value)
-                      }
-                    />
-                  );
-                })}
-                {employee.anonymised_at ? null : (
-                  <ModuleFieldsSheet
-                    moduleId={module.id}
-                    moduleLabel={view.label}
-                    employeeName={employee.display_name}
-                    fields={module.fields}
-                    initial={fieldsToForm(module, data)}
-                    action={setModuleFieldsAction.bind(null, employee.id, module.id)}
+      {/* Two columns from 1280px: hours and plan right, facts and actions left.
+          On a phone the hours come first. */}
+      <div className="grid gap-7 px-gutter pb-10 md:px-gutter-desktop xl:grid-cols-2 xl:items-start">
+        <div className="order-1 flex flex-col gap-7 xl:order-2">
+          <Section header={t("manageEmployee.shiftsHeading")}>
+            {shifts.length === 0 ? (
+              <ListItem className="text-body text-ink-2">
+                {t("manageEmployee.noShifts")}
+              </ListItem>
+            ) : (
+              shifts.map((shift) => {
+                const row = formatShiftRow(shift);
+                return (
+                  <Row
+                    key={shift.start}
+                    title={row.date}
+                    subtitle={
+                      <ShiftTags
+                        range={row.range}
+                        edited={row.edited}
+                        offline={row.offline}
+                        home={shift.workLocation === "home"}
+                        extra={
+                          row.offlineSkew
+                            ? t("offline.skewLabel", { value: row.offlineSkew })
+                            : null
+                        }
+                      />
+                    }
+                    value={
+                      !shift.open
+                        ? row.net
+                        : brusselsDayKey(shift.start) === todayKey
+                          ? formatDurationMs(workedMs(shift, now))
+                          : // Left open since an earlier day: no running total.
+                            t("common.none")
+                    }
                   />
-                )}
-              </>
-            ) : undefined}
-          </ModuleSection>
-        ))}
+                );
+              })
+            )}
+          </Section>
 
-        {employee.anonymised_at ? null : (
-          <PinSection
-            employeeName={employee.display_name}
-            stateLabel={pinRow ? t("kiosk.pinStateSet") : t("kiosk.pinStateNotSet")}
+          {correctionRows.length > 0 ? (
+            <Section header={t("manageEmployee.correctionsHeading")}>
+              {correctionRows.map((row) => (
+                <Row
+                  key={row.id}
+                  title={formatBrusselsDate(new Date(row.created_at))}
+                  subtitle={
+                    [
+                      row.reason,
+                      row.decision_note
+                        ? t("questions.managerNote", { note: row.decision_note })
+                        : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ") || undefined
+                  }
+                  value={t(STATUS_LABEL_KEY[row.status] ?? "questions.statusPending")}
+                />
+              ))}
+            </Section>
+          ) : null}
+
+          <Section
+            header={t("manageEmployee.upcomingHeading")}
             footer={
-              pinRow
-                ? t("kiosk.managerPinSetAt", {
-                    date: formatBrusselsDate(new Date(pinRow.set_at)),
+              scheduleRows.length > 0
+                ? t("manageEmployee.scheduleSummaryHours", {
+                    hours: formatWeeklyHours(plannedMinutes),
                   })
-                : t("kiosk.managerPinNone")
+                : t("manageEmployee.noSchedule")
             }
-            action={setEmployeePinAction.bind(null, employee.id)}
-          />
-        )}
-
-        {isOrgAdmin ? (
-          <Section footer={t("manageEmployee.subjectExportIntro")}>
+          >
+            {upcoming.map((day) => (
+              <Row key={day.key} title={day.label} value={day.value} />
+            ))}
             <Row
-              href={`/manage/medewerker/${employee.id}/inzage`}
-              download
-              icon={Download}
-              title={t("manageEmployee.subjectExportLink")}
-              subtitle={t("manageEmployee.subjectExportFormat")}
+              href={`/manage/medewerker/${employee.id}/rooster`}
+              icon={CalendarDays}
+              title={t("manageEmployee.scheduleEditLink")}
             />
           </Section>
-        ) : null}
+        </div>
+        <div className="order-2 flex flex-col gap-7 xl:order-1">
+          {moduleSections.map(({ module, data, view }) => (
+            <ModuleSection key={module.id} view={view}>
+              {/* No children at all without fields: an empty group is not shown. */}
+              {module.fields.length > 0 ? (
+                <>
+                  {module.fields.map((field) => {
+                    const value = fieldValue(field, data);
+                    // The value under the name: both can be long on a phone.
+                    return (
+                      <Row
+                        key={field.key}
+                        title={t(field.label)}
+                        subtitle={
+                          value === null ? t("modules.fieldNotSet") : renderValue(value)
+                        }
+                      />
+                    );
+                  })}
+                  {employee.anonymised_at ? null : (
+                    <ModuleFieldsSheet
+                      moduleId={module.id}
+                      moduleLabel={view.label}
+                      employeeName={employee.display_name}
+                      fields={module.fields}
+                      initial={fieldsToForm(module, data)}
+                      action={setModuleFieldsAction.bind(null, employee.id, module.id)}
+                    />
+                  )}
+                </>
+              ) : undefined}
+            </ModuleSection>
+          ))}
 
-        {employee.user_id && !leftDate ? (
-          <SignOutSection
-            employeeId={employee.id}
-            employeeName={employee.display_name}
-            action={signOutEverywhereAction}
-          />
-        ) : null}
+          {employee.anonymised_at ? null : (
+            <PinSection
+              employeeName={employee.display_name}
+              stateLabel={pinRow ? t("kiosk.pinStateSet") : t("kiosk.pinStateNotSet")}
+              footer={
+                pinRow
+                  ? t("kiosk.managerPinSetAt", {
+                      date: formatBrusselsDate(new Date(pinRow.set_at)),
+                    })
+                  : t("kiosk.managerPinNone")
+              }
+              action={setEmployeePinAction.bind(null, employee.id)}
+            />
+          )}
 
-        {employee.anonymised_at ? (
-          <p className="px-4 text-subhead text-ink-2">
-            {t("manageEmployee.anonymised")}
-          </p>
-        ) : leftDate ? (
-          <ReinstateSection
-            employeeName={employee.display_name}
-            footer={
-              <span className="flex flex-col gap-1">
-                <span>{t("manageEmployee.leftSince", { date: leftDate })}</span>
-                <span>{t("manageEmployee.reinstateNote")}</span>
-              </span>
-            }
-            action={reinstateEmployeeAction.bind(null, employee.id)}
-          />
-        ) : (
-          <OffboardSection
-            employeeName={employee.display_name}
-            footer={t("manageEmployee.inService", { name: employee.display_name })}
-            canOffboard={canOffboard}
-            lines={offboardConfirmLines({
-              name: employee.display_name,
-              hasLogin: employee.user_id !== null,
-              hasPin: pinRow !== null,
-              retentionYears: effectiveRetentionYears(organization?.settings),
-            })}
-            action={offboardEmployeeAction.bind(null, employee.id)}
-          />
-        )}
-      </List>
+          {isOrgAdmin ? (
+            <Section footer={t("manageEmployee.subjectExportIntro")}>
+              <Row
+                href={`/manage/medewerker/${employee.id}/inzage`}
+                download
+                icon={Download}
+                title={t("manageEmployee.subjectExportLink")}
+                subtitle={t("manageEmployee.subjectExportFormat")}
+              />
+            </Section>
+          ) : null}
+
+          {employee.user_id && !leftDate ? (
+            <SignOutSection
+              employeeId={employee.id}
+              employeeName={employee.display_name}
+              action={signOutEverywhereAction}
+            />
+          ) : null}
+
+          {employee.anonymised_at ? (
+            <p className="px-4 text-subhead text-ink-2">
+              {t("manageEmployee.anonymised")}
+            </p>
+          ) : leftDate ? (
+            <ReinstateSection
+              employeeName={employee.display_name}
+              footer={
+                <span className="flex flex-col gap-1">
+                  <span>{t("manageEmployee.leftSince", { date: leftDate })}</span>
+                  <span>{t("manageEmployee.reinstateNote")}</span>
+                </span>
+              }
+              action={reinstateEmployeeAction.bind(null, employee.id)}
+            />
+          ) : (
+            <OffboardSection
+              employeeName={employee.display_name}
+              footer={t("manageEmployee.inService", { name: employee.display_name })}
+              canOffboard={canOffboard}
+              lines={offboardConfirmLines({
+                name: employee.display_name,
+                hasLogin: employee.user_id !== null,
+                hasPin: pinRow !== null,
+                retentionYears: effectiveRetentionYears(organization?.settings),
+              })}
+              action={offboardEmployeeAction.bind(null, employee.id)}
+            />
+          )}
+        </div>
+      </div>
     </PageTransition>
   );
 }
