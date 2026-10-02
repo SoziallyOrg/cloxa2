@@ -30,6 +30,12 @@ export async function capture(page: Page, name: string, whole = true): Promise<v
   await page.emulateMedia({ reducedMotion: "reduce" });
   for (const [viewport, size] of Object.entries(VIEWPORTS)) {
     await page.setViewportSize(size);
+    // Let the layout follow the new size: `min-h-dvh` pages would otherwise
+    // report the previous (taller) viewport as their height.
+    await page.evaluate(
+      () =>
+        new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))),
+    );
     if (whole) {
       const height = await page.evaluate(() => document.documentElement.scrollHeight);
       await page.setViewportSize({ ...size, height: Math.max(size.height, height) });
@@ -38,6 +44,9 @@ export async function capture(page: Page, name: string, whole = true): Promise<v
       Array.from(document.images).every(
         (image) => image.complete && image.naturalWidth > 0,
       ),
+    );
+    await page.evaluate(() =>
+      Promise.all(Array.from(document.images).map((image) => image.decode())),
     );
     await page.screenshot({
       path: `${OUT}/${name}-${viewport}.png`,

@@ -31,7 +31,7 @@ export interface DayTimelineProps {
 // Name, the track and hours + status. The axis, the rows and the now line all
 // use this grid, so the three always line up. Container queries (`@xl`), not
 // viewport ones: beside the 330px panel the main column can be narrow.
-const COLUMNS = "@xl:grid-cols-[minmax(7rem,11rem)_minmax(0,1fr)_minmax(9rem,13rem)]";
+const COLUMNS = "@xl:grid-cols-[minmax(7rem,9.5rem)_minmax(0,1fr)_minmax(8rem,11rem)]";
 
 const GROUP_TONE: Record<StatusGroup, StatTone> = {
   working: "forest",
