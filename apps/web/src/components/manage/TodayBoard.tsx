@@ -175,7 +175,7 @@ function RequestsTab({
             <div key={item.id} className="flex flex-col gap-2">
               <p className="text-subhead">{item.label}</p>
               <Link
-                href={person.href as Route}
+                href={item.href as Route}
                 aria-label={t("manage.fixFor", { name: person.name })}
                 className={buttonClassName(
                   item.fix ? "danger" : "secondary",

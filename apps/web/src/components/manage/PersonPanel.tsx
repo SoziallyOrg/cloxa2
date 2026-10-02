@@ -60,7 +60,7 @@ export function PersonPanel({ person }: { person: TodayPerson }) {
             >
               <p className="text-subhead font-semibold">{item.label}</p>
               <Link
-                href={person.href as Route}
+                href={item.href as Route}
                 aria-label={t("manage.fixFor", { name: person.name })}
                 className={buttonClassName(
                   item.fix ? "danger" : "secondary",
@@ -124,12 +124,14 @@ export function PersonPanel({ person }: { person: TodayPerson }) {
         >
           {t("manageToday.viewHours")}
         </Link>
-        <Link
-          href={person.href as Route}
-          className={buttonClassName("secondary", "md", true)}
-        >
-          {t("manageToday.addCorrection")}
-        </Link>
+        {person.correctHref ? (
+          <Link
+            href={person.correctHref as Route}
+            className={buttonClassName("secondary", "md", true)}
+          >
+            {t("manageToday.addCorrection")}
+          </Link>
+        ) : null}
       </div>
     </div>
   );

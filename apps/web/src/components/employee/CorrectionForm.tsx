@@ -3,6 +3,7 @@
 
 import { addTransitionType, startTransition, useMemo, useState } from "react";
 import Link from "next/link";
+import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { Check } from "lucide-react";
 
@@ -32,17 +33,29 @@ import { PageTransition } from "../ui/PageTransition";
 import { POP, PUSH } from "../ui/transitions";
 import { ChangeTiles } from "./ChangeTiles";
 
+/** The manager's variant (ADR 010): a correction for someone else, reason required. */
+export interface ManagerFormConfig {
+  employeeName: string;
+  /** The employee's assigned, active sites; `siteId` is the one proposed. */
+  sites: readonly { id: string; name: string }[];
+}
+
 export interface CorrectionFormProps {
   siteId: string;
+  /** Set for a manager correcting an employee; the employee wizard leaves it out. */
+  manager?: ManagerFormConfig;
+  /** A starting point, e.g. a forgotten clock-out (kind, type, day and time filled in). */
+  initial?: Partial<CorrectionFormState>;
   /** The last 14 days, newest first, each with its events. */
   days: readonly CorrectionDay[];
   /** Set when started from a day or shift ("Klopt er iets niet?"): no day list then. */
   preselectedDate: string | null;
   /** Where the first step's back button goes: the page this was opened from. */
   back: { href: string; label: string };
+  /** `undefined` when the action redirected (the router is already navigating). */
   submitAction: (
     input: RequestCorrectionInput,
-  ) => Promise<{ ok: boolean; errorKey?: string }>;
+  ) => Promise<{ ok: boolean; errorKey?: string } | undefined>;
 }
 
 type Key = Parameters<typeof t>[0];
@@ -60,7 +73,13 @@ const EVENT_TYPE_OPTIONS: readonly { type: CorrectionEventType; labelKey: Key }[
   { type: "break_end", labelKey: "correctionForm.eventTypeBreakEnd" },
 ];
 
-const KIND_LABEL_KEY: Record<CorrectionKind, Key> = {
+const MANAGER_KIND_KEYS: Record<CorrectionKind, Key> = {
+  add: "manageCorrection.kindAdd",
+  adjust: "manageCorrection.kindAdjust",
+  remove: "manageCorrection.kindRemove",
+};
+
+const EMPLOYEE_KIND_KEYS: Record<CorrectionKind, Key> = {
   add: "correctionForm.kindAdd",
   adjust: "correctionForm.kindAdjust",
   remove: "correctionForm.kindRemove",
@@ -113,7 +132,9 @@ function BottomAction({ children }: { children: React.ReactNode }) {
  * The step logic lives in `lib/corrections/form`.
  */
 export function CorrectionForm({
-  siteId,
+  siteId: defaultSiteId,
+  manager,
+  initial,
   days,
   preselectedDate,
   back,
@@ -123,7 +144,11 @@ export function CorrectionForm({
   const [state, setState] = useState<CorrectionFormState>({
     ...INITIAL_CORRECTION_FORM_STATE,
     date: preselectedDate ?? days[0]?.key ?? "",
+    ...initial,
   });
+  const [siteId, setSiteId] = useState(defaultSiteId);
+  const reasonRequired = manager !== undefined;
+  const kindKeys = manager ? MANAGER_KIND_KEYS : EMPLOYEE_KIND_KEYS;
   // Step 2 starts with "Welke dag?" unless the day came with the link.
   const [dayChosen, setDayChosen] = useState(preselectedDate !== null);
   const [submitting, setSubmitting] = useState(false);
@@ -132,7 +157,10 @@ export function CorrectionForm({
 
   const day = days.find((candidate) => candidate.key === state.date);
   const targets = day?.targets ?? [];
-  const payload = useMemo(() => buildCorrectionPayload(state, siteId), [state, siteId]);
+  const payload = useMemo(
+    () => buildCorrectionPayload(state, siteId, { reasonRequired }),
+    [state, siteId, reasonRequired],
+  );
 
   const view: View = done
     ? "done"
@@ -149,7 +177,9 @@ export function CorrectionForm({
       ? t("correctionForm.step2TitleRemove")
       : t("correctionForm.step2Title");
   const TITLES: Record<View, string> = {
-    kind: t("correctionForm.step1Title"),
+    kind: manager
+      ? t("manageCorrection.title", { name: manager.employeeName })
+      : t("correctionForm.step1Title"),
     day: t("correctionForm.dayTitle"),
     moment: momentTitle,
     reason: t("correctionForm.step3Title"),
@@ -192,6 +222,8 @@ export function CorrectionForm({
     setSubmitting(true);
     setError(null);
     const result = await submitAction(toSubmit);
+    // A redirect from the action: the router is on its way, keep the button busy.
+    if (result === undefined) return;
     setSubmitting(false);
     if (!result.ok) {
       errorHaptic();
@@ -199,6 +231,10 @@ export function CorrectionForm({
       return;
     }
     tap();
+    if (manager) {
+      router.push(back.href as Route);
+      return;
+    }
     move("forward", () => setDone(true));
     router.refresh();
   }
@@ -217,7 +253,11 @@ export function CorrectionForm({
       <NavBar
         title={TITLES[view]}
         {...(navBack ? { back: navBack } : {})}
-        {...(view === "moment" && day ? { subtitle: day.longLabel } : {})}
+        {...(view === "moment" && day
+          ? { subtitle: day.longLabel }
+          : manager && view !== "kind"
+            ? { subtitle: t("manageCorrection.title", { name: manager.employeeName }) }
+            : {})}
       />
 
       {view === "done" ? (
@@ -251,12 +291,12 @@ export function CorrectionForm({
           <List className="pb-6 lg:max-w-readable">
             <StepDots step={state.step} />
             {view === "kind" ? (
-              <Section>
+              <Section header={manager ? t("correctionForm.step1Title") : undefined}>
                 {KIND_OPTIONS.map((option) => (
                   <Row
                     key={option.kind}
                     aria-pressed={state.kind === option.kind}
-                    title={t(option.labelKey)}
+                    title={t(kindKeys[option.kind])}
                     checked={state.kind === option.kind}
                     onClick={() =>
                       setState((current) => ({
@@ -295,7 +335,14 @@ export function CorrectionForm({
             ) : null}
 
             {view === "moment" ? (
-              <MomentStep state={state} targets={targets} setState={setState} />
+              <MomentStep
+                state={state}
+                targets={targets}
+                setState={setState}
+                sites={manager?.sites ?? []}
+                siteId={siteId}
+                setSiteId={setSiteId}
+              />
             ) : null}
 
             {view === "reason" ? (
@@ -304,6 +351,8 @@ export function CorrectionForm({
                 day={day ?? null}
                 targets={targets}
                 setState={setState}
+                kindKeys={kindKeys}
+                manager={manager}
               />
             ) : null}
           </List>
@@ -322,15 +371,17 @@ export function CorrectionForm({
                   disabled={payload === null}
                   onClick={() => void handleSubmit()}
                 >
-                  {t("correctionForm.submit")}
+                  {manager ? t("manageCorrection.submit") : t("correctionForm.submit")}
                 </Button>
               ) : (
                 <Button
                   wide
-                  disabled={!canAdvance(state, targets)}
+                  disabled={!canAdvance(state, targets, { reasonRequired })}
                   onClick={() =>
                     move("forward", () =>
-                      setState((current) => goNext(current, targets)),
+                      setState((current) =>
+                        goNext(current, targets, { reasonRequired }),
+                      ),
                     )
                   }
                 >
@@ -352,7 +403,18 @@ interface StepProps {
 }
 
 /** Step 2: which moment (and its time), or which registration to change. */
-function MomentStep({ state, targets, setState }: StepProps) {
+function MomentStep({
+  state,
+  targets,
+  setState,
+  sites,
+  siteId,
+  setSiteId,
+}: StepProps & {
+  sites: readonly { id: string; name: string }[];
+  siteId: string;
+  setSiteId: (id: string) => void;
+}) {
   const needsTime =
     state.kind === "add" || (state.kind === "adjust" && targets.length > 0);
 
@@ -396,6 +458,20 @@ function MomentStep({ state, targets, setState }: StepProps) {
         </Section>
       )}
 
+      {state.kind === "add" && sites.length > 1 ? (
+        <Section header={t("manageCorrection.siteLabel")}>
+          {sites.map((site) => (
+            <Row
+              key={site.id}
+              aria-pressed={siteId === site.id}
+              title={site.name}
+              checked={siteId === site.id}
+              onClick={() => setSiteId(site.id)}
+            />
+          ))}
+        </Section>
+      ) : null}
+
       {needsTime ? (
         // A large, calm, filled field: "08:00" in big tabular text, with the
         // native picker (a wheel on iOS) behind it.
@@ -426,7 +502,13 @@ function ReasonStep({
   day,
   targets,
   setState,
-}: StepProps & { day: CorrectionDay | null }) {
+  kindKeys,
+  manager,
+}: StepProps & {
+  day: CorrectionDay | null;
+  kindKeys: Record<CorrectionKind, Key>;
+  manager: ManagerFormConfig | undefined;
+}) {
   const target = targets.find((candidate) => candidate.id === state.targetEventId);
   const moment =
     state.kind === "add" && state.eventType
@@ -462,15 +544,29 @@ function ReasonStep({
 
   return (
     <>
-      <Section footer={<span id="reason-hint">{t("correctionForm.reasonHint")}</span>}>
+      <Section
+        footer={
+          <span id="reason-hint">
+            {manager
+              ? t("manageCorrection.reasonHint")
+              : t("correctionForm.reasonHint")}
+          </span>
+        }
+      >
         <ListItem className="gap-1">
           <label htmlFor="reason" className="text-subhead text-ink-2">
-            {t("correctionForm.reasonLabel")} <span>({t("ui.optional")})</span>
+            {manager
+              ? t("manageCorrection.reasonLabel")
+              : t("correctionForm.reasonLabel")}{" "}
+            <span>
+              ({manager ? t("manageCorrection.reasonRequired") : t("ui.optional")})
+            </span>
           </label>
           <textarea
             id="reason"
             rows={3}
             maxLength={280}
+            required={manager !== undefined}
             aria-describedby="reason-hint"
             value={state.reason}
             onChange={(event) =>
@@ -483,11 +579,20 @@ function ReasonStep({
 
       {change ? <ChangeTiles {...change} /> : null}
 
-      <Section header={t("correctionForm.summaryTitle")}>
+      <Section
+        header={
+          manager ? t("manageCorrection.reviewTitle") : t("correctionForm.summaryTitle")
+        }
+        footer={
+          manager
+            ? t("manageCorrection.savedNote", { name: manager.employeeName })
+            : undefined
+        }
+      >
         <ListItem className="gap-1 text-body">
           <p>
             {t("correctionForm.summaryKind", {
-              value: t(KIND_LABEL_KEY[state.kind ?? "add"]),
+              value: t(kindKeys[state.kind ?? "add"]),
             })}
           </p>
           {day ? (

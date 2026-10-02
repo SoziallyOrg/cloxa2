@@ -256,6 +256,9 @@ export const catalog = {
     wasNone: "geen",
     willBeRemoved: "verwijderd",
     pendingNote: "Je manager bekijkt dit nog.",
+    managerOrigin: "Aangepast door je leidinggevende",
+    managerOriginOn: "Aangepast op {date}",
+    managerReason: "Uitleg van je leidinggevende",
   },
   correctionForm: {
     stepOf: "Stap {step} van 3",
@@ -592,6 +595,56 @@ export const catalog = {
     viewHours: "Uren bekijken",
     addCorrection: "Correctie toevoegen",
   },
+  manageCorrection: {
+    title: "Correctie voor {name}",
+    kindAdd: "Een registratie ontbreekt",
+    kindAdjust: "Een tijd klopt niet",
+    kindRemove: "Deze registratie hoort er niet bij",
+    siteLabel: "Locatie",
+    reasonLabel: "Reden",
+    reasonRequired: "verplicht",
+    reasonHint:
+      "Je medewerker ziet deze uitleg. Schrijf geen medische of andere gevoelige details.",
+    reviewTitle: "Controleer de correctie",
+    savedNote:
+      "De correctie wordt meteen opgeslagen. {name} ziet ze direct bij de eigen uren en vragen.",
+    submit: "Correctie opslaan",
+    saved: "Correctie opgeslagen voor {name}",
+    noSitesTitle: "Geen locatie",
+    noSitesBody:
+      "Deze medewerker is aan geen enkele actieve locatie gekoppeld. Koppel eerst een locatie.",
+    notAllowedTitle: "Dit kan je hier niet aanpassen",
+    notAllowedBody:
+      "Je kan de uren van deze persoon niet aanpassen. Vraag het aan een beheerder.",
+    inactiveBody:
+      "Deze medewerker is uit dienst. Er zijn geen uren meer aan te passen.",
+    errorNotAuthorized: "Je kan de uren van deze persoon niet aanpassen.",
+    errorSelf: "Je kan je eigen uren niet zelf aanpassen. Vraag het aan een collega.",
+    errorSiteNotAssigned: "Deze medewerker werkt niet op die locatie. Kies een andere.",
+    errorInvalid: "Vul alles correct in, inclusief een reden.",
+    errorAnonymised:
+      "De gegevens van deze medewerker zijn gewist. Aanpassen kan niet meer.",
+    errorInactive: "Deze medewerker is uit dienst. Aanpassen kan niet meer.",
+    errorSiteInactive: "Deze locatie is niet meer actief. Kies een andere.",
+    errorTargetStale:
+      "Deze registratie is intussen al aangepast. Laad de pagina opnieuw en probeer nog eens.",
+    errorTooOld: "Deze tijd ligt te ver in het verleden om aan te passen.",
+    errorInFuture: "Deze tijd ligt in de toekomst.",
+    errorNotIncreasing: "De tijden moeten na elkaar komen.",
+    errorConflict:
+      "Op dat moment staat al een andere registratie. Kies een andere tijd.",
+    errorSequenceClockIn:
+      "Dit begin past niet: op dat moment loopt al een shift. Kijk de tijden na.",
+    errorSequenceClockOut:
+      "Dit einde past niet: op dat moment loopt geen shift. Kijk de tijden na.",
+    errorSequenceBreakStart:
+      "Deze pauze past niet: op dat moment loopt geen shift, of er is al een pauze. Kijk de tijden na.",
+    errorSequenceBreakEnd:
+      "Dit einde van de pauze past niet: op dat moment loopt er geen pauze. Kijk de tijden na.",
+    errorSequence: "Deze wijziging past niet bij de andere uren. Kijk de tijden na.",
+    errorRateLimited: "Je deed veel correcties na elkaar. Probeer het straks opnieuw.",
+    errorGeneric: "Opslaan lukte niet. Probeer het opnieuw.",
+  },
   manageNav: {
     today: "Vandaag",
     questions: "Aanvragen",
@@ -655,6 +708,8 @@ export const catalog = {
       "Deze aanpassing past niet met de andere registraties van die dag.",
     errorSelfDecision: "Je kan je eigen aanvraag niet zelf beoordelen.",
     errorStale: "Deze aanvraag is niet meer actueel. Ververs de pagina.",
+    errorEmployeeInactive:
+      "Deze medewerker is uit dienst. Je kan de vraag alleen weigeren.",
     errorGeneric: "Er ging iets mis. Probeer het opnieuw.",
   },
   manageTeam: {
@@ -932,6 +987,10 @@ export const catalog = {
       correctionRequestWithdrawn: "Correctieaanvraag ingetrokken",
       correctionRequestApproved: "Correctieaanvraag goedgekeurd",
       correctionRequestRejected: "Correctieaanvraag afgewezen",
+      correctionRequestCreatedByManager: "{actor} corrigeerde de uren van {employee}",
+      correctionRequestApprovedByManager:
+        "Correctie van de uren van {employee} toegepast",
+      employeeUnknown: "een medewerker",
       employeeKioskPinSet: "Kiosk-pincode ingesteld",
       employeeModuleDataUpdated: "Modulegegevens van een medewerker aangepast",
       employeeOffboarded: "Medewerker uit dienst gezet",
@@ -1053,6 +1112,9 @@ export const catalog = {
   manageEmployee: {
     backLink: "Terug naar team",
     shiftsHeading: "Laatste 14 dagen",
+    addCorrection: "Correctie toevoegen",
+    adjustShift: "Aanpassen",
+    adjustShiftFor: "Uren van {date} aanpassen",
     correctionsHeading: "Meldingen",
     noCorrections: "Nog geen meldingen.",
     scheduleHeading: "Rooster",

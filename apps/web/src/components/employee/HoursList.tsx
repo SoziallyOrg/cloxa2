@@ -203,6 +203,17 @@ function DayDetail({ day }: { day: HoursDay }) {
         ))}
       </ul>
       {notes ? <p className="text-subhead text-ink-2">{notes}</p> : null}
+      {day.managerCorrection ? (
+        <section className="flex flex-col gap-1 rounded-card border border-line bg-fill p-4">
+          <h3 className="text-footnote font-bold text-ink-2">
+            {t("questions.managerOrigin")}
+          </h3>
+          <p className="text-subhead text-ink-2">
+            {t("questions.managerOriginOn", { date: day.managerCorrection.date })}
+          </p>
+          <p className="text-body break-words">{day.managerCorrection.reason}</p>
+        </section>
+      ) : null}
       {day.correctionHref ? (
         <Link
           href={day.correctionHref as Route}

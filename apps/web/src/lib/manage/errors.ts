@@ -9,6 +9,7 @@ export type DecideCorrectionErrorKey =
   | "manageVragen.errorInvalidSequence"
   | "manageVragen.errorSelfDecision"
   | "manageVragen.errorStale"
+  | "manageVragen.errorEmployeeInactive"
   | "manageVragen.errorGeneric";
 
 export function mapDecideCorrectionError(error: unknown): DecideCorrectionErrorKey {
@@ -18,6 +19,8 @@ export function mapDecideCorrectionError(error: unknown): DecideCorrectionErrorK
         return "manageVragen.errorInvalidSequence";
       case "self_decision_not_allowed":
         return "manageVragen.errorSelfDecision";
+      case "employee_inactive":
+        return "manageVragen.errorEmployeeInactive";
       case "not_pending":
       case "target_not_effective":
       case "stale_target":
@@ -34,6 +37,7 @@ export const DECIDE_ERROR_KEYS = [
   "manageVragen.errorInvalidSequence",
   "manageVragen.errorSelfDecision",
   "manageVragen.errorStale",
+  "manageVragen.errorEmployeeInactive",
   "manageVragen.errorGeneric",
   "manageVragen.rejectNoteRequired",
 ] as const;
@@ -46,6 +50,86 @@ export function decideErrorKey(value: unknown): DecideErrorKey | null {
     (DECIDE_ERROR_KEYS as readonly string[]).includes(value)
     ? (value as DecideErrorKey)
     : null;
+}
+
+export type ManagerCorrectErrorKey =
+  | "manageCorrection.errorNotAuthorized"
+  | "manageCorrection.errorSelf"
+  | "manageCorrection.errorSiteNotAssigned"
+  | "manageCorrection.errorInvalid"
+  | "manageCorrection.errorAnonymised"
+  | "manageCorrection.errorInactive"
+  | "manageCorrection.errorSiteInactive"
+  | "manageCorrection.errorTargetStale"
+  | "manageCorrection.errorTooOld"
+  | "manageCorrection.errorInFuture"
+  | "manageCorrection.errorNotIncreasing"
+  | "manageCorrection.errorConflict"
+  | "manageCorrection.errorSequenceClockIn"
+  | "manageCorrection.errorSequenceClockOut"
+  | "manageCorrection.errorSequenceBreakStart"
+  | "manageCorrection.errorSequenceBreakEnd"
+  | "manageCorrection.errorSequence"
+  | "manageCorrection.errorRateLimited"
+  | "manageCorrection.errorGeneric";
+
+/** `invalid_sequence` names the impossible step in its detail: `state=off type=clock_out ...`. */
+function sequenceKey(details: string | null): ManagerCorrectErrorKey {
+  const type = /(?:^|\s)type=(\w+)/.exec(details ?? "")?.[1];
+  switch (type) {
+    case "clock_in":
+      return "manageCorrection.errorSequenceClockIn";
+    case "clock_out":
+      return "manageCorrection.errorSequenceClockOut";
+    case "break_start":
+      return "manageCorrection.errorSequenceBreakStart";
+    case "break_end":
+      return "manageCorrection.errorSequenceBreakEnd";
+    default:
+      return "manageCorrection.errorSequence";
+  }
+}
+
+/** Every refusal of `rpc_manager_correct`, as a copy key (no `t()` here). */
+export function mapManagerCorrectError(error: unknown): ManagerCorrectErrorKey {
+  if (!(error instanceof RpcError)) return "manageCorrection.errorGeneric";
+  switch (error.message) {
+    case "not_authorized":
+      return "manageCorrection.errorNotAuthorized";
+    case "self_correction_not_allowed":
+      return "manageCorrection.errorSelf";
+    case "site_not_assigned":
+      return "manageCorrection.errorSiteNotAssigned";
+    case "invalid_kind":
+    case "invalid_reason":
+    case "invalid_proposal":
+    case "invalid_proposed_time":
+    case "invalid_targets":
+      return "manageCorrection.errorInvalid";
+    case "employee_anonymised":
+      return "manageCorrection.errorAnonymised";
+    case "employee_inactive":
+      return "manageCorrection.errorInactive";
+    case "site_inactive":
+      return "manageCorrection.errorSiteInactive";
+    case "target_not_effective":
+      return "manageCorrection.errorTargetStale";
+    case "target_too_old":
+    case "proposed_time_too_old":
+      return "manageCorrection.errorTooOld";
+    case "proposed_time_in_future":
+      return "manageCorrection.errorInFuture";
+    case "proposed_times_not_increasing":
+      return "manageCorrection.errorNotIncreasing";
+    case "proposed_time_conflict":
+      return "manageCorrection.errorConflict";
+    case "invalid_sequence":
+      return sequenceKey(error.details);
+    case "correction_rate_limited":
+      return "manageCorrection.errorRateLimited";
+    default:
+      return "manageCorrection.errorGeneric";
+  }
 }
 
 export type DecideReturnTo = "vandaag" | "aanvragen";

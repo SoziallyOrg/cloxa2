@@ -48,6 +48,7 @@ const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 export function canAdvance(
   state: CorrectionFormState,
   targets: readonly CorrectionTargetOption[],
+  options: CorrectionFormOptions = {},
 ): boolean {
   if (state.step === 1) return state.kind !== null;
 
@@ -72,15 +73,21 @@ export function canAdvance(
     return false;
   }
 
-  // Step 3 (reason) is always optional.
-  return true;
+  // Step 3: the reason is optional for an employee, required for a manager.
+  return !options.reasonRequired || state.reason.trim() !== "";
+}
+
+export interface CorrectionFormOptions {
+  /** A manager's correction always carries a reason (the employee reads it). */
+  readonly reasonRequired?: boolean;
 }
 
 export function goNext(
   state: CorrectionFormState,
   targets: readonly CorrectionTargetOption[],
+  options: CorrectionFormOptions = {},
 ): CorrectionFormState {
-  if (!canAdvance(state, targets) || state.step === 3) return state;
+  if (!canAdvance(state, targets, options) || state.step === 3) return state;
   return { ...state, step: (state.step + 1) as CorrectionFormState["step"] };
 }
 
@@ -97,9 +104,13 @@ export function goBack(state: CorrectionFormState): CorrectionFormState {
 export function buildCorrectionPayload(
   state: CorrectionFormState,
   siteId: string,
+  options: CorrectionFormOptions = {},
 ): RequestCorrectionInput | null {
-  // The RPC requires a non-empty reason; the form treats it as optional.
-  const reason = state.reason.trim() || t("correctionForm.defaultReason");
+  // The RPC requires a non-empty reason; an employee may leave it empty (a
+  // default is sent), a manager may not.
+  const typed = state.reason.trim();
+  if (options.reasonRequired && typed === "") return null;
+  const reason = typed || t("correctionForm.defaultReason");
 
   if (state.kind === "add") {
     if (

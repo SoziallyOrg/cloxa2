@@ -53,6 +53,8 @@ import {
   type PlannedBlock,
 } from "@/lib/manage/timeline";
 import { blocksForOpenShift, plannedEndForOpenShift } from "@/lib/schedule/open-shift";
+import { loadTargetRoles, mayCorrect } from "@/lib/manage/correct-access";
+import { correctedEmployeeId, correctionHref } from "@/lib/manage/correction-link";
 import { previewHold } from "@/lib/preview";
 import { createClient } from "@/lib/supabase/server";
 
@@ -135,7 +137,7 @@ export default async function ManagePage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   // Layouts don't re-run on client navigation, so every page checks too.
-  await requireManager();
+  const context = await requireManager();
   await previewHold();
   const supabase = await createClient();
   const now = nowMs();
@@ -144,6 +146,7 @@ export default async function ManagePage({
   const siteRaw = Array.isArray(params.site) ? params.site[0] : params.site;
   const errorRaw = Array.isArray(params.error) ? params.error[0] : params.error;
   const errorKey = decideErrorKey(errorRaw);
+  const correctedId = correctedEmployeeId(params.gecorrigeerd);
 
   const { data: siteRows, error: sitesError } = await supabase
     .from("sites")
@@ -157,7 +160,7 @@ export default async function ManagePage({
 
   const { data: employeeRows, error: employeesError } = await supabase
     .from("employees")
-    .select("id, display_name")
+    .select("id, display_name, user_id")
     .eq("active", true)
     .order("display_name");
   if (employeesError) throw new Error(`employees_unavailable:${employeesError.code}`);
@@ -182,6 +185,16 @@ export default async function ManagePage({
         sitesByEmployee.get(employee.id)?.has(selectedSiteId),
       )
     : employeeRows;
+
+  // Who may be offered "Correctie toevoegen" (the database enforces it anyway).
+  const targetRoles = await loadTargetRoles(
+    supabase,
+    context.membership.role,
+    context.membership.organizationId,
+    visibleEmployees.flatMap((employee) =>
+      employee.user_id ? [employee.user_id] : [],
+    ),
+  );
 
   const { count: pendingCount, error: pendingError } = await supabase
     .from("correction_requests")
@@ -428,12 +441,30 @@ export default async function ManagePage({
       today: todayKey,
       now,
     };
+    const canCorrect = mayCorrect(
+      { role: context.membership.role, employeeId: context.employeeId },
+      {
+        employeeId: employee.id,
+        userId: employee.user_id,
+        role: employee.user_id ? targetRoles.get(employee.user_id) : undefined,
+      },
+    );
+    const personHref = `/manage/medewerker/${employee.id}`;
     const attentionItemsOfPerson = personAttention
       ? personAttention.items.map((item) => ({
           id: item.id,
           label: noteFor(item, noteContext),
           action: actionFor(item),
           fix: item.reason === "forgotClockOut" || item.reason === "notStarted",
+          // A forgotten clock-out is fixed right there; the rest only looks.
+          href:
+            item.reason === "forgotClockOut" && canCorrect && open
+              ? correctionHref(employee.id, {
+                  date: brusselsDayKey(open.start),
+                  forgotClockOut: true,
+                  returnTo: "vandaag",
+                })
+              : personHref,
         }))
       : [];
     const attentionSummary = personAttention
@@ -552,7 +583,10 @@ export default async function ManagePage({
       statusWord: t(GROUP_LABEL_KEY[group]),
       attentionSummary,
       attentionItems: attentionItemsOfPerson,
-      href: `/manage/medewerker/${employee.id}`,
+      href: personHref,
+      correctHref: canCorrect
+        ? correctionHref(employee.id, { returnTo: "vandaag" })
+        : null,
       block,
       events,
       weekWorked: weekWorked > 0 ? formatBarTime(weekWorked) : null,
@@ -564,6 +598,11 @@ export default async function ManagePage({
   const pendingRequests = await loadRequests(supabase, "pending", {
     limit: PANEL_REQUESTS,
   });
+
+  const correctedName = correctedId
+    ? (employeeRows.find((employee) => employee.id === correctedId)?.display_name ??
+      null)
+    : null;
 
   const siteName = selectedSiteId
     ? siteRows.find((site) => site.id === selectedSiteId)?.name
@@ -628,6 +667,11 @@ export default async function ManagePage({
             />
           </div>
           {errorKey ? <Notice tone="error">{t(errorKey)}</Notice> : null}
+          {correctedName ? (
+            <Notice tone="success">
+              {t("manageCorrection.saved", { name: correctedName })}
+            </Notice>
+          ) : null}
           <TodayBoard
             people={people}
             nowPct={nowPct(now, day)}

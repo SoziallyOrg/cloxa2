@@ -5,6 +5,7 @@ import { useState, useTransition } from "react";
 import { t } from "@cloxa/i18n";
 
 import { Button } from "../ui/Button";
+import { cx } from "../ui/cx";
 import { Notice } from "../ui/Notice";
 import { Sheet } from "../ui/Sheet";
 import type { StatusTone } from "../ui/StatusLine";
@@ -15,6 +16,8 @@ import { StatusChip } from "./StatusChip";
 /** One question, formatted on the server. */
 export interface RequestRow {
   id: string;
+  /** Recorded by a manager (ADR 010): shown as information, not as a question. */
+  fromManager: boolean;
   /** "Een tijd klopt niet", or the date when the kind is unknown. */
   title: string;
   /** "28 september 2026". */
@@ -79,7 +82,10 @@ export function RequestsList({ rows, withdrawAction }: RequestsListProps) {
               type="button"
               aria-haspopup="dialog"
               onClick={() => setSelectedId(row.id)}
-              className="focus-ring flex h-full w-full pressable flex-col gap-3 rounded-card bg-card p-4 text-left shadow-card"
+              className={cx(
+                "focus-ring flex h-full w-full pressable flex-col gap-3 rounded-card p-4 text-left",
+                row.fromManager ? "border border-line bg-fill" : "bg-card shadow-card",
+              )}
             >
               <span className="flex items-start justify-between gap-3">
                 <span className="flex min-w-0 flex-col">
@@ -88,7 +94,9 @@ export function RequestsList({ rows, withdrawAction }: RequestsListProps) {
                     {row.dayLabel ?? row.shortDate}
                   </span>
                 </span>
-                <StatusChip tone={row.statusTone} label={row.statusLabel} />
+                {row.fromManager ? null : (
+                  <StatusChip tone={row.statusTone} label={row.statusLabel} />
+                )}
               </span>
               {row.changes.map((change, index) => (
                 <ChangeTiles key={index} {...change} />
@@ -108,8 +116,14 @@ export function RequestsList({ rows, withdrawAction }: RequestsListProps) {
         {selected ? (
           <>
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <StatusChip tone={selected.statusTone} label={selected.statusLabel} />
-              <p className="text-subhead text-ink-2">{selected.date}</p>
+              {selected.fromManager ? null : (
+                <StatusChip tone={selected.statusTone} label={selected.statusLabel} />
+              )}
+              <p className="text-subhead text-ink-2">
+                {selected.fromManager
+                  ? t("questions.managerOriginOn", { date: selected.date })
+                  : selected.date}
+              </p>
             </div>
             {selected.changes.map((change, index) => (
               <ChangeTiles key={index} {...change} />
@@ -117,7 +131,9 @@ export function RequestsList({ rows, withdrawAction }: RequestsListProps) {
             {selected.reason ? (
               <section className="flex flex-col gap-1 rounded-card bg-card p-4 shadow-card">
                 <h3 className="text-footnote font-bold text-ink-2">
-                  {t("questions.detailReason")}
+                  {selected.fromManager
+                    ? t("questions.managerReason")
+                    : t("questions.detailReason")}
                 </h3>
                 <p className="text-body break-words">{selected.reason}</p>
               </section>

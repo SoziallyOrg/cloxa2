@@ -51,6 +51,11 @@ export interface HoursDay {
   readonly offlineSkew: string | null;
   readonly work: readonly DayBarSpan[];
   readonly breaks: readonly DayBarSpan[];
+  /** A manager's correction on this day (ADR 010): their reason and the date it was made. */
+  readonly managerCorrection?: {
+    readonly reason: string;
+    readonly date: string;
+  } | null;
   /** "Klopt er iets niet?" starts a question for the day's last shift. */
   readonly correctionHref: string | null;
 }

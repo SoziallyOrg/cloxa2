@@ -7,6 +7,7 @@ import {
   decideReturnTo,
   mapDecideCorrectionError,
   mapInviteError,
+  mapManagerCorrectError,
   mapSetScheduleError,
 } from "./errors";
 
@@ -42,6 +43,76 @@ describe("mapDecideCorrectionError", () => {
     );
     expect(mapDecideCorrectionError(new TypeError("network"))).toBe(
       "manageVragen.errorGeneric",
+    );
+  });
+});
+
+describe("mapDecideCorrectionError, inactive employee", () => {
+  it("says the employee left", () => {
+    expect(mapDecideCorrectionError(rpcError("employee_inactive"))).toBe(
+      "manageVragen.errorEmployeeInactive",
+    );
+    expect(decideErrorKey("manageVragen.errorEmployeeInactive")).toBe(
+      "manageVragen.errorEmployeeInactive",
+    );
+  });
+});
+
+describe("mapManagerCorrectError", () => {
+  const cases: [string, string][] = [
+    ["not_authorized", "manageCorrection.errorNotAuthorized"],
+    ["self_correction_not_allowed", "manageCorrection.errorSelf"],
+    ["site_not_assigned", "manageCorrection.errorSiteNotAssigned"],
+    ["invalid_kind", "manageCorrection.errorInvalid"],
+    ["invalid_reason", "manageCorrection.errorInvalid"],
+    ["invalid_proposal", "manageCorrection.errorInvalid"],
+    ["invalid_proposed_time", "manageCorrection.errorInvalid"],
+    ["invalid_targets", "manageCorrection.errorInvalid"],
+    ["employee_anonymised", "manageCorrection.errorAnonymised"],
+    ["employee_inactive", "manageCorrection.errorInactive"],
+    ["site_inactive", "manageCorrection.errorSiteInactive"],
+    ["target_not_effective", "manageCorrection.errorTargetStale"],
+    ["target_too_old", "manageCorrection.errorTooOld"],
+    ["proposed_time_too_old", "manageCorrection.errorTooOld"],
+    ["proposed_time_in_future", "manageCorrection.errorInFuture"],
+    ["proposed_times_not_increasing", "manageCorrection.errorNotIncreasing"],
+    ["proposed_time_conflict", "manageCorrection.errorConflict"],
+    ["invalid_sequence", "manageCorrection.errorSequence"],
+    ["correction_rate_limited", "manageCorrection.errorRateLimited"],
+    ["something_else", "manageCorrection.errorGeneric"],
+  ];
+
+  it.each(cases)("maps %s", (code, key) => {
+    expect(mapManagerCorrectError(rpcError(code))).toBe(key);
+  });
+
+  it("names the impossible step of an invalid sequence", () => {
+    const sequence = (details: string) =>
+      mapManagerCorrectError(
+        new RpcError("rpc_manager_correct", {
+          message: "invalid_sequence",
+          code: "P0001",
+          details,
+        }),
+      );
+    expect(sequence("state=off type=clock_out occurred_at=2026-10-01")).toBe(
+      "manageCorrection.errorSequenceClockOut",
+    );
+    expect(sequence("state=working type=clock_in occurred_at=x")).toBe(
+      "manageCorrection.errorSequenceClockIn",
+    );
+    expect(sequence("state=off type=break_start occurred_at=x")).toBe(
+      "manageCorrection.errorSequenceBreakStart",
+    );
+    expect(sequence("state=working type=break_end occurred_at=x")).toBe(
+      "manageCorrection.errorSequenceBreakEnd",
+    );
+    expect(sequence("garbage")).toBe("manageCorrection.errorSequence");
+  });
+
+  it("falls back to generic for non-RpcErrors", () => {
+    expect(mapManagerCorrectError(new TypeError("network"))).toBe(
+      "manageCorrection.errorGeneric",
     );
   });
 });

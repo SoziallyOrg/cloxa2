@@ -27,7 +27,8 @@ import {
   actionCategory,
   AUDIT_CATEGORIES,
   categoryLabelKey,
-  describeAction,
+  auditEmployeeId,
+  describeAuditEntry,
   entityLabelKey,
 } from "@/lib/audit/describe";
 import { parseAuditFilters } from "@/lib/audit/filters";
@@ -155,7 +156,16 @@ export default async function ManageAuditPage({
     ),
   ];
 
-  const [employeesResult, devicesResult] = await Promise.all([
+  // The employee of a manager-made correction, for its sentence.
+  const subjectIds = [
+    ...new Set(
+      page.items
+        .map((row) => auditEmployeeId(row.action, row.metadata))
+        .filter((id): id is string => id !== null),
+    ),
+  ];
+
+  const [employeesResult, devicesResult, subjectsResult] = await Promise.all([
     actorIds.length === 0
       ? { data: [] as { user_id: string | null; display_name: string }[], error: null }
       : supabase
@@ -170,7 +180,20 @@ export default async function ManageAuditPage({
           .select("id, name")
           .eq("organization_id", organizationId)
           .in("id", deviceIds),
+    subjectIds.length === 0
+      ? { data: [] as { id: string; display_name: string }[], error: null }
+      : supabase
+          .from("employees")
+          .select("id, display_name")
+          .eq("organization_id", organizationId)
+          .in("id", subjectIds),
   ]);
+  if (subjectsResult.error) {
+    throw new Error(`employees_unavailable:${subjectsResult.error.code}`);
+  }
+  const subjectNames = new Map(
+    subjectsResult.data.map((row) => [row.id, row.display_name]),
+  );
   if (employeesResult.error) {
     throw new Error(`employees_unavailable:${employeesResult.error.code}`);
   }
@@ -221,6 +244,16 @@ export default async function ManageAuditPage({
       : label.kind === "kiosk"
         ? t("audit.actorKiosk", { name: label.deviceName ?? t("audit.actorUnknown") })
         : t("audit.actorSystem");
+  }
+
+  function actionText(row: (typeof page.items)[number]): string {
+    const subjectId = auditEmployeeId(row.action, row.metadata);
+    return t(describeAuditEntry(row.action, row.metadata), {
+      actor: actorText(row),
+      employee:
+        (subjectId ? subjectNames.get(subjectId) : null) ??
+        t("audit.action.employeeUnknown"),
+    });
   }
 
   return (
@@ -290,9 +323,7 @@ export default async function ManageAuditPage({
                           {formatBrusselsShortDate(at)} {formatBrusselsTime(at)}
                         </Td>
                         <Td>{actorText(row)}</Td>
-                        <Td className="font-semibold">
-                          {t(describeAction(row.action))}
-                        </Td>
+                        <Td className="font-semibold">{actionText(row)}</Td>
                         <Td className="text-ink-2">
                           {entityKey ? t(entityKey) : row.entity}{" "}
                           {shortId(row.entity_id)}
@@ -311,7 +342,7 @@ export default async function ManageAuditPage({
                     return (
                       <Row
                         key={row.id}
-                        title={t(describeAction(row.action))}
+                        title={actionText(row)}
                         subtitle={[
                           t("audit.rowDetail", {
                             time: formatBrusselsTime(new Date(row.created_at)),

@@ -12,6 +12,8 @@
  *   offline-e2e@demo.test (site 1; reserved for the offline e2e)
  *   offboard-e2e@demo.test (site 1; reserved for the offboarding e2e)
  *   journey-e2e@demo.test (site 1; reserved for manager-journey.spec.ts)
+ *   correctie-manager-e2e@demo.test (manager) and correctie-e2e@demo.test (employee),
+ *     both site 1: reserved for manager-correction.spec.ts
  *   owner-e2e@demo.test (owner, site 1; reserved for e2e specs needing owner
  *     rights, so eigenaar@demo.test's session is never disturbed)
  *   screens-geen@demo.test (no membership) and screens-twee@demo.test (two
@@ -179,6 +181,20 @@ const MEMBERS: readonly {
   {
     email: "journey-e2e@demo.test",
     name: "Jef Journeytest",
+    role: "employee",
+    sites: ["main"],
+  },
+  // Dedicated to manager-correction.spec.ts: a manager who fixes the hours of
+  // an employee whose history only that spec writes to (events are append-only).
+  {
+    email: "correctie-manager-e2e@demo.test",
+    name: "Carla Correctiemanager",
+    role: "manager",
+    sites: ["main"],
+  },
+  {
+    email: "correctie-e2e@demo.test",
+    name: "Cor Correctietest",
     role: "employee",
     sites: ["main"],
   },

@@ -3,7 +3,13 @@ import path from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { ACTION_DESCRIPTIONS, actionCategory, describeAction } from "./describe";
+import {
+  ACTION_DESCRIPTIONS,
+  actionCategory,
+  auditEmployeeId,
+  describeAction,
+  describeAuditEntry,
+} from "./describe";
 
 // apps/web/src/lib/audit -> repo root.
 const MIGRATIONS_DIR = path.join(
@@ -88,6 +94,34 @@ describe("describeAction", () => {
 
   it("falls back to the unknown-action key", () => {
     expect(describeAction("something.unmapped")).toBe("audit.action.unknown");
+  });
+});
+
+describe("describeAuditEntry", () => {
+  const manager = { origin: "manager", employee_id: "e1", kind: "add" };
+
+  it("names the actor and employee for a correction a manager made", () => {
+    expect(describeAuditEntry("correction_request.created", manager)).toBe(
+      "audit.action.correctionRequestCreatedByManager",
+    );
+    expect(describeAuditEntry("correction_request.approved", manager)).toBe(
+      "audit.action.correctionRequestApprovedByManager",
+    );
+    expect(auditEmployeeId("correction_request.created", manager)).toBe("e1");
+  });
+
+  it("keeps the normal wording for requests by employees and other actions", () => {
+    const own = { origin: "employee", employee_id: "e1" };
+    expect(describeAuditEntry("correction_request.created", own)).toBe(
+      "audit.action.correctionRequestCreated",
+    );
+    expect(describeAuditEntry("correction_request.created", null)).toBe(
+      "audit.action.correctionRequestCreated",
+    );
+    expect(describeAuditEntry("correction_request.rejected", manager)).toBe(
+      "audit.action.correctionRequestRejected",
+    );
+    expect(auditEmployeeId("correction_request.created", own)).toBeNull();
   });
 });
 

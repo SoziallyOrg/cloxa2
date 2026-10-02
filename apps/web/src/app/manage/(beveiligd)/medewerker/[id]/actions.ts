@@ -1,12 +1,16 @@
 "use server";
 
+import type { Route } from "next";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import {
+  managerCorrect,
   offboardEmployee,
   reinstateEmployee,
   RpcError,
+  type RequestCorrectionInput,
   setEmployeeModuleData,
   setEmployeePin,
 } from "@cloxa/db";
@@ -17,6 +21,12 @@ import type { ModuleFieldsResult } from "@/components/modules/ModuleFieldsSheet"
 import { requireManager } from "@/lib/auth/context";
 import { pinErrorKey } from "@/lib/kiosk/errors";
 import { pinFormProblem, type PinActionResult } from "@/lib/kiosk/pin";
+import { correctionDoneHref, correctionReturn } from "@/lib/manage/correction-link";
+import { parseManagerCorrection } from "@/lib/manage/correct-input";
+import {
+  mapManagerCorrectError,
+  type ManagerCorrectErrorKey,
+} from "@/lib/manage/errors";
 import { mapOffboardError, type OffboardErrorKey } from "@/lib/manage/offboarding";
 import { createClient } from "@/lib/supabase/server";
 
@@ -128,4 +138,42 @@ export async function setModuleFieldsAction(
   }
   revalidatePath(`/manage/medewerker/${id.data}`);
   return { ok: true };
+}
+
+export interface ManagerCorrectResult {
+  readonly ok: false;
+  readonly errorKey: ManagerCorrectErrorKey;
+}
+
+/**
+ * A manager corrects an employee's hours (ADR 010). The employee comes from
+ * the route (bound in the page), the destination from a fixed list; the
+ * database decides who may (scope, roles, fresh MFA) and appends the
+ * correction. On success this redirects, so only a refusal returns.
+ */
+export async function managerCorrectAction(
+  employeeId: string,
+  returnTo: string,
+  input: RequestCorrectionInput,
+): Promise<ManagerCorrectResult> {
+  await requireManager();
+  const id = employeeIdSchema.safeParse(employeeId);
+  const proposal = id.success ? parseManagerCorrection(id.data, input) : null;
+  if (!id.success || proposal === null) {
+    return { ok: false, errorKey: "manageCorrection.errorInvalid" };
+  }
+
+  try {
+    await managerCorrect(await createClient(), proposal);
+  } catch (error) {
+    return { ok: false, errorKey: mapManagerCorrectError(error) };
+  }
+
+  revalidatePath("/manage");
+  revalidatePath("/manage/vragen");
+  revalidatePath(`/manage/medewerker/${id.data}`);
+  // The employee's own pages (the paths are shared; the data is per person).
+  revalidatePath("/app/uren");
+  revalidatePath("/app/vragen");
+  redirect(correctionDoneHref(correctionReturn(returnTo), id.data) as Route);
 }

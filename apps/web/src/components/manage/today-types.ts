@@ -21,6 +21,8 @@ export interface PersonAttentionItem {
   readonly action: string;
   /** A forgotten or missing clock-in/out needs a fix; the rest is just looking. */
   readonly fix: boolean;
+  /** Where the action goes: the correction for a forgotten clock-out, else the person. */
+  readonly href: string;
 }
 
 export interface TodayPerson {
@@ -41,6 +43,8 @@ export interface TodayPerson {
   readonly attentionItems: readonly PersonAttentionItem[];
   /** The employee's page: hours, corrections, everything to fix. */
   readonly href: string;
+  /** The correction wizard, or `null` when the viewer may not correct this person. */
+  readonly correctHref: string | null;
   readonly block: PersonBlock;
   /** Today's events, plus the planned end as a muted last line. */
   readonly events: readonly { time: string; label: string; muted: boolean }[];

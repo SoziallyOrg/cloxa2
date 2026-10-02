@@ -1,5 +1,7 @@
 import { notFound } from "next/navigation";
-import { CalendarDays, Download } from "lucide-react";
+import Link from "next/link";
+import type { Route } from "next";
+import { CalendarDays, Download, PencilLine } from "lucide-react";
 
 import { scheduleFor } from "@cloxa/db";
 import { brusselsDayKey, deriveShifts, effectiveEvents } from "@cloxa/domain";
@@ -25,12 +27,17 @@ import {
   ReinstateSection,
   SignOutSection,
 } from "@/components/manage/EmploymentActions";
+import { buttonClassName } from "@/components/ui/Button";
 import { ListItem, Row, Section } from "@/components/ui/List";
+import { Notice } from "@/components/ui/Notice";
 import { NavBar } from "@/components/ui/NavBar";
 import { PageTransition } from "@/components/ui/PageTransition";
 import { StatusLine } from "@/components/ui/StatusLine";
 import { requireManager } from "@/lib/auth/context";
+import { isRole } from "@/lib/auth/routing";
 import { nowMs } from "@/lib/clock/now";
+import { mayCorrect } from "@/lib/manage/correct-access";
+import { correctedEmployeeId, correctionHref } from "@/lib/manage/correction-link";
 import { STATUTE_LABEL_KEY } from "@/lib/manage/labels";
 import { CLOCK_EVENT_COLUMNS, clockEventFromRow } from "@/lib/modules/events";
 import { loadEnabledModules, loadModuleData, loadYearFacts } from "@/lib/modules/load";
@@ -69,8 +76,10 @@ const range = (from: string, to: string) =>
 
 export default async function ManageEmployeeDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const context = await requireManager();
   await previewHold();
@@ -110,6 +119,18 @@ export default async function ManageEmployeeDetailPage({
           .maybeSingle()
       : { data: null };
   const canOffboard = !isSelf && targetMembership?.role !== "owner";
+  // Only a button: the database enforces who may correct whom.
+  const canCorrect = mayCorrect(
+    { role: context.membership.role, employeeId: context.employeeId },
+    {
+      employeeId: employee.id,
+      userId: employee.user_id,
+      role: isRole(targetMembership?.role) ? targetMembership.role : undefined,
+      inactive: employee.left_at !== null || employee.anonymised_at !== null,
+    },
+  );
+  const justCorrected =
+    correctedEmployeeId((await searchParams).gecorrigeerd) === employee.id;
 
   const now = nowMs();
   const windowStart = now - WINDOW_MS;
@@ -236,6 +257,13 @@ export default async function ManageEmployeeDetailPage({
       />
       {/* Two columns from 1280px: hours and plan right, facts and actions left.
           On a phone the hours come first. */}
+      {justCorrected ? (
+        <div className="px-gutter pb-5 md:px-gutter-desktop">
+          <Notice tone="success">
+            {t("manageCorrection.saved", { name: employee.display_name })}
+          </Notice>
+        </div>
+      ) : null}
       <div className="grid gap-7 px-gutter pb-10 md:px-gutter-desktop xl:grid-cols-2 xl:items-start">
         <div className="order-1 flex flex-col gap-7 xl:order-2">
           <Section header={t("manageEmployee.shiftsHeading")}>
@@ -271,10 +299,35 @@ export default async function ManageEmployeeDetailPage({
                           : // Left open since an earlier day: no running total.
                             t("common.none")
                     }
+                    accessory={
+                      canCorrect ? (
+                        <Link
+                          href={
+                            correctionHref(employee.id, {
+                              date: brusselsDayKey(shift.start),
+                              returnTo: "medewerker",
+                            }) as Route
+                          }
+                          aria-label={t("manageEmployee.adjustShiftFor", {
+                            date: row.date,
+                          })}
+                          className={buttonClassName("secondary", "sm")}
+                        >
+                          {t("manageEmployee.adjustShift")}
+                        </Link>
+                      ) : undefined
+                    }
                   />
                 );
               })
             )}
+            {canCorrect ? (
+              <Row
+                href={correctionHref(employee.id, { returnTo: "medewerker" })}
+                icon={PencilLine}
+                title={t("manageEmployee.addCorrection")}
+              />
+            ) : null}
           </Section>
 
           {correctionRows.length > 0 ? (

@@ -56,7 +56,7 @@ export default async function QuestionsPage() {
   const { data: requests, error } = await supabase
     .from("correction_requests")
     .select(
-      "id, kind, status, reason, decision_note, created_at, proposed, target_event_ids",
+      "id, kind, status, origin, reason, decision_note, created_at, proposed, target_event_ids",
     )
     .eq("employee_id", context.employeeId)
     .order("created_at", { ascending: false });
@@ -93,9 +93,11 @@ export default async function QuestionsPage() {
       targetEventIds: request.target_event_ids,
       targetEvents,
     });
+    const fromManager = request.origin === "manager";
     return {
       id: request.id,
-      title: kind ? t(kind) : date,
+      fromManager,
+      title: fromManager ? t("questions.managerOrigin") : kind ? t(kind) : date,
       date,
       shortDate: formatBrusselsShortDate(new Date(request.created_at)),
       statusLabel: t(STATUS_LABEL_KEY[key]),

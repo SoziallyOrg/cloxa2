@@ -50,6 +50,38 @@ export function describeAction(action: string): CatalogKey {
   return ACTION_DESCRIPTIONS[action] ?? "audit.action.unknown";
 }
 
+function metadataField(metadata: unknown, field: string): string | null {
+  if (typeof metadata !== "object" || metadata === null) return null;
+  const value = (metadata as Record<string, unknown>)[field];
+  return typeof value === "string" ? value : null;
+}
+
+const MANAGER_ORIGIN_ACTIONS: Readonly<Record<string, CatalogKey>> = {
+  "correction_request.created": "audit.action.correctionRequestCreatedByManager",
+  "correction_request.approved": "audit.action.correctionRequestApprovedByManager",
+};
+
+/**
+ * Like `describeAction`, but a correction a manager made (ADR 010,
+ * `metadata.origin = 'manager'`) gets a sentence naming actor and employee.
+ * Never the reason: it is not in the log.
+ */
+export function describeAuditEntry(action: string, metadata: unknown): CatalogKey {
+  if (metadataField(metadata, "origin") === "manager") {
+    const key = MANAGER_ORIGIN_ACTIONS[action];
+    if (key) return key;
+  }
+  return describeAction(action);
+}
+
+/** The employee a manager-made correction is about, to look up their name. */
+export function auditEmployeeId(action: string, metadata: unknown): string | null {
+  return metadataField(metadata, "origin") === "manager" &&
+    MANAGER_ORIGIN_ACTIONS[action] !== undefined
+    ? metadataField(metadata, "employee_id")
+    : null;
+}
+
 export const AUDIT_ENTITIES = [
   "clock_event",
   "correction_request",
