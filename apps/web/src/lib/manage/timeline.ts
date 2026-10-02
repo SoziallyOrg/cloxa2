@@ -126,7 +126,7 @@ export function boardWindow(input: {
 export function windowTicks(window: TimelineWindow): [number, number][] {
   const step = window.end - window.start > 18 * HOUR_MS ? 6 : 3;
   const ticks: [number, number][] = [];
-  for (let at = window.start; at < window.end; at += HOUR_MS) {
+  for (let at = window.start; at <= window.end; at += HOUR_MS) {
     const hour = Number(formatBrusselsTime(new Date(at)).slice(0, 2));
     if (hour % step === 0) ticks.push([hour, positionPct(at, window)]);
   }

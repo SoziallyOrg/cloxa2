@@ -139,7 +139,7 @@ export function DayAxis({
           key={`${hour}-${position}`}
           x={pct(position)}
           y="30"
-          textAnchor={position === 0 ? "start" : "middle"}
+          textAnchor={position === 0 ? "start" : position === 100 ? "end" : "middle"}
           className="fill-ink-2 text-[13px] tabular-nums"
         >
           {String(hour).padStart(2, "0")}

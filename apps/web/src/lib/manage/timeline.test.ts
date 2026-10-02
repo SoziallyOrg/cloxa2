@@ -236,7 +236,7 @@ describe("windowTicks", () => {
       shiftStarts: [at("2026-09-28T21:30:00+02:00")],
       planned: [],
     });
-    expect(windowTicks(window).map(([hour]) => hour)).toEqual([21, 0, 3]);
+    expect(windowTicks(window).map(([hour]) => hour)).toEqual([21, 0, 3, 6]);
   });
 });
 

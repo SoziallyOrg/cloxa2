@@ -31,7 +31,7 @@ export interface DayTimelineProps {
 // Name, the track and hours + status. The axis, the rows and the now line all
 // use this grid, so the three always line up. Container queries (`@xl`), not
 // viewport ones: beside the 330px panel the main column can be narrow.
-const COLUMNS = "@xl:grid-cols-[minmax(7rem,11rem)_minmax(0,1fr)_minmax(6.5rem,9rem)]";
+const COLUMNS = "@xl:grid-cols-[minmax(7rem,11rem)_minmax(0,1fr)_minmax(9rem,13rem)]";
 
 const GROUP_TONE: Record<StatusGroup, StatTone> = {
   working: "forest",
@@ -151,8 +151,9 @@ export function DayTimeline({
                         )}
                       </span>
                       <span
+                        title={person.attentionSummary ?? person.status}
                         className={cx(
-                          "text-footnote",
+                          "w-full truncate text-footnote",
                           flagged ? "font-semibold text-danger" : "text-ink-2",
                         )}
                       >
@@ -195,12 +196,13 @@ export function DayTimeline({
                       )}
                     >
                       <span className="flex items-baseline justify-between gap-3">
-                        <span className="min-w-0 truncate text-callout font-bold">
+                        <span className="max-w-[65%] shrink-0 truncate text-callout font-bold">
                           {person.name}
                         </span>
                         <span
+                          title={person.attentionSummary ?? person.status}
                           className={cx(
-                            "shrink-0 text-footnote",
+                            "min-w-0 truncate text-right text-footnote",
                             flagged ? "font-semibold text-danger" : "text-ink-2",
                           )}
                         >

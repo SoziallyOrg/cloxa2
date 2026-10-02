@@ -74,7 +74,7 @@ export function HoursList({ days }: HoursListProps) {
               </span>
               <span
                 className={cx(
-                  "text-right text-body font-bold tabular-nums lg:col-start-5 lg:row-start-1 lg:text-left",
+                  "text-right text-body font-bold whitespace-nowrap tabular-nums lg:col-start-5 lg:row-start-1 lg:text-left",
                   !day.hasShifts && "font-normal text-ink-2",
                 )}
               >
