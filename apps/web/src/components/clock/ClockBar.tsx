@@ -44,7 +44,7 @@ export function ClockBarSpacer({ placement }: { placement: "content" | "sidebar"
       className={cx(
         placement === "content"
           ? "h-28 shrink-0 lg:hidden"
-          : "hidden h-40 shrink-0 lg:block",
+          : "hidden h-52 shrink-0 lg:block",
       )}
     />
   );
@@ -134,7 +134,7 @@ function ClockBarRunner({ data }: { data: ClockBarData }) {
             </p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 lg:flex-col">
           <button
             type="button"
             disabled={disabled}
