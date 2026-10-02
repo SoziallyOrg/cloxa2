@@ -15,7 +15,7 @@ import {
 
 /**
  * Design-review screenshots of `/manage` (`pnpm screens`), at phone and
- * desktop size, light and dark. Not a test of behaviour: the e2e specs do
+ * desktop size. Not a test of behaviour: the e2e specs do
  * that.
  *
  * `screens-beheer@demo.test` owns "Bakkerij Zon (fictief)", an organization
@@ -32,6 +32,9 @@ const LEFT = "Pieter Wouters";
 
 const heading = (page: Page) => page.getByRole("heading", { level: 1 });
 const dialog = (page: Page) => page.getByRole("dialog");
+/** The timeline is in the markup twice (table and grouped list); one is hidden. */
+const visibleText = (page: Page, text: string) =>
+  page.getByText(text).filter({ visible: true }).first();
 
 /** Email code, then TOTP set-up; returns the secret for later checks. */
 async function enrol(page: Page, email: string, shots: boolean): Promise<string> {
@@ -80,7 +83,7 @@ test("the manager area of a bakery with a team", async ({ page }) => {
 
   // Vandaag: the numbers, the timeline, the site filter.
   await expect(heading(page)).toHaveText("Vandaag");
-  await expect(page.getByText(FORGOT).first()).toBeVisible();
+  await expect(visibleText(page, FORGOT)).toBeVisible();
   await capture(page, "beheer-vandaag");
   await captureScrolled(page, "beheer-vandaag-ingeklapt");
   await page.getByRole("button", { name: new RegExp(`^${FORGOT}`) }).click();
@@ -92,7 +95,7 @@ test("the manager area of a bakery with a team", async ({ page }) => {
   await capture(page, "beheer-vandaag-locatie", false);
   await dialog(page).getByRole("button", { name: "Filiaal Station (fictief)" }).click();
   await expect(page).toHaveURL(/\?site=/, SETTLED);
-  await expect(page.getByText("Mohamed El Idrissi").first()).toBeVisible(SETTLED);
+  await expect(visibleText(page, "Mohamed El Idrissi")).toBeVisible(SETTLED);
   await capture(page, "beheer-vandaag-filiaal");
 
   // The account sheet from the sidebar (desktop only has the sidebar).

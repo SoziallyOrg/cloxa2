@@ -14,7 +14,7 @@ import {
 
 /**
  * Design-review screenshots of the modules (ADR 008), at phone and desktop
- * size, light and dark. Not a test of behaviour: modules.spec.ts does that.
+ * size. Not a test of behaviour: modules.spec.ts does that.
  *
  * `screens-modules@demo.test` owns "Kantoor Verbeke (fictief)", an
  * organization of its own with four modules on (flexi off), a student with a
@@ -112,7 +112,13 @@ test("modules for the owner: the list, a module, two people and the exports", as
 
   // Exports: the agency choice and an agency export in the list.
   await open(page, "/manage/meer/exports", "Exports");
-  await expect(page.getByText("Uitzendkantoor: Tempo Uitzend (fictief)")).toBeVisible();
+  // The list is in the markup twice (soft list and table): one is hidden.
+  await expect(
+    page
+      .getByText("Uitzendkantoor: Tempo Uitzend (fictief)")
+      .filter({ visible: true })
+      .first(),
+  ).toBeVisible();
   await capture(page, "beheer-exports-modules");
 
   // Loading skeletons.

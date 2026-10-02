@@ -16,7 +16,7 @@ import {
 
 /**
  * Design-review screenshots of the login and the employee app (`pnpm screens`),
- * at phone and desktop size, light and dark. Not a test of behaviour: the
+ * at phone and desktop size. Not a test of behaviour: the
  * e2e specs do that.
  *
  * Each Klok state has its own account, which `dev:seed` (run first) brings to
@@ -92,10 +92,13 @@ test("login, and the employee app while working", async ({ page, context }) => {
   await expect(button(page, "Stop werk")).toBeVisible();
   await capture(page, "klok-werk");
 
+  // The account lives in the sidebar: desktop only.
+  await page.setViewportSize(VIEWPORTS.desktop);
   await button(page, "Sanne P.").click();
   await expect(page.getByRole("dialog")).toBeVisible();
   await capture(page, "account", false);
   await closeSheet(page);
+  await page.setViewportSize(VIEWPORTS.phone);
 
   await context.setOffline(true);
   await expect(page.getByText(/^Geen internet\./)).toBeVisible(SETTLED);
@@ -204,13 +207,15 @@ test("a fresh start: no hours, no questions, nothing planned", async ({ page }) 
   await expect(button(page, "Start werk")).toBeVisible(SETTLED);
   await expect(page.getByText("Vandaag niets gepland")).toBeVisible();
   await capture(page, "leeg-klok");
+  await page.setViewportSize(VIEWPORTS.desktop);
   await button(page, "Maximiliaan B.").click();
   await expect(page.getByRole("dialog")).toBeVisible();
   await capture(page, "leeg-account", false);
   await closeSheet(page);
+  await page.setViewportSize(VIEWPORTS.phone);
 
   await page.goto("/app/uren");
-  await expect(page.getByText("Nog geen uren")).toBeVisible();
+  await expect(page.getByText("Geen uren in deze week")).toBeVisible();
   await capture(page, "leeg-uren");
   await page.goto("/app/vragen");
   await expect(page.getByText("Nog geen vragen")).toBeVisible();

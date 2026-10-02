@@ -119,7 +119,7 @@ test("employee clocks a shift with a break, sees it in Mijn uren and asks for a 
   // Correction, in three steps: the clock-out "does not belong here".
   await detail.getByRole("link", { name: "Klopt er iets niet?" }).click();
   await expect(page).toHaveURL(/\/app\/vragen\/nieuw\?datum=\d{4}-\d{2}-\d{2}&dienst=/);
-  await expect(page.getByText("Stap 1 van 3")).toBeVisible();
+  await expect(page.getByText("Stap 1 van 3").filter({ visible: true })).toBeVisible();
   await button(page, "Deze registratie hoort er niet bij").click();
   await button(page, "Volgende").click();
 

@@ -4,7 +4,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 /**
  * Design-review screenshots of every primitive (`/preview`), at phone and
- * desktop size, light and dark (`pnpm screens`). Phones are shot section by
+ * desktop size, (`pnpm screens`). Phones are shot section by
  * section, with the nav bar collapsed and the tab bar in place; desktop is
  * one tall shot. Then each overlay (sheets, action sheet, alert) and a
  * pushed page. Needs no account and no data.
@@ -14,7 +14,6 @@ const VIEWPORTS = {
   phone: { width: 390, height: 844 },
   desktop: { width: 1440, height: 900 },
 } as const;
-const SCHEMES = ["light", "dark"] as const;
 const SECTIONS = [
   "lijsten",
   "bediening",
@@ -40,14 +39,14 @@ async function shot(page: Page, name: string): Promise<void> {
   await page.screenshot({ path: `${OUT}/${name}.png`, animations: "disabled" });
 }
 
-test("every primitive, in both themes and both form factors", async ({ page }) => {
+test("every primitive, in both form factors", async ({ page }) => {
   test.setTimeout(300_000);
 
   for (const [viewport, size] of Object.entries(VIEWPORTS)) {
-    for (const colorScheme of SCHEMES) {
-      const suffix = `${viewport}-${colorScheme}`;
+    {
+      const suffix = viewport;
       await page.setViewportSize(size);
-      await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
+      await page.emulateMedia({ reducedMotion: "reduce" });
       await page.goto("/preview");
       await expect(page.getByRole("heading", { level: 1 })).toHaveText(
         "Voorbeeldweergave",

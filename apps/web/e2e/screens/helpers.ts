@@ -8,7 +8,6 @@ export const VIEWPORTS = {
   phone: { width: 390, height: 844 },
   desktop: { width: 1440, height: 900 },
 } as const;
-export const SCHEMES = ["light", "dark"] as const;
 export const SETTLED = { timeout: 20_000 };
 
 export const button = (page: Page, name: string) =>
@@ -19,7 +18,7 @@ export const tab = (page: Page, name: string) =>
   page.getByRole("navigation").getByRole("link", { name, exact: true });
 
 /**
- * Every viewport × colour scheme. The viewport grows to the page height
+ * Every viewport. The viewport grows to the page height
  * instead of a `fullPage` shot, which would leave the fixed tab bar halfway
  * down a long page. Open sheets and loading states are shot at the plain
  * viewport size.
@@ -28,25 +27,22 @@ export async function capture(page: Page, name: string, whole = true): Promise<v
   // No hover state or focus ring left from the last click.
   await page.mouse.move(0, 0);
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  await page.emulateMedia({ reducedMotion: "reduce" });
   for (const [viewport, size] of Object.entries(VIEWPORTS)) {
-    for (const colorScheme of SCHEMES) {
-      await page.setViewportSize(size);
-      await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
-      if (whole) {
-        const height = await page.evaluate(() => document.documentElement.scrollHeight);
-        await page.setViewportSize({ ...size, height: Math.max(size.height, height) });
-      }
-      // A theme switch can swap an image (`<picture>`): wait until they are in.
-      await page.waitForFunction(() =>
-        Array.from(document.images).every(
-          (image) => image.complete && image.naturalWidth > 0,
-        ),
-      );
-      await page.screenshot({
-        path: `${OUT}/${name}-${viewport}-${colorScheme}.png`,
-        animations: "disabled",
-      });
+    await page.setViewportSize(size);
+    if (whole) {
+      const height = await page.evaluate(() => document.documentElement.scrollHeight);
+      await page.setViewportSize({ ...size, height: Math.max(size.height, height) });
     }
+    await page.waitForFunction(() =>
+      Array.from(document.images).every(
+        (image) => image.complete && image.naturalWidth > 0,
+      ),
+    );
+    await page.screenshot({
+      path: `${OUT}/${name}-${viewport}.png`,
+      animations: "disabled",
+    });
   }
   await page.setViewportSize(VIEWPORTS.phone);
 }
@@ -54,19 +50,14 @@ export async function capture(page: Page, name: string, whole = true): Promise<v
 /** Phone only: scrolled down, so the large title has collapsed into the bar. */
 export async function captureScrolled(page: Page, name: string): Promise<void> {
   await page.setViewportSize(VIEWPORTS.phone);
-  for (const colorScheme of SCHEMES) {
-    await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
-    await page.evaluate(() => window.scrollTo(0, 260));
-    // Let the nav bar's IntersectionObserver catch up.
-    await page.evaluate(
-      () =>
-        new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))),
-    );
-    await page.screenshot({
-      path: `${OUT}/${name}-phone-${colorScheme}.png`,
-      animations: "disabled",
-    });
-  }
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.evaluate(() => window.scrollTo(0, 260));
+  // Let the nav bar's IntersectionObserver catch up.
+  await page.evaluate(
+    () =>
+      new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))),
+  );
+  await page.screenshot({ path: `${OUT}/${name}-phone.png`, animations: "disabled" });
   await page.evaluate(() => window.scrollTo(0, 0));
 }
 

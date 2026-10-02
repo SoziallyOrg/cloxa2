@@ -114,7 +114,7 @@ test("manager approves a correction and invites a new team member", async ({
   const missedClockIn = await nextMinuteInBrussels(page);
 
   await page.goto("/app/vragen/nieuw");
-  await expect(page.getByText("Stap 1 van 3")).toBeVisible();
+  await expect(page.getByText("Stap 1 van 3").filter({ visible: true })).toBeVisible();
   await button(page, "Ik vergat in te klokken").click();
   await button(page, "Volgende").click();
 

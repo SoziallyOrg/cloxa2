@@ -114,7 +114,8 @@ test("owner turns on modules; a student's hours and a shift at home show up", as
   await loginWithEmailCode(student, STUDENT);
   await expect(student).toHaveURL(/\/app$/, SETTLED);
   await student.goto("/app/uren");
-  const counter = student.getByTestId("module-student");
+  // Streaming leaves a hidden copy of the page in the DOM for a moment.
+  const counter = student.getByTestId("module-student").filter({ visible: true });
   await expect(counter.getByText(/^Studentenuren in \d{4}$/)).toBeVisible(SETTLED);
   await expect(
     counter.getByText(/van het contingent van 650 u \(indicatief\)$/),
