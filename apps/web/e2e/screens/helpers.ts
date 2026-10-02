@@ -32,10 +32,8 @@ export async function capture(page: Page, name: string, whole = true): Promise<v
     await page.setViewportSize(size);
     // Let the layout follow the new size: `min-h-dvh` pages would otherwise
     // report the previous (taller) viewport as their height.
-    await page.evaluate(
-      () =>
-        new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))),
-    );
+    // (A timer, not requestAnimationFrame: frames stall behind an open dialog.)
+    await page.waitForTimeout(150);
     if (whole) {
       const height = await page.evaluate(() => document.documentElement.scrollHeight);
       await page.setViewportSize({ ...size, height: Math.max(size.height, height) });
