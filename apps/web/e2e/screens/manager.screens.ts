@@ -2,12 +2,15 @@ import { execSync } from "node:child_process";
 
 import { expect, test, type Page } from "@playwright/test";
 
-import { loginWithEmailCode, nextTotpStep, resetFactors, totp } from "../support";
+import { nextTotpStep, totp } from "../support";
 import {
   button,
   capture,
+  captureMid,
   captureScrolled,
+  MID_VIEWPORT,
   closeSheet,
+  enrol,
   previewState,
   SETTLED,
   VIEWPORTS,
@@ -35,22 +38,6 @@ const dialog = (page: Page) => page.getByRole("dialog");
 /** The timeline is in the markup twice (table and grouped list); one is hidden. */
 const visibleText = (page: Page, text: string) =>
   page.getByText(text).filter({ visible: true }).first();
-
-/** Email code, then TOTP set-up; returns the secret for later checks. */
-async function enrol(page: Page, email: string, shots: boolean): Promise<string> {
-  await resetFactors(email);
-  await loginWithEmailCode(page, email);
-  await expect(page).toHaveURL(/\/manage\/beveiliging\/instellen$/, SETTLED);
-  if (shots) await capture(page, "beheer-mfa-instellen");
-  await button(page, "Start met instellen").click();
-  await expect(page.getByRole("img", { name: /QR-code/ })).toBeVisible(SETTLED);
-  if (shots) await capture(page, "beheer-mfa-qr");
-  const secret = (await page.getByTestId("totp-secret").innerText()).replace(/\s/g, "");
-  await page.getByLabel("Code uit je app").fill(totp(secret));
-  await button(page, "Bevestig en ga verder").click();
-  await expect(page).toHaveURL(/\/manage$/, SETTLED);
-  return secret;
-}
 
 /** A page with its data held back: the streamed `loading.tsx`. */
 async function captureLoading(page: Page, path: string, name: string): Promise<void> {
@@ -86,6 +73,19 @@ test("the manager area of a bakery with a team", async ({ page }) => {
   await expect(visibleText(page, FORGOT)).toBeVisible();
   await capture(page, "beheer-vandaag");
   await captureScrolled(page, "beheer-vandaag-ingeklapt");
+
+  // 1100px: the timeline has the full width, the panel is a sheet.
+  await captureMid(page, "beheer-vandaag");
+  await page.setViewportSize(MID_VIEWPORT);
+  await page.getByRole("button", { name: /^Aanvragen/ }).click();
+  await expect(dialog(page)).toBeVisible();
+  await captureMid(page, "beheer-vandaag-aanvragen", false);
+  await closeSheet(page);
+  await page.getByRole("button", { name: new RegExp(`^${FORGOT}`) }).click();
+  await expect(dialog(page)).toBeVisible();
+  await captureMid(page, "beheer-vandaag-persoon", false);
+  await closeSheet(page);
+  await page.setViewportSize(VIEWPORTS.phone);
   await page.getByRole("button", { name: new RegExp(`^${FORGOT}`) }).click();
   await expect(dialog(page)).toBeVisible();
   await capture(page, "beheer-vandaag-aandacht", false);
@@ -120,6 +120,13 @@ test("the manager area of a bakery with a team", async ({ page }) => {
   // Team: the segments, search, the invite sheet.
   await open(page, "/manage/team", "Team");
   await capture(page, "beheer-team");
+  await captureMid(page, "beheer-team");
+  await page.setViewportSize(MID_VIEWPORT);
+  await page.getByRole("button", { name: `Samenvatting van ${DETAIL}` }).click();
+  await expect(dialog(page)).toBeVisible();
+  await captureMid(page, "beheer-team-samenvatting", false);
+  await closeSheet(page);
+  await page.setViewportSize(VIEWPORTS.phone);
   await page.getByRole("searchbox").fill("zzz");
   await expect(page.getByText(/^Niemand gevonden/)).toBeVisible();
   await capture(page, "beheer-team-zoeken");

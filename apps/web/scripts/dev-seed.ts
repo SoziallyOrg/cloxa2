@@ -20,7 +20,8 @@
  *     organizations): the access screens in `pnpm screens`
  *   screens-beheer@demo.test (owner of "Bakkerij Zon (fictief)", its own
  *     organization with two sites, a team of nine with screens-team-*@
- *     logins, requests, kiosks and exports) and screens-beheer-leeg@demo.test
+ *     logins, requests, kiosks and exports; screens-klokbalk@ is a manager
+ *     there with an employee record, for the clock bar) and screens-beheer-leeg@demo.test
  *     (owner of an empty organization): the manager screens in `pnpm screens`
  *   modules-owner-e2e@demo.test (owner of "Modules Test (fictief)") and
  *     modules-e2e@demo.test (its student): reserved for modules.spec.ts
@@ -120,6 +121,10 @@ const SCREENS_ACCOUNTS = [
     schedule: false,
   },
 ] as const;
+// A manager of "Bakkerij Zon (fictief)" who also clocks (the clock bar and the
+// role switch in `pnpm screens`). Reserved for the screens; the screens spec
+// clocks out again, so the organization's "today" stays as seeded.
+const MANAGER_CLOCKS = { email: "screens-klokbalk@demo.test", name: "Nadia Verhoeven" };
 const MEMBERS: readonly {
   email: string;
   name: string;
@@ -1329,6 +1334,24 @@ async function seedManagerScreens(input: {
       await sql`
         insert into public.site_assignments (organization_id, site_id, employee_id)
         values (${orgId}, ${siteIds.main}, ${ownerEmployee.id})
+        on conflict (organization_id, site_id, employee_id) do nothing`;
+    }
+
+    // screens-klokbalk@: a manager with an employee record of her own.
+    const clocksId = await ensureUser(MANAGER_CLOCKS.email);
+    await sql`
+      insert into public.memberships (organization_id, user_id, role, status)
+      values (${orgId}, ${clocksId}, 'manager', 'active')
+      on conflict (organization_id, user_id) do nothing`;
+    const [clocksEmployee] = await sql<{ id: string }[]>`
+      insert into public.employees (organization_id, user_id, display_name)
+      values (${orgId}, ${clocksId}, ${MANAGER_CLOCKS.name})
+      on conflict (organization_id, user_id) do update set display_name = excluded.display_name
+      returning id`;
+    if (clocksEmployee) {
+      await sql`
+        insert into public.site_assignments (organization_id, site_id, employee_id)
+        values (${orgId}, ${siteIds.main}, ${clocksEmployee.id})
         on conflict (organization_id, site_id, employee_id) do nothing`;
     }
 

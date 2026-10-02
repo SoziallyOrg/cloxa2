@@ -2,11 +2,20 @@ import { resolve } from "node:path";
 
 import { expect, type Page } from "@playwright/test";
 
+import { loginWithEmailCode, resetFactors, totp } from "../support";
+
 /** Shared by the design-review screenshots (`pnpm screens`). */
 export const OUT = resolve(process.cwd(), "output/screens");
 export const VIEWPORTS = {
   phone: { width: 390, height: 844 },
   desktop: { width: 1440, height: 900 },
+} as const;
+/** Between the phone-like and the docked-panel layouts (side panel becomes a sheet). */
+export const MID_VIEWPORT = { width: 1100, height: 800 } as const;
+/** The shared tablet (kiosk): landscape and portrait. */
+export const TABLET_VIEWPORTS = {
+  "tablet-liggend": { width: 1024, height: 768 },
+  "tablet-staand": { width: 768, height: 1024 },
 } as const;
 export const SETTLED = { timeout: 20_000 };
 
@@ -24,11 +33,22 @@ export const tab = (page: Page, name: string) =>
  * viewport size.
  */
 export async function capture(page: Page, name: string, whole = true): Promise<void> {
+  await captureAt(page, name, VIEWPORTS, whole);
+  await page.setViewportSize(VIEWPORTS.phone);
+}
+
+/** The same shot at any set of named viewports (the file suffix is the key). */
+export async function captureAt(
+  page: Page,
+  name: string,
+  viewports: Record<string, { width: number; height: number }>,
+  whole = true,
+): Promise<void> {
   // No hover state or focus ring left from the last click.
   await page.mouse.move(0, 0);
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
   await page.emulateMedia({ reducedMotion: "reduce" });
-  for (const [viewport, size] of Object.entries(VIEWPORTS)) {
+  for (const [viewport, size] of Object.entries(viewports)) {
     await page.setViewportSize(size);
     // Let the layout follow the new size: `min-h-dvh` pages would otherwise
     // report the previous (taller) viewport as their height.
@@ -51,6 +71,15 @@ export async function capture(page: Page, name: string, whole = true): Promise<v
       animations: "disabled",
     });
   }
+}
+
+/** The same shot at 1100x800 (the side panel is a sheet there), `-midden`. */
+export async function captureMid(
+  page: Page,
+  name: string,
+  whole = true,
+): Promise<void> {
+  await captureAt(page, name, { midden: MID_VIEWPORT }, whole);
   await page.setViewportSize(VIEWPORTS.phone);
 }
 
@@ -89,4 +118,24 @@ export async function previewState(
     return;
   }
   await page.context().addCookies([{ name: "preview_state", value: state, url }]);
+}
+
+/** Email code, then TOTP set-up; returns the secret for later checks. */
+export async function enrol(
+  page: Page,
+  email: string,
+  shots: boolean,
+): Promise<string> {
+  await resetFactors(email);
+  await loginWithEmailCode(page, email);
+  await expect(page).toHaveURL(/\/manage\/beveiliging\/instellen$/, SETTLED);
+  if (shots) await capture(page, "beheer-mfa-instellen");
+  await button(page, "Start met instellen").click();
+  await expect(page.getByRole("img", { name: /QR-code/ })).toBeVisible(SETTLED);
+  if (shots) await capture(page, "beheer-mfa-qr");
+  const secret = (await page.getByTestId("totp-secret").innerText()).replace(/\s/g, "");
+  await page.getByLabel("Code uit je app").fill(totp(secret));
+  await button(page, "Bevestig en ga verder").click();
+  await expect(page).toHaveURL(/\/manage$/, SETTLED);
+  return secret;
 }
