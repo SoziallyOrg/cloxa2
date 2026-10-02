@@ -721,7 +721,7 @@ export const inviteMemberInput = z.strictObject({
   // Managers may only invite employees; the database enforces it.
   role: z.enum(["admin", "manager", "employee"]),
   displayName: shortText(200),
-  siteIds: z.array(uuid).max(50).refine(uniqueIds, { message: "sites must be unique" }),
+  siteIds: z.array(uuid).max(50).refine(uniqueIds, { error: "sites must be unique" }),
   employeeCode: shortText(64).optional(),
   statute: z
     .enum(["bediende", "arbeider", "student", "flexi", "interim", "other"])
