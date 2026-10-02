@@ -17,9 +17,9 @@ export interface NoticeProps {
 }
 
 const TONE_CLASSES: Record<NoticeTone, string> = {
-  info: "text-ink",
-  success: "font-medium text-working",
-  error: "font-medium text-danger",
+  info: "bg-fill text-ink",
+  success: "bg-working-tint font-medium text-forest",
+  error: "bg-danger-tint font-medium text-danger-tint-ink",
 };
 
 /**
@@ -40,7 +40,7 @@ export function Notice({ tone, children, onDismiss, autoFocus = true }: NoticePr
       tabIndex={-1}
       role={tone === "error" ? "alert" : "status"}
       className={cx(
-        "focus-ring flex items-start justify-between gap-4 rounded-control bg-fill py-3 pr-2 pl-4 text-body",
+        "focus-ring flex items-start justify-between gap-4 rounded-control py-3 pr-2 pl-4 text-body",
         TONE_CLASSES[tone],
       )}
     >

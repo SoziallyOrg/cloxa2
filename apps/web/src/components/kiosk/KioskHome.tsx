@@ -101,7 +101,7 @@ export function KioskHome({
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder={t("kiosk.searchPlaceholder")}
                 aria-label={t("common.search")}
-                className="w-full bg-transparent text-body outline-none"
+                className="w-full bg-transparent text-body outline-none placeholder:text-ink-2"
               />
             </label>
           ) : null}
@@ -121,7 +121,7 @@ export function KioskHome({
                     setPin("");
                     onSelect(employee);
                   }}
-                  className="focus-ring flex min-h-kiosk-tile w-full min-w-0 pressable flex-col items-center justify-center gap-3 rounded-clock bg-card p-4 shadow-card"
+                  className="focus-ring flex h-full min-h-kiosk-tile w-full min-w-0 pressable flex-col items-center justify-center gap-3 rounded-clock bg-card p-4 shadow-card"
                 >
                   <span
                     aria-hidden="true"
@@ -159,7 +159,7 @@ export function KioskHome({
 
   return (
     <KioskShell className="items-center justify-center p-6">
-      <div className="flex w-full max-w-md flex-col items-center gap-6 rounded-hero bg-card p-6 shadow-card md:p-8">
+      <div className="flex w-full max-w-md flex-col items-center gap-5 rounded-hero bg-card p-6 shadow-card md:p-8">
         <div className="flex flex-col items-center gap-1 text-center">
           <h1 className="text-title-1">{t("kiosk.pinTitle")}</h1>
           <p className="text-title-3 text-ink-2">{selected.name}</p>
@@ -194,9 +194,14 @@ export function KioskHome({
               {digit}
             </button>
           ))}
-          <Button variant="plain" size="md" disabled={busy} onClick={() => setPin("")}>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => setPin("")}
+            className={cx(PIN_KEY, "text-title-3")}
+          >
             {t("kiosk.pinClear")}
-          </Button>
+          </button>
           <button
             type="button"
             disabled={busy}
@@ -205,18 +210,18 @@ export function KioskHome({
           >
             {ZERO_DIGIT}
           </button>
-          <Button
-            variant="primary"
-            size="md"
-            loading={busy}
-            disabled={pin.length < PIN_MIN_LENGTH}
+          <button
+            type="button"
+            aria-busy={busy || undefined}
+            disabled={busy || pin.length < PIN_MIN_LENGTH}
             onClick={submit}
+            className="focus-ring on-forest min-h-pin-key w-full pressable rounded-clock bg-forest text-title-1 text-white disabled:cursor-not-allowed disabled:bg-idle disabled:text-ink [@media(max-height:840px)]:min-h-primary-action"
           >
             {t("kiosk.pinConfirm")}
-          </Button>
+          </button>
         </div>
 
-        <Button variant="plain" size="md" onClick={back}>
+        <Button variant="secondary" size="md" wide onClick={back}>
           {t("kiosk.pinBack")}
         </Button>
       </div>
@@ -226,4 +231,4 @@ export function KioskHome({
 
 /** Large round-rect keys (88px) on the white pad card: easy with gloves and cold hands. */
 const PIN_KEY =
-  "focus-ring pressable min-h-pin-key w-full rounded-clock border-[1.5px] border-line bg-paper text-title-1 disabled:cursor-not-allowed disabled:opacity-60";
+  "focus-ring pressable min-h-pin-key w-full rounded-clock border-[1.5px] border-line bg-paper text-title-1 disabled:cursor-not-allowed disabled:opacity-60 [@media(max-height:840px)]:min-h-primary-action";

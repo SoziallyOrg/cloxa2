@@ -244,7 +244,7 @@ export function KioskScreen({ employees }: KioskScreenProps) {
             <h1 className="text-large-title">
               {t("kiosk.actionTitle", { name: firstName(phase.person.name) })}
             </h1>
-            <p className="text-title-3">
+            <p className="text-title-2">
               {phase.state === "working"
                 ? t("kiosk.stateWorking")
                 : phase.state === "on_break"
@@ -263,7 +263,7 @@ export function KioskScreen({ employees }: KioskScreenProps) {
             onStopBreak={() => clock("break_end")}
           />
           <Button
-            variant={surface === "forest" ? "ghost-on-forest" : "plain"}
+            variant={surface === "forest" ? "ghost-on-forest" : "secondary"}
             size="md"
             onClick={() => dispatch({ type: "back" })}
           >
