@@ -9,6 +9,8 @@ import {
   kioskClock,
   kioskPair,
   kioskStatus,
+  managerCorrect,
+  managerCorrectInput,
   offboardEmployee,
   requestCorrection,
   revokeInvitation,
@@ -138,6 +140,180 @@ describe("requestCorrection", () => {
       code: "P0001",
       message: "invalid_sequence",
       details: "state=off type=clock_out",
+    });
+  });
+});
+
+describe("managerCorrect", () => {
+  it("maps a forgotten clock-out to an add for the employee", async () => {
+    const { client, calls } = fakeClient({ data: { id: ID_B }, error: null });
+
+    await managerCorrect(client, {
+      employeeId: ID_A,
+      kind: "add",
+      events: [
+        { type: "clock_out", occurredAt: "2026-09-01T17:00:00+02:00", siteId: ID_B },
+      ],
+      reason: "  Vergeten uit te klokken  ",
+    });
+
+    expect(calls).toEqual([
+      {
+        fn: "rpc_manager_correct",
+        args: {
+          p_employee_id: ID_A,
+          p_kind: "add",
+          p_target_event_ids: [],
+          p_proposed: {
+            events: [
+              {
+                type: "clock_out",
+                occurred_at: "2026-09-01T17:00:00+02:00",
+                site_id: ID_B,
+              },
+            ],
+          },
+          p_reason: "Vergeten uit te klokken",
+        },
+      },
+    ]);
+  });
+
+  it("maps an adjustment and a removal like an employee request", async () => {
+    const { client, calls } = fakeClient({ data: { id: ID_B }, error: null });
+
+    await managerCorrect(client, {
+      employeeId: ID_A,
+      kind: "adjust",
+      events: [{ targetEventId: ID_B, occurredAt: "2026-09-01T08:00:00Z" }],
+      reason: "Later begonnen",
+    });
+    await managerCorrect(client, {
+      employeeId: ID_A,
+      kind: "remove",
+      targetEventIds: [ID_B],
+      reason: "Dubbel",
+    });
+
+    expect(calls.map((call) => call.args)).toEqual([
+      {
+        p_employee_id: ID_A,
+        p_kind: "adjust",
+        p_target_event_ids: [ID_B],
+        p_proposed: {
+          events: [{ target_event_id: ID_B, occurred_at: "2026-09-01T08:00:00Z" }],
+        },
+        p_reason: "Later begonnen",
+      },
+      {
+        p_employee_id: ID_A,
+        p_kind: "remove",
+        p_target_event_ids: [ID_B],
+        p_proposed: {},
+        p_reason: "Dubbel",
+      },
+    ]);
+  });
+
+  it("requires the employee and a reason of 1 to 280 characters", () => {
+    const base = { kind: "remove", targetEventIds: [ID_B] };
+
+    expect(
+      managerCorrectInput.safeParse({ ...base, employeeId: ID_A, reason: "x" }).success,
+    ).toBe(true);
+    expect(
+      managerCorrectInput.safeParse({
+        ...base,
+        employeeId: ID_A,
+        reason: "x".repeat(280),
+      }).success,
+    ).toBe(true);
+    expect(managerCorrectInput.safeParse({ ...base, reason: "x" }).success).toBe(false);
+    expect(
+      managerCorrectInput.safeParse({ ...base, employeeId: "e8", reason: "x" }).success,
+    ).toBe(false);
+    expect(managerCorrectInput.safeParse({ ...base, employeeId: ID_A }).success).toBe(
+      false,
+    );
+    expect(
+      managerCorrectInput.safeParse({ ...base, employeeId: ID_A, reason: "   " })
+        .success,
+    ).toBe(false);
+    expect(
+      managerCorrectInput.safeParse({
+        ...base,
+        employeeId: ID_A,
+        reason: "x".repeat(281),
+      }).success,
+    ).toBe(false);
+  });
+
+  it("keeps the bounds of an employee request and refuses unknown keys", () => {
+    const event = (hour: number) => ({
+      type: "clock_in",
+      occurredAt: `2026-09-01T${String(hour).padStart(2, "0")}:00:00Z`,
+      siteId: ID_B,
+    });
+    const add = { employeeId: ID_A, kind: "add", reason: "x" };
+
+    expect(
+      managerCorrectInput.safeParse({
+        ...add,
+        events: Array.from({ length: 8 }, (_, hour) => event(hour)),
+      }).success,
+    ).toBe(true);
+    expect(
+      managerCorrectInput.safeParse({
+        ...add,
+        events: Array.from({ length: 9 }, (_, hour) => event(hour)),
+      }).success,
+    ).toBe(false);
+    expect(
+      managerCorrectInput.safeParse({ ...add, events: [event(9), event(8)] }).success,
+    ).toBe(false);
+    expect(
+      managerCorrectInput.safeParse({
+        ...add,
+        events: [{ ...event(8), occurredAt: "2026-09-01T08:00:00" }],
+      }).success,
+    ).toBe(false);
+    expect(
+      managerCorrectInput.safeParse({
+        employeeId: ID_A,
+        kind: "remove",
+        targetEventIds: [ID_B, ID_B],
+        reason: "x",
+      }).success,
+    ).toBe(false);
+    expect(
+      managerCorrectInput.safeParse({
+        employeeId: ID_A,
+        kind: "remove",
+        targetEventIds: [ID_B],
+        reason: "x",
+        organizationId: ID_A,
+      }).success,
+    ).toBe(false);
+  });
+
+  it("turns a database refusal into an RpcError with the machine code", async () => {
+    const { client } = fakeClient({
+      data: null,
+      error: { message: "self_correction_not_allowed", code: "42501" },
+    });
+
+    const error = await managerCorrect(client, {
+      employeeId: ID_A,
+      kind: "remove",
+      targetEventIds: [ID_B],
+      reason: "x",
+    }).catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(RpcError);
+    expect(error).toMatchObject({
+      rpc: "rpc_manager_correct",
+      code: "42501",
+      message: "self_correction_not_allowed",
     });
   });
 });

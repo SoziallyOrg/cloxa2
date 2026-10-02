@@ -188,8 +188,23 @@ everything from the earliest affected event to the latest one, under the same lo
   (`invalid_sequence` otherwise, nothing changes), then appends events with
   `source='correction'`, `correction_id`, `supersedes_event_id` and `occurred_at` = the
   proposed time (`remove` appends `void` events at the original time). Each appended
-  event gets its own `clock_event.recorded` audit row, plus one for the decision. The
-  original events stay forever.
+  event gets its own `clock_event.recorded` audit row, plus one for the decision (with
+  `origin`). The original events stay forever. After the 1003 lock, approval locks the
+  employee row `FOR SHARE` and refuses (`employee_inactive`, `employee_anonymised`)
+  someone who left or was anonymised; rejection stays possible.
+- Reasons are trimmed (spaces, tabs, newlines) before the length check and stored
+  trimmed.
+- `rpc_manager_correct(employee, kind, targets, proposed, reason)` (ADR 010): privileged
+  with fresh MFA, manager-scoped, for an active employee (kiosk-only staff included).
+  Same bounds and checks as a request, reason mandatory. In one transaction under the
+  employee lock (then the row `FOR SHARE`) it writes a row with `origin = 'manager'`
+  (immutable; default `employee`) and approves it through the path above, so nothing
+  stays pending and the employee's cap of 20 does not apply. Own record: the decision
+  rule (`self_correction_not_allowed`; an owner may, audited `self_decided`). Target
+  role: a manager corrects employees or login-less staff only, only an owner corrects an
+  owner (`not_authorized`). At most 60 per actor per hour (`54000`
+  `correction_rate_limited`). The employee reads the row, reason included, and `origin`
+  is in the data-subject export.
 
 ## Modules (ADR 008)
 

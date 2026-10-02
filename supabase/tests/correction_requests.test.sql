@@ -144,7 +144,7 @@ select columns_are(
   array[
     'id', 'organization_id', 'employee_id', 'requested_by', 'kind', 'target_event_ids', 'proposed', 'reason',
     'status', 'created_at', 'decided_by', 'decided_at', 'decision_note', 'offline', 'idempotency_key',
-    'offline_reason'
+    'offline_reason', 'origin'
   ],
   'correction_requests has the contract columns'
 );

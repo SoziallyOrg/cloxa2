@@ -184,6 +184,7 @@ export type Database = {
           offline: boolean;
           offline_reason: string | null;
           organization_id: string;
+          origin: string;
           proposed: NonNullable<Json>;
           reason: string | null;
           requested_by: string;
@@ -202,6 +203,7 @@ export type Database = {
           offline?: boolean;
           offline_reason?: string | null;
           organization_id: string;
+          origin?: string;
           proposed?: NonNullable<Json>;
           reason?: string | null;
           requested_by: string;
@@ -220,6 +222,7 @@ export type Database = {
           offline?: boolean;
           offline_reason?: string | null;
           organization_id?: string;
+          origin?: string;
           proposed?: NonNullable<Json>;
           reason?: string | null;
           requested_by?: string;
@@ -949,6 +952,7 @@ export type Database = {
           offline: boolean;
           offline_reason: string | null;
           organization_id: string;
+          origin: string;
           proposed: NonNullable<Json>;
           reason: string | null;
           requested_by: string;
@@ -1049,6 +1053,40 @@ export type Database = {
         Args: { p_invitation_id: string; p_user_id: string };
         Returns: string;
       };
+      rpc_manager_correct: {
+        Args: {
+          p_employee_id: string;
+          p_kind: string;
+          p_proposed: Json;
+          p_reason: string;
+          p_target_event_ids: string[];
+        };
+        Returns: {
+          created_at: string;
+          decided_at: string | null;
+          decided_by: string | null;
+          decision_note: string | null;
+          employee_id: string;
+          id: string;
+          idempotency_key: string | null;
+          kind: string;
+          offline: boolean;
+          offline_reason: string | null;
+          organization_id: string;
+          origin: string;
+          proposed: NonNullable<Json>;
+          reason: string | null;
+          requested_by: string;
+          status: string;
+          target_event_ids: string[];
+        };
+        SetofOptions: {
+          from: "*";
+          to: "correction_requests";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
       rpc_my_data_export: { Args: Record<PropertyKey, never>; Returns: Json };
       rpc_my_status: {
         Args: Record<PropertyKey, never>;
@@ -1113,6 +1151,7 @@ export type Database = {
           offline: boolean;
           offline_reason: string | null;
           organization_id: string;
+          origin: string;
           proposed: NonNullable<Json>;
           reason: string | null;
           requested_by: string;
@@ -1243,6 +1282,7 @@ export type Database = {
           offline: boolean;
           offline_reason: string | null;
           organization_id: string;
+          origin: string;
           proposed: NonNullable<Json>;
           reason: string | null;
           requested_by: string;

@@ -343,45 +343,49 @@ const increasing = (events: readonly { occurredAt: string }[]) =>
   );
 const increasingMessage = { message: "proposed times must strictly increase" };
 
+const addCorrection = z.strictObject({
+  kind: z.literal("add"),
+  events: z
+    .array(z.strictObject({ type: liveClockType, occurredAt: instant, siteId: uuid }))
+    .min(1)
+    .max(8)
+    .refine(increasing, increasingMessage),
+  reason,
+});
+const adjustCorrection = z.strictObject({
+  kind: z.literal("adjust"),
+  events: z
+    .array(z.strictObject({ targetEventId: uuid, occurredAt: instant }))
+    .min(1)
+    .max(10)
+    .refine((events) => uniqueIds(events.map((event) => event.targetEventId)), {
+      message: "each event can be adjusted once",
+    })
+    .refine(increasing, increasingMessage),
+  reason,
+});
+const removeCorrection = z.strictObject({
+  kind: z.literal("remove"),
+  targetEventIds: z.array(uuid).min(1).max(10).refine(uniqueIds, {
+    message: "each event can be removed once",
+  }),
+  reason,
+});
+
 export const requestCorrectionInput = z.discriminatedUnion("kind", [
-  z.strictObject({
-    kind: z.literal("add"),
-    events: z
-      .array(z.strictObject({ type: liveClockType, occurredAt: instant, siteId: uuid }))
-      .min(1)
-      .max(8)
-      .refine(increasing, increasingMessage),
-    reason,
-  }),
-  z.strictObject({
-    kind: z.literal("adjust"),
-    events: z
-      .array(z.strictObject({ targetEventId: uuid, occurredAt: instant }))
-      .min(1)
-      .max(10)
-      .refine((events) => uniqueIds(events.map((event) => event.targetEventId)), {
-        message: "each event can be adjusted once",
-      })
-      .refine(increasing, increasingMessage),
-    reason,
-  }),
-  z.strictObject({
-    kind: z.literal("remove"),
-    targetEventIds: z.array(uuid).min(1).max(10).refine(uniqueIds, {
-      message: "each event can be removed once",
-    }),
-    reason,
-  }),
+  addCorrection,
+  adjustCorrection,
+  removeCorrection,
 ]);
 export type RequestCorrectionInput = z.input<typeof requestCorrectionInput>;
 
-/** Employee, for their own effective events only. */
-export async function requestCorrection(
-  client: CloxaClient,
-  input: RequestCorrectionInput,
-): Promise<Returns<"rpc_request_correction">> {
-  const parsed = requestCorrectionInput.parse(input);
-
+/** The RPC arguments both correction paths share. */
+function correctionArgs(parsed: z.output<typeof requestCorrectionInput>): {
+  p_kind: string;
+  p_target_event_ids: string[];
+  p_proposed: Json;
+  p_reason: string;
+} {
   let targets: string[];
   let proposed: Json;
   switch (parsed.kind) {
@@ -410,13 +414,54 @@ export async function requestCorrection(
       break;
   }
 
+  return {
+    p_kind: parsed.kind,
+    p_target_event_ids: targets,
+    p_proposed: proposed,
+    p_reason: parsed.reason,
+  };
+}
+
+/** Employee, for their own effective events only. */
+export async function requestCorrection(
+  client: CloxaClient,
+  input: RequestCorrectionInput,
+): Promise<Returns<"rpc_request_correction">> {
+  const parsed = requestCorrectionInput.parse(input);
   return unwrap(
     "rpc_request_correction",
-    await client.rpc("rpc_request_correction", {
-      p_kind: parsed.kind,
-      p_target_event_ids: targets,
-      p_proposed: proposed,
-      p_reason: parsed.reason,
+    await client.rpc("rpc_request_correction", correctionArgs(parsed)),
+  );
+}
+
+/**
+ * A correction a manager records for an employee (ADR 010): the same proposal
+ * as an employee request plus the employee, and a reason that is always
+ * required. The employee sees the reason.
+ */
+export const managerCorrectInput = z.discriminatedUnion("kind", [
+  addCorrection.extend({ employeeId: uuid }),
+  adjustCorrection.extend({ employeeId: uuid }),
+  removeCorrection.extend({ employeeId: uuid }),
+]);
+export type ManagerCorrectInput = z.input<typeof managerCorrectInput>;
+
+/**
+ * Privileged, fresh MFA, manager-scoped; a manager or admin never corrects
+ * their own record. Approved and appended in one transaction: the returned
+ * row is `approved` with `origin: "manager"`, or the call throws and nothing
+ * was written.
+ */
+export async function managerCorrect(
+  client: CloxaClient,
+  input: ManagerCorrectInput,
+): Promise<Returns<"rpc_manager_correct">> {
+  const parsed = managerCorrectInput.parse(input);
+  return unwrap(
+    "rpc_manager_correct",
+    await client.rpc("rpc_manager_correct", {
+      p_employee_id: parsed.employeeId,
+      ...correctionArgs(parsed),
     }),
   );
 }

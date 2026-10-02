@@ -170,6 +170,7 @@ select is(
     'rpc_kiosk_revoke(uuid)',
     'rpc_kiosk_roster(text)',
     'rpc_kiosk_status(text,uuid,text)',
+    'rpc_manager_correct(uuid,text,uuid[],jsonb,text)',
     'rpc_my_data_export()',
     'rpc_my_status()',
     'rpc_offboard_employee(uuid,date)',
