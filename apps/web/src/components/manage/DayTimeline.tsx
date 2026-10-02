@@ -31,7 +31,7 @@ export interface DayTimelineProps {
 // Name, the track and hours + status. The axis, the rows and the now line all
 // use this grid, so the three always line up. Container queries (`@xl`), not
 // viewport ones: beside the 330px panel the main column can be narrow.
-const COLUMNS = "@xl:grid-cols-[minmax(7rem,9.5rem)_minmax(0,1fr)_minmax(8rem,11rem)]";
+const COLUMNS = "@xl:grid-cols-[minmax(8rem,11.5rem)_minmax(0,1fr)_minmax(8rem,13rem)]";
 
 const GROUP_TONE: Record<StatusGroup, StatTone> = {
   working: "forest",
@@ -125,7 +125,10 @@ export function DayTimeline({
                         : "border-transparent group-not-first/row:border-t-line",
                     )}
                   >
-                    <span className="truncate text-callout font-bold">
+                    <span
+                      title={person.name}
+                      className="truncate text-callout font-bold"
+                    >
                       {person.name}
                     </span>
                     <span className="min-w-0">
@@ -153,7 +156,7 @@ export function DayTimeline({
                       <span
                         title={person.attentionSummary ?? person.status}
                         className={cx(
-                          "w-full truncate text-footnote",
+                          "line-clamp-2 w-full text-footnote break-words",
                           flagged ? "font-semibold text-danger" : "text-ink-2",
                         )}
                       >
@@ -195,14 +198,13 @@ export function DayTimeline({
                         selected ? "border-forest" : "border-transparent",
                       )}
                     >
-                      <span className="flex items-baseline justify-between gap-3">
-                        <span className="max-w-[65%] shrink-0 truncate text-callout font-bold">
+                      <span className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+                        <span className="min-w-0 text-callout font-bold break-words">
                           {person.name}
                         </span>
                         <span
-                          title={person.attentionSummary ?? person.status}
                           className={cx(
-                            "min-w-0 truncate text-right text-footnote",
+                            "ml-auto min-w-0 text-right text-footnote break-words",
                             flagged ? "font-semibold text-danger" : "text-ink-2",
                           )}
                         >

@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 
+import { t } from "@cloxa/i18n";
+
 import { cx } from "./cx";
 import { tap } from "./haptics";
 
@@ -24,7 +26,7 @@ export interface SwitchProps {
 /**
  * A toggle for booleans in settings: forest when on, soft grey with a border when off. A real
  * `role="switch"` button (Space and Enter toggle it) with a 48px hit area
- * around the 51×31 track.
+ * around the 72×32 track.
  */
 export function Switch({
   label,
@@ -55,18 +57,28 @@ export function Switch({
           onCheckedChange?.(next);
         }}
         className={cx(
-          "group focus-ring relative inline-flex h-[32px] w-[56px] shrink-0 items-center rounded-[12px] p-[3px] transition-colors duration-200",
+          "group focus-ring relative inline-flex h-[32px] w-[72px] shrink-0 items-center rounded-[12px] p-[3px] transition-colors duration-200",
           // A larger invisible hit area (48px) for fingers.
           "before:absolute before:-inset-2 before:content-['']",
           "disabled:cursor-not-allowed disabled:opacity-50",
           on ? "bg-forest" : "bg-toggle ring-2 ring-field ring-inset",
         )}
       >
+        {/* The state in words too, not only in colour. */}
         <span
           aria-hidden="true"
           className={cx(
-            "size-[26px] rounded-[9px] shadow-card transition-[translate,background-color] duration-200 ease-spring",
-            on ? "translate-x-6 bg-white" : "translate-x-0 bg-field",
+            "absolute text-caption font-bold",
+            on ? "left-3 text-white" : "right-3 text-ink-2",
+          )}
+        >
+          {on ? t("common.on") : t("common.off")}
+        </span>
+        <span
+          aria-hidden="true"
+          className={cx(
+            "relative size-[26px] rounded-[9px] shadow-card transition-[translate,background-color] duration-200 ease-spring",
+            on ? "translate-x-10 bg-white" : "translate-x-0 bg-field",
           )}
         />
       </button>

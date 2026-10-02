@@ -123,7 +123,7 @@ export function SegmentedControl<V extends string>({
             onClick={() => choose(position, false)}
             onKeyDown={onKeyDown}
             className={cx(
-              "focus-ring relative z-10 min-w-0 pressable truncate rounded-[10px] px-2 text-subhead text-ink",
+              "focus-ring relative z-10 min-w-0 pressable rounded-[10px] px-2 py-1.5 text-center text-subhead leading-tight break-words text-ink",
               checked ? "font-bold" : "font-semibold text-ink-2",
             )}
           >

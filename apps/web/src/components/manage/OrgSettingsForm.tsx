@@ -169,7 +169,7 @@ export function OrgSettingsForm({ initial, action }: OrgSettingsFormProps) {
               >
                 <Plus aria-hidden="true" className="size-5" strokeWidth={2} />
               </button>
-              <span className="w-24 pl-1 text-body text-ink-2">{t(unit)}</span>
+              <span className="w-32 pl-1 text-body text-ink-2">{t(unit)}</span>
             </div>
           </div>
         </ListItem>

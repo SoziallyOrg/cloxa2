@@ -31,7 +31,8 @@ export function PersonPanel({ person }: { person: TodayPerson }) {
 
   return (
     <div className="flex flex-col gap-5">
-      <h2 className="text-title-2 break-words">{person.name}</h2>
+      {/* In a sheet (below 1280px) the name is already the title. */}
+      <h2 className="hidden text-title-2 break-words xl:block">{person.name}</h2>
 
       <div className={cx("flex items-center gap-4 rounded-clock p-4", tone.box)}>
         <CRing

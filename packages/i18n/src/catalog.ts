@@ -6,6 +6,8 @@
 export const catalog = {
   common: {
     appName: "Cloxa",
+    on: "Aan",
+    off: "Uit",
     greeting: "Hallo {name}",
     menu: "Menu",
     close: "Sluiten",

@@ -34,9 +34,9 @@ function detailNotes(day: HoursDay): string | null {
 // One grid serves both layouts: two columns per day on a phone, the table's
 // seven columns from 1024px (Dag, Start, Einde, Pauze, Gewerkt, Gepland, Status).
 const LG_COLUMNS =
-  "lg:grid-cols-[minmax(6.5rem,1.1fr)_repeat(4,minmax(4.5rem,1fr))_minmax(7.5rem,1.2fr)_minmax(8rem,1.4fr)]";
+  "lg:grid-cols-[minmax(5.5rem,1.1fr)_minmax(4rem,.8fr)_minmax(5rem,1fr)_minmax(4rem,.8fr)_minmax(6rem,1.1fr)_minmax(7rem,1.2fr)_minmax(4.5rem,1fr)]";
 const ROW_GRID = cx(
-  "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2",
+  "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 lg:gap-x-3",
   LG_COLUMNS,
 );
 
@@ -55,7 +55,7 @@ export function HoursList({ days }: HoursListProps) {
     <>
       <div
         aria-hidden="true"
-        className={cx("hidden px-4 pb-2 lg:grid lg:gap-x-4", LG_COLUMNS)}
+        className={cx("hidden px-4 pb-2 lg:grid lg:gap-x-3", LG_COLUMNS)}
       >
         <span className={HEAD_CELL}>{t("hours.colDay")}</span>
         <span className={HEAD_CELL}>{t("hours.colStart")}</span>

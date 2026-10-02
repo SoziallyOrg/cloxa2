@@ -145,7 +145,7 @@ export function ScheduleEditor({
         <h2 className="px-4 text-subhead text-ink-2">
           {t("schedule.templatesHeading")}
         </h2>
-        <div className="-mx-1 flex flex-wrap">
+        <div className="flex flex-wrap gap-2">
           {(
             [
               ["schedule.templateFullTime", () => applyTemplate(fullTimeTemplate)],
@@ -163,7 +163,13 @@ export function ScheduleEditor({
               ],
             ] as const
           ).map(([label, onClick]) => (
-            <Button key={label} type="button" variant="plain" onClick={onClick}>
+            <Button
+              key={label}
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={onClick}
+            >
               {t(label)}
             </Button>
           ))}
