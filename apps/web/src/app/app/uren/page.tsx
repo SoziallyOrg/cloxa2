@@ -2,13 +2,14 @@ import { CalendarDays } from "lucide-react";
 
 import { scheduleFor } from "@cloxa/db";
 import { brusselsDayKey, deriveShifts, effectiveEvents } from "@cloxa/domain";
-import { brusselsLocalToInstant, formatBrusselsDate, t } from "@cloxa/i18n";
+import { brusselsLocalToInstant, t } from "@cloxa/i18n";
 import { modulesFor } from "@cloxa/modules";
 
 import { formatBarTime } from "@/components/clock/clock-bar";
 import { HoursList } from "@/components/employee/HoursList";
 import {
   buildHoursWeek,
+  groupManagerCorrections,
   parseWeekParam,
   weekRangeLabel,
 } from "@/components/employee/hours-week";
@@ -139,17 +140,23 @@ export default async function HoursPage({
     throw new Error(`correction_requests_unavailable:${managerError.code}`);
   }
   const managerById = new Map(managerRows.map((row) => [row.id, row]));
-  const managerByDay = new Map<string, { reason: string; date: string }>();
-  for (const row of eventRows) {
-    const correction = row.correction_id
-      ? managerById.get(row.correction_id)
-      : undefined;
-    if (!correction?.reason) continue;
-    managerByDay.set(brusselsDayKey(Date.parse(row.occurred_at)), {
-      reason: correction.reason,
-      date: formatBrusselsDate(new Date(correction.created_at)),
-    });
-  }
+  const managerByDay = groupManagerCorrections(
+    eventRows.flatMap((row) => {
+      const correction = row.correction_id
+        ? managerById.get(row.correction_id)
+        : undefined;
+      return correction?.reason
+        ? [
+            {
+              id: correction.id,
+              day: brusselsDayKey(Date.parse(row.occurred_at)),
+              reason: correction.reason,
+              createdAt: correction.created_at,
+            },
+          ]
+        : [];
+    }),
+  );
 
   const planned = buildHoursWeek({
     shifts,
@@ -162,7 +169,7 @@ export default async function HoursPage({
     ...planned,
     days: planned.days.map((day) => ({
       ...day,
-      managerCorrection: managerByDay.get(day.key) ?? null,
+      managerCorrections: managerByDay.get(day.key) ?? [],
     })),
   };
   const hasHours = week.days.some((day) => day.hasShifts);

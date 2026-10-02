@@ -618,7 +618,8 @@ export const catalog = {
       "Je kan de uren van deze persoon niet aanpassen. Vraag het aan een beheerder.",
     inactiveBody:
       "Deze medewerker is uit dienst. Er zijn geen uren meer aan te passen.",
-    errorNotAuthorized: "Je kan de uren van deze persoon niet aanpassen.",
+    errorNotAuthorized:
+      "Je mag de uren van deze persoon niet aanpassen. Misschien is die persoon beheerder of eigenaar, of werkt die buiten jouw locaties.",
     errorSelf: "Je kan je eigen uren niet zelf aanpassen. Vraag het aan een collega.",
     errorSiteNotAssigned: "Deze medewerker werkt niet op die locatie. Kies een andere.",
     errorInvalid: "Vul alles correct in, inclusief een reden.",

@@ -2,7 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import type { Shift } from "@cloxa/domain";
 
-import { barWindow, buildHoursWeek, minutesOfDay, parseWeekParam } from "./hours-week";
+import {
+  barWindow,
+  buildHoursWeek,
+  groupManagerCorrections,
+  minutesOfDay,
+  parseWeekParam,
+} from "./hours-week";
 
 // Week of Monday 2026-09-28; Brussels is UTC+2 (CEST).
 const at = (day: number, hour: number, minute = 0) =>
@@ -162,5 +168,42 @@ describe("parseWeekParam", () => {
 
   it("falls back when missing", () => {
     expect(parseWeekParam(undefined, current)).toBe(current);
+  });
+});
+
+describe("groupManagerCorrections", () => {
+  it("lists several corrections of a day, newest first, once each", () => {
+    const grouped = groupManagerCorrections([
+      {
+        id: "a",
+        day: "2026-09-29",
+        reason: "Eerste",
+        createdAt: "2026-09-30T08:00:00Z",
+      },
+      {
+        id: "b",
+        day: "2026-09-29",
+        reason: "Tweede",
+        createdAt: "2026-10-01T08:00:00Z",
+      },
+      {
+        id: "b",
+        day: "2026-09-29",
+        reason: "Tweede",
+        createdAt: "2026-10-01T08:00:00Z",
+      },
+      {
+        id: "c",
+        day: "2026-09-30",
+        reason: "Andere dag",
+        createdAt: "2026-10-01T09:00:00Z",
+      },
+    ]);
+    expect(grouped.get("2026-09-29")?.map((note) => note.reason)).toEqual([
+      "Tweede",
+      "Eerste",
+    ]);
+    expect(grouped.get("2026-09-30")).toHaveLength(1);
+    expect(grouped.get("2026-10-02")).toBeUndefined();
   });
 });

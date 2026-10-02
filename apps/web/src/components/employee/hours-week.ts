@@ -51,11 +51,8 @@ export interface HoursDay {
   readonly offlineSkew: string | null;
   readonly work: readonly DayBarSpan[];
   readonly breaks: readonly DayBarSpan[];
-  /** A manager's correction on this day (ADR 010): their reason and the date it was made. */
-  readonly managerCorrection?: {
-    readonly reason: string;
-    readonly date: string;
-  } | null;
+  /** Manager corrections on this day (ADR 010), newest first: reason and date made. */
+  readonly managerCorrections?: readonly ManagerCorrectionNote[];
   /** "Klopt er iets niet?" starts a question for the day's last shift. */
   readonly correctionHref: string | null;
 }
@@ -64,6 +61,42 @@ export interface PlannedBlock {
   readonly day: string;
   readonly start_at: string;
   readonly end_at: string;
+}
+
+export interface ManagerCorrectionNote {
+  readonly reason: string;
+  readonly date: string;
+}
+
+/**
+ * Manager corrections per Brussels day, newest first. One correction can touch
+ * several events of a day, so it is listed once per day (by `id`).
+ */
+export function groupManagerCorrections(
+  items: readonly {
+    id: string;
+    day: string;
+    reason: string;
+    createdAt: string;
+  }[],
+): Map<string, ManagerCorrectionNote[]> {
+  const sorted = [...items].sort(
+    (a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt),
+  );
+  const seen = new Set<string>();
+  const byDay = new Map<string, ManagerCorrectionNote[]>();
+  for (const item of sorted) {
+    const key = `${item.day}|${item.id}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const list = byDay.get(item.day) ?? [];
+    list.push({
+      reason: item.reason,
+      date: formatBrusselsDate(new Date(item.createdAt)),
+    });
+    byDay.set(item.day, list);
+  }
+  return byDay;
 }
 
 export interface HoursWeek {

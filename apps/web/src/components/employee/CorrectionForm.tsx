@@ -3,7 +3,6 @@
 
 import { addTransitionType, startTransition, useMemo, useState } from "react";
 import Link from "next/link";
-import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { Check } from "lucide-react";
 
@@ -231,10 +230,8 @@ export function CorrectionForm({
       return;
     }
     tap();
-    if (manager) {
-      router.push(back.href as Route);
-      return;
-    }
+    // The manager action only returns a refusal: on success it redirects, and
+    // `result` is `undefined` above. So from here on this is the employee flow.
     move("forward", () => setDone(true));
     router.refresh();
   }
