@@ -69,7 +69,9 @@ function Hero() {
         <h1 className="text-[40px] leading-[1.05] font-extrabold tracking-[-0.035em] md:text-[60px]">
           {t("landing.hero.title")}
         </h1>
-        <p className="mt-6 text-title-3 text-on-forest-2">{t("landing.hero.subtitle")}</p>
+        <p className="mt-6 text-title-3 text-on-forest-2">
+          {t("landing.hero.subtitle")}
+        </p>
         <div className="mt-10 flex flex-col gap-3 sm:flex-row">
           <Link href="/aanvragen" className={buttonClassName("action")}>
             {t("landing.hero.primary")}
@@ -103,7 +105,9 @@ export default function LandingPage() {
               <span className="flex size-12 items-center justify-center rounded-control bg-forest text-white">
                 <Icon aria-hidden="true" className="size-6" />
               </span>
-              <h3 className="mt-5 text-title-3">{t(`landing.benefits.${key}.title`)}</h3>
+              <h3 className="mt-5 text-title-3">
+                {t(`landing.benefits.${key}.title`)}
+              </h3>
               <p className="mt-3 text-callout text-ink-2">
                 {t(`landing.benefits.${key}.body`)}
               </p>
@@ -130,7 +134,10 @@ export default function LandingPage() {
             />
           </div>
           <div className="w-full min-w-0 overflow-hidden rounded-card border border-line bg-card shadow-card md:flex-1">
-            <div aria-hidden="true" className="flex gap-1.5 border-b border-line px-4 py-3">
+            <div
+              aria-hidden="true"
+              className="flex gap-1.5 border-b border-line px-4 py-3"
+            >
               <span className="size-2.5 rounded-full bg-line" />
               <span className="size-2.5 rounded-full bg-line" />
               <span className="size-2.5 rounded-full bg-line" />

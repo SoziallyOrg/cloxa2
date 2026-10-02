@@ -1,14 +1,83 @@
-*{box-sizing:border-box;margin:0;padding:0}
-body{background:#DCDCD8;width:1400px;padding:36px 40px 44px;font-size:16px;-webkit-font-smoothing:antialiased}
-.cap{font:600 30px/1.1 system-ui;color:#111;margin-bottom:6px}
-.sub{font:400 17px/1.4 system-ui;color:#444;margin-bottom:22px}
-.desk{width:1320px;height:800px;overflow:hidden;border-radius:14px;box-shadow:0 20px 50px rgba(0,0,0,.18);position:relative;display:flex}
-.row2{display:flex;gap:36px;margin-top:36px;align-items:flex-start}
-.phone{width:376px;height:780px;border-radius:44px;overflow:hidden;position:relative;border:9px solid #111;box-shadow:0 20px 50px rgba(0,0,0,.18);flex:none;display:flex;flex-direction:column}
-.notes{flex:1;font:400 17px/1.5 system-ui;color:#222;padding-top:6px}
-.notes h3{font:600 20px system-ui;margin:0 0 10px}
-.notes li{margin:0 0 9px 20px}
-.sw{display:flex;gap:8px;margin:14px 0 20px}
-.sw i{width:44px;height:44px;border-radius:10px;border:1px solid rgba(0,0,0,.15);display:block}
-.logo{display:inline-block;line-height:0}
-button{font:inherit;border:0;cursor:pointer}
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+body {
+  background: #dcdcd8;
+  width: 1400px;
+  padding: 36px 40px 44px;
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+}
+.cap {
+  font: 600 30px/1.1 system-ui;
+  color: #111;
+  margin-bottom: 6px;
+}
+.sub {
+  font: 400 17px/1.4 system-ui;
+  color: #444;
+  margin-bottom: 22px;
+}
+.desk {
+  width: 1320px;
+  height: 800px;
+  overflow: hidden;
+  border-radius: 14px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.18);
+  position: relative;
+  display: flex;
+}
+.row2 {
+  display: flex;
+  gap: 36px;
+  margin-top: 36px;
+  align-items: flex-start;
+}
+.phone {
+  width: 376px;
+  height: 780px;
+  border-radius: 44px;
+  overflow: hidden;
+  position: relative;
+  border: 9px solid #111;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.18);
+  flex: none;
+  display: flex;
+  flex-direction: column;
+}
+.notes {
+  flex: 1;
+  font: 400 17px/1.5 system-ui;
+  color: #222;
+  padding-top: 6px;
+}
+.notes h3 {
+  font: 600 20px system-ui;
+  margin: 0 0 10px;
+}
+.notes li {
+  margin: 0 0 9px 20px;
+}
+.sw {
+  display: flex;
+  gap: 8px;
+  margin: 14px 0 20px;
+}
+.sw i {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  display: block;
+}
+.logo {
+  display: inline-block;
+  line-height: 0;
+}
+button {
+  font: inherit;
+  border: 0;
+  cursor: pointer;
+}
