@@ -42,10 +42,10 @@ export function StatusHero({ hero, children }: StatusHeroProps) {
       )}
     >
       <KlokTopBar onForest={hero.surface === "forest"} />
-      <div className="relative mx-auto mt-5 flex size-[250px] items-center justify-center">
+      <div className="relative mx-auto mt-5 flex size-[300px] items-center justify-center">
         <CRing
           progress={hero.progress}
-          size={250}
+          size={300}
           tone={
             hero.surface === "forest"
               ? "on-forest"
@@ -56,12 +56,12 @@ export function StatusHero({ hero, children }: StatusHeroProps) {
           running={hero.running}
           className="absolute inset-0"
         />
-        <div className="relative flex max-w-[11rem] flex-col items-center gap-1 pr-8 text-center">
+        <div className="relative flex max-w-[10rem] flex-col items-center gap-1 pr-4 text-center">
           <p aria-live="polite" className={cx("text-headline", text)}>
             {hero.status}
           </p>
           {hero.mainKind === "time" ? (
-            <p className="text-[56px] leading-none font-extrabold tracking-[-0.04em] tabular-nums">
+            <p className="text-[46px] leading-none font-extrabold tracking-[-0.04em] tabular-nums">
               <span aria-hidden="true">{hero.main}</span>
               <span className="sr-only">{hero.spoken}</span>
             </p>

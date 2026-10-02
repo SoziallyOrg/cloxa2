@@ -99,10 +99,10 @@ export function ExportForm({
   return (
     <form
       onSubmit={(event) => void handleSubmit(event)}
-      className="flex max-w-readable flex-col gap-8"
+      className="flex max-w-4xl flex-col gap-8"
     >
-      {/* Period and sites side by side from 768px (a form never wider than 720px). */}
-      <div className="grid gap-8 md:grid-cols-2 md:items-start">
+      {/* Period and sites side by side from 768px (a form never wider than 896px). */}
+      <div className="grid gap-8 md:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] md:items-start">
         <section className="flex flex-col gap-3">
           <h2 className="px-4 text-subhead text-ink-2">{t("exports.periodLabel")}</h2>
           <SegmentedControl

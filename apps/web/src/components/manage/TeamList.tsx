@@ -203,7 +203,7 @@ export function TeamList({
                 <Th className="hidden @xl:table-cell">
                   {t("manageTeam.statuteLabel")}
                 </Th>
-                <Th className="hidden @2xl:table-cell">{t("manageTeam.siteColumn")}</Th>
+                <Th className="hidden @4xl:table-cell">{t("manageTeam.siteColumn")}</Th>
                 <Th>{t("manageTeam.statusColumn")}</Th>
                 <Th className="hidden @3xl:table-cell">
                   {t("manageTeam.lastClockColumn")}
@@ -242,7 +242,7 @@ export function TeamList({
                       <Td className="hidden @xl:table-cell">
                         {row.statute ? <Badge>{row.statute}</Badge> : t("common.none")}
                       </Td>
-                      <Td className="hidden @2xl:table-cell">
+                      <Td className="hidden @4xl:table-cell">
                         {row.sites.length > 0 ? row.sites.join(", ") : t("common.none")}
                       </Td>
                       <Td>{statusBadge(row)}</Td>
