@@ -9,8 +9,8 @@ export type TextInputProps = Omit<InputHTMLAttributes<HTMLInputElement>, "classN
  * ink ring outside, on focus-visible only.
  */
 export const inputClassName = cx(
-  "min-h-row w-full rounded-control border-0 bg-surface px-4 text-body text-ink placeholder:text-ink-3",
-  "outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink",
+  "min-h-row w-full rounded-control border border-field bg-card px-4 text-body text-ink placeholder:text-ink-3",
+  "outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest",
   "aria-invalid:ring-2 aria-invalid:ring-danger",
 );
 

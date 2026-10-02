@@ -1,215 +1,127 @@
-# Cloxa design (direction C: calm and minimal)
+# Cloxa design: identity D ("Signaal + ring")
 
-The owner chose direction C on 2026-09-28, with Apple Health and Clock as the
-references. The mockup is in `docs/design/direction-c.png`. Every screen follows these
-rules. If a screen needs to break one, the rule is updated here first.
+Approved by the owner on 2026-10-02. The reference is `docs/design/identity-d.png`
+(source: `docs/design/identity-d.html`). When this text and the picture disagree, the
+picture wins. Earlier directions (paper/cobalt, direction C, the iOS-fidelity pass) are
+retired: nothing may look like a stock iOS screen (no grouped inset Settings lists, no
+translucent blurred bars, no SF-style large titles, no iOS switches or action sheets).
 
 ## Principles
 
-1. **One thing per screen.** The screen's main fact (the timer, today's team) is the
-   largest element. Everything else is visibly secondary.
-2. **Calm.** White space does the work. There are no card shadows, gradients, decorative
-   icons, emoji or illustrations. Separate things with space, and use hairline dividers
-   only where space alone is not enough.
-3. **Black is the action.** The primary button is solid ink with white text. There is
-   one primary action per screen, and it sits at the bottom, in reach of the thumb.
-4. **Colour means status, and nothing else.** Green = working. Amber = on break. Orange
-   = needs attention. Red = error or destructive. Colour always comes with a word.
-5. **Big where it matters.** The timer and key numbers use huge, light numerals. Body
-   text is never smaller than 17px, and secondary text never smaller than 15px.
-6. **Seniors first.** Targets are at least 48px, and the primary action at least 72px.
-   There are no icon-only buttons and no gestures without a visible alternative.
-   Contrast stays at AA or better everywhere (body text is AAA), and layouts still work
-   at 200% zoom.
+1. **One obvious action per screen.** The main action is the lime button. There is one
+   lime button per view at most.
+2. **Status is a colour block, always with words.** Forest green = working, amber =
+   pause, grey = not working, soft red = needs attention. Never colour alone.
+3. **The logo is the timer.** The work timer is the logo's open "c" ring with the "now"
+   dot in the gap. The same ring returns small in the clock bar and in detail panels.
+4. **Calm, big, plain.** Seniors and non-technical staff: 18px base, targets ≥48px,
+   primary clock action ≥72px, B1 Dutch.
+5. **Desktop is its own layout**, not a wide phone (see Desktop).
 
 ## Tokens (`packages/ui-tokens`)
 
-| Token                                        | Light                                         | Dark                                          | Use                                     |
-| -------------------------------------------- | --------------------------------------------- | --------------------------------------------- | --------------------------------------- |
-| `ink`                                        | `#0a0a0a`                                     | `#f5f5f5`                                     | label, primary button                   |
-| `ink-2`                                      | `#6c6c70`                                     | `#98989f`                                     | secondary label (≥4.5:1 everywhere)     |
-| `ink-3`                                      | `#8a8a8e`                                     | `#7c7c80`                                     | tertiary, only 18px+ or non-essential   |
-| `paper` / `fill` / `line`                    | `#ffffff` / `#f5f5f7` / `#e8e8ea`             | `#000000` / `#1c1c1e` / `#2c2c2e`             | plain page, tracks and inputs, outlines |
-| `grouped` / `surface`                        | `#f2f2f7` / `#ffffff`                         | `#000000` / `#1c1c1e` (sheets: one step up)   | inset grouped page / rows               |
-| `separator` / `pressed`                      | `#c6c6c8` / `#d1d1d6`                         | `#38383a` / `#3a3a3c`                         | hairlines (0.5px) / pressed row         |
-| `working` / `break` / `attention` / `danger` | `#207936` / `#b25000` / `#c93400` / `#d70015` | `#30d158` / `#ffd60a` / `#ff9f0a` / `#ff6961` | status, plus `*-tint` for halos         |
-| `material-bar` / `-sidebar` / `-sheet`       | translucent white                             | translucent black                             | bars, sidebar, alerts (with 20px blur)  |
+Light only for now (no dark mode: the forest surfaces are the "dark" of the brand).
 
-`packages/ui-tokens/src/tokens.test.ts` computes every text/background ratio. The iOS
-green `#248a3d` is 4.40:1 on white, so text uses `#207936`.
+| Token         | Value     | Use                                                      |
+| ------------- | --------- | -------------------------------------------------------- |
+| `forest`      | `#0E4A33` | brand, working status, primary buttons, active nav, bars |
+| `forest-deep` | `#0A3626` | text on lime                                             |
+| `lime`        | `#B5F04E` | THE main action and the "now" dot, only on forest        |
+| `leaf`        | `#1FA855` | the "now" dot/accent on light surfaces (logo on light)   |
+| `ink`         | `#10231B` | text                                                     |
+| `ink-2`       | `#5F6B64` | secondary text (≥4.5:1 on paper and card)                |
+| `paper`       | `#F5F6F1` | page background                                          |
+| `card`        | `#FFFFFF` | cards, sidebar, panels                                   |
+| `line`        | `#E2E5DC` | hairlines, outline buttons                               |
+| `track`       | `#EDEFE7` | timeline track, toggle background `#E6E9DF`              |
+| `on-forest-2` | `#B7D2C4` | secondary text on forest                                 |
+| `break`       | `#F6C453` | pause block; text on it `#6B4A00`                        |
+| `idle`        | `#DDE1D6` | "niet bezig" block; done bars `#AEB6AD`                  |
+| `danger`      | `#D8432E` | destructive/attention button; attention bar              |
+| `danger-tint` | `#FCE4DE` | attention block; text on it `#6F1E12`                    |
 
-- **Font:**
-  `-apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter Variable", system-ui, sans-serif`:
-  San Francisco on Apple devices, self-hosted Inter elsewhere. Numbers always use
-  `font-variant-numeric: tabular-nums`.
-- **Type scale:** the iOS text styles (`text-large-title`, `title-1/2/3`, `headline`,
-  `body`, `callout`, `subhead`, `footnote`, `caption`, `caption-2`), plus `display`
-  (88/300, timer) and `number` (34/500, KPI). `title` (32/600) remains only for screens
-  not yet on `NavBar`.
+- **Type:** Bricolage Grotesque Variable, self-hosted (`@fontsource-variable`), weights
+  400–800. Numbers and titles are bold (700–800) with tight tracking; body 500/400.
+  Sizes: timer 50–92px, page title 34–40px, section 18px/700, body 17–18px, secondary
+  14.5–16px, group label 13.5–14px/700 (uppercase only for tiny labels).
+- **Radius:** buttons and nav items 12px; cards and rows 14–20px; the clock block and
+  primary button 20px; hero bottom 32px. Never full pills, never square.
+- **Elevation:** cards get `0 1px 2px rgb(16 35 27 / .06)`; floating bars none (they are
+  solid forest). No blur, no translucency.
 
-- **Radius:** 14px for buttons, inputs and alerts, 10px for inset grouped lists, 7px for
-  icon tiles. Pills are fully round.
-- **Spacing:** a 4px base. Screen gutters are 24px on phones and 40px on desktop. Leave
-  at least 32px between sections.
+## Signature components
 
-## Components
+- **CRing** (logo timer): 270° open ring, gap on the right, round caps; track
+  `white/16%` on forest (`track` on light); progress white on forest (`forest` on
+  light); the dot sits in the gap (lime on forest, leaf on light) and pulses gently
+  while the clock runs (respect `prefers-reduced-motion`). Progress = worked time vs
+  planned shift length; with no plan, vs 8 hours; it never exceeds full.
+- **Status hero** (employee Klok): a block with rounded bottom that takes the status
+  colour: forest (working), amber (pause), card/idle (not started, finished). Holds
+  logo, role switch, CRing with "Je werkt · 4u 12 · sinds 08:02", the primary button and
+  the secondary button.
+- **Role switch**: a two-segment toggle "Mijn klok | Beheer". Shown only when the user
+  has both an employee record and a manager/admin/owner role. Phone: top right of every
+  top-level screen. Desktop: top of the sidebar. Plain links (`/app`, `/manage`).
+- **Clock bar**: whenever the user is clocked in (working or on pause) and is NOT on the
+  Klok screen: a forest block with small CRing, "Jij werkt" + running time, and buttons
+  Pauze / Stop werk (on pause: "Verder werken" / Stop werk; block turns amber). Phone:
+  docked above the tab bar. Desktop: docked at the bottom of the sidebar. Stop werk asks
+  for one confirmation.
+- **Status group header**: a small coloured bar ("Aan het werk 4") above its rows.
+- **Day timeline**: one row per person: name, a rounded track 06:00–18:00 (window widens
+  for early/late/overnight work) with a forest bar, amber pause segments, grey for
+  finished, dashed outline for planned, red for attention; hours worked and a short
+  status on the right; a vertical "now" line with a forest pill "● 12:14".
+- **Was / Wordt**: correction requests show two tiles, "Was" on white and "Wordt" on
+  forest, then Goedkeuren (forest) and Weigeren (outline).
+- **Buttons**: primary action lime on forest surfaces, forest on light surfaces;
+  secondary = outline (`line`) on light, `white/14%` on forest; destructive = `danger`.
+- **Tab bar** (phone): white, 4 items, the active one is a forest rounded tile with
+  white text. Icon + word.
+- **Toggle / tabs**: `#E6E9DF` container, 14px radius, the active segment a white tile.
 
-- **Button.**
-  - `primary`: solid ink, 64px for Klok's main action, 56px elsewhere.
-  - `secondary`: a soft `surface` fill, ink text, no border. Never on `paper`: in dark
-    mode that is black, which reads as a black button on a sheet.
-  - `plain`: ink text only, for tertiary actions.
-  - `destructive`: red text on the soft fill, never solid red.
-  - Inside a sheet, the sheet's main action is `primary` too, so it looks the same as on
-    the page in both themes.
-- **Grouped list** (like iOS Settings). Rows sit on `fill`, grouped in rounded blocks
-  with hairlines between them. A row can hold a title, secondary text and a trailing
-  value or chevron, and is at least 56px tall. This is the default pattern for lists,
-  settings and history.
-- **Status line.** A 12px dot with a soft halo, followed by a word in the status colour.
-- **Timer.** Display size, tabular numbers, `H:MM`. It ticks every 30 seconds.
-- **Progress track.** A 6px `fill` track with an ink bar showing worked time against the
-  planned day. It sits under the timer and has labels at both ends.
-- **Timeline** (manager). Rows are fixed to 06–22h. Worked time is an ink bar, a break
-  is a `ink-3` bar, planned but not started is a dashed outline, and an open shift has a
-  pulsing right edge. The hour axis sits above, with light labels.
-- **Numbers row** (KPIs). Cells are separated by hairlines with no card boxes. Orange is
-  used only for "Aandacht nodig".
-- **Navigation.**
-  - Phone: a bottom tab bar with 3–4 tabs, each an icon plus a label, the active tab in
-    ink. A count badge (pending questions on Vragen) is visual only.
-  - Desktop: a quiet left sidebar with text items, the active item on a `fill`
-    background, and counts right-aligned in `ink-3`.
-- **Sheets and confirmations.** Destructive or important actions open a bottom sheet on
-  phones and a centred dialog on desktop, with plain-language consequences and two
-  buttons. Never use a native `confirm()`.
-- **Feedback.** After clocking, a full-screen confirmation shows for 2 seconds: a large
-  check mark, "Gestart om 08:02" and a vibration. It then returns to the clock. Errors
-  appear inline, next to what caused them.
+## Layout
 
-## Screens
+### Phone (<768px)
 
-- **Employee, Klok.**
-  - Top: the logotype on the left, the first name and initial on the right (tapping the
-    name opens the account sheet).
-  - Then the status line, the timer, "Gestart om 08:02 · geen pauze", and the progress
-    track against today's schedule.
-  - The bottom holds the actions: the primary action plus Pauze.
-  - When the employee isn't working, the timer shows today's planned start ("Gepland
-    08:00–16:30") or nothing at all.
-- **Employee, Uren.**
-  - A week header with the net total, then days as a grouped list. Each row shows the
-    date, start–end and net, plus "aangepast" and "offline" as small text tags.
-  - Tapping a day opens its detail and "Klopt er iets niet?".
-- **Employee, Vragen.** A grouped list of requests with their status, and a primary
-  "Nieuwe vraag" button. The wizard shows one question per screen, with big choice rows
-  and a progress indicator of 3 dots.
-- **Manager, Vandaag.**
-  - A title and a date, the numbers row, then the timeline for the team.
-  - "Aandacht nodig" appears as inline row notes plus an orange count, never as a banner
-    wall.
-  - A site filter sits top right when there is more than one site.
-- **Manager, other lists** (Aanvragen, Team, employee detail, settings) use grouped
-  lists with one primary action per page.
-- **Kiosk.**
-  - Black and white, landscape first.
-  - The names grid uses 120px tiles: initials in a circle on `fill`, with the name
-    below.
-  - The PIN pad has 88px keys and no borders, just digits on `fill` circles.
-- **Login.** Centred and narrow. The logotype, one field, and one black button. The code
-  step has one large OTP field. Nothing else.
+Top row = logo left, role switch right. Content on `paper` with white cards. Clock bar
+(if any) above the tab bar. Manager lists are grouped under status group headers; each
+person row shows a mini timeline bar.
 
-## iOS vibe, not an iOS copy (owner feedback, 2026-09-28)
+### Desktop (≥1024px; 768–1023 = sidebar collapses to icons, side panel becomes a sheet)
 
-The owner wants the **feel** of a premium iOS app (think Apple Health, Clock, Things,
-Linear), **not** a 1:1 copy of the stock Settings app. The approved reference is batch 1
-as shown in `docs/design/batch1-approved.png`: white pages, soft grey row groups, a big
-thin timer, and black primary buttons. Make it **more sophisticated, modern and
-minimal**, with effortless UX.
+Three columns:
 
-**Keep from iOS (the vibe):**
+1. **Sidebar** (244px, white): logo, role switch, navigation (active = forest tile),
+   clock bar docked at the bottom.
+2. **Main** (fluid, `paper`): title row with page actions on the right, then content
+   built for width: stat blocks in a row, timeline, real tables with columns (Team,
+   Uren, Exports, Activiteitenlog, Kiosks), forms in two columns at most 720px wide.
+3. **Side panel** (330px, white): context for the selection. On Vandaag it has two tabs,
+   "Medewerker" (selected person: clock block with CRing, today's events, indicative
+   week totals, actions) and "Aanvragen n" (Was/Wordt cards, attention items). On table
+   pages it shows the selected row's detail instead of navigating away. With nothing
+   selected it shows a short hint, or the pending requests when there are any.
 
-- **Motion.**
-  - Push and pop page slides (View Transitions), sheets that spring up with a grabber
-    and drag-to-dismiss, and pull-to-refresh.
-  - Pressed states: rows get a subtle grey highlight, buttons scale to 0.98 and dim
-    slightly.
-  - Haptics on clock actions.
-  - Everything respects reduced motion.
-- **Navigation.** A large title that collapses into an inline title on a translucent
-  blurred bar with a hairline when scrolled, and a back chevron with the previous title.
-- **Tab bar.** Translucent blur, **thin monochrome line icons (1.5px stroke) plus small
-  labels**, and the active tab in ink. No colour.
-- **Sheets, action sheets and alerts** for choices and confirmations, styled in our
-  monochrome look (white and ink, with red only for destructive actions).
-- **Typeface.** SF on Apple devices, and self-hosted Inter elsewhere, with tight
-  tracking on titles.
+The employee area on desktop uses the same shell: sidebar (Klok, Uren, Vragen, Ik), main
+with the status hero as a card next to today's/this week's facts, no stretched phone
+column.
 
-**Do NOT copy (the owner said no):**
+## "Fully built" checklist (every screen)
 
-- No coloured icon tiles in rows. If a row needs an icon, use a thin monochrome line
-  icon in `ink-2`, and only where it helps scanning (for example settings). Data rows
-  get no icons.
-- No `#f2f2f7` Settings-grey page backgrounds. Pages are white (dark: black). Row groups
-  sit on the soft `fill` (`#f5f5f7` / dark `#1c1c1e`) with a 16px radius, as in batch 1.
-- No green iOS switches. The switch is monochrome: ink when on, `fill` when off.
-- No uppercase section headers. Use small sentence-case labels in `ink-2` (13–15px), as
-  in batch 1.
-
-**Refinement targets ("sophisticated, modern, minimal"):**
-
-- **One rhythm.** A 24px gutter on phones and 32px between sections. Rows are 56px
-  (single line) or 64px (two lines). Buttons are 56px (primary 64px on Klok).
-- **Typography.**
-  - Titles are 30–34px, weight 600, with letter-spacing -0.02em.
-  - The timer is 96px, weight 200–300, with tabular figures.
-  - Secondary text uses `ink-2`. Never more than 3 text sizes on one screen.
-- **Soft geometry.** Radius 16 on groups, 14 on buttons and inputs, and full rounding on
-  pills. No borders on cards. Hairlines only as separators inside groups.
-- **Quiet chrome.** The logo in the header is small. The user's name is a subtle button
-  that opens the account sheet.
-- **Inputs.** Time and date fields are large, calm and filled (`fill` background, no
-  heavy black focus border: use a 2px ink ring _outside_ on focus-visible only). They
-  show values like "08:00" in large tabular text, with the native picker behind them.
-- **Status.** A small dot plus a word. Colours are muted, not saturated: green
-  `#207936`, amber `#b45309`, red `#b91c1c`, and orange for attention `#c2410c`.
-- **Empty and error states.** A thin line icon (not in a coloured circle), one sentence,
-  and one action.
-- **Less on screen.** When in doubt, hide it behind a tap (a sheet), and keep one clear
-  primary action per screen.
-- **Desktop.** A quiet sidebar with thin line icons plus labels, the content in a
-  readable column, and sheets as centred cards.
-
-### "Fully built" checklist (every screen must have all of these)
-
-1. **Loading:** a skeleton that matches the final layout (`loading.tsx`). No spinners on
-   full pages.
-2. **Empty:** a friendly empty state (an icon in a circle, one sentence and one action).
-3. **Error:** inline for form fields; for page-level errors, a calm error view with
-   "Opnieuw proberen".
-4. **Offline:** a banner, and actions behave as the ADRs say.
-5. **Success:** confirmation feedback (the full-screen check for clocking, a toast-like
-   inline confirmation for others).
-6. **Pending:** buttons show a pending state, and double submits are impossible.
-7. **Long content:** long names are truncated with an ellipsis. Lists of 100+ items stay
-   usable (search or segmenting).
-8. **Accessibility:** focus order, labels, `aria-live` for status, and it works at 200%
-   text.
-9. **Both themes and both form factors** are checked in `pnpm screens`.
+Loading skeleton, empty state with a next step, error state with retry, success
+feedback, disabled and pending button states, focus-visible ring (2px forest, on forest
+surfaces 2px lime), keyboard reachable, works at 320px width and at 200% zoom.
 
 ## Copy
 
-- B1 Dutch, using "je" and not "u".
-- Short sentences. Verbs on buttons ("Start werk", "Stop werk", "Pauze", "Versturen").
-- No jargon (no "sessie", "AAL", "factor"; say "beveiligingsapp").
-- No blame ("Dat lukte niet. Probeer opnieuw.").
-- Never claim legal compliance (see `CLAUDE.md`).
+nl-BE via `packages/i18n` only. Short and concrete ("Stop werk", "Pauze nemen", "Verder
+werken"). Counters are labelled "indicatief". No compliance claims (see CLAUDE.md).
 
 ## Accessibility (non-negotiable)
 
-- Real `<button>` and `<a>` elements.
-- A visible focus ring (3px ink outline with a 2px offset).
-- `aria-live` for status changes.
-- Honour reduced motion.
-- 320px minimum width.
-- Test at 200% zoom and with the OS dark mode.
+Text contrast ≥4.5:1 (lime is only a background with `forest-deep` text, or a non-text
+dot); status never by colour alone; real buttons/labels; targets ≥48px, primary clock
+action ≥72px; reduced motion respected; no inline styles (CSP), so timeline positions
+use CSS variables set through the existing nonce-safe approach or SVG attributes.

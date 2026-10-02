@@ -215,7 +215,7 @@ export function ScheduleEditor({
                         onChange={(event) =>
                           updateBlock(day, index, "start", event.target.value)
                         }
-                        className={cx(TIME_INPUT, "bg-paper")}
+                        className={TIME_INPUT}
                       />
                     </div>
                     <div className="flex flex-col gap-1">
@@ -231,7 +231,7 @@ export function ScheduleEditor({
                         onChange={(event) =>
                           updateBlock(day, index, "end", event.target.value)
                         }
-                        className={cx(TIME_INPUT, "bg-paper")}
+                        className={TIME_INPUT}
                       />
                     </div>
                     <button
@@ -289,7 +289,7 @@ export function ScheduleEditor({
               value={validFrom}
               required
               onChange={(event) => setValidFrom(event.target.value)}
-              className={cx(TIME_INPUT, "bg-paper")}
+              className={TIME_INPUT}
             />
           </label>
         </ListItem>

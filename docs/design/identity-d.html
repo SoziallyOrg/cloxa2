@@ -1,0 +1,156 @@
+<!doctype html><html lang="nl"><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="identity-base.css">
+<style>
+.c{--bg:#F5F6F1;--card:#FFFFFF;--ink:#10231B;--mut:#5F6B64;--line:#E2E5DC;--f:#0E4A33;--f2:#0A3626;--lime:#B5F04E;--am:#F6C453;--amd:#6B4A00;--red:#D8432E;font-family:"Bricolage Grotesque",sans-serif;color:var(--ink);background:var(--bg)}
+.c .logo{color:var(--f)}.c .dk .logo,.c .hero .logo{color:#fff}
+.c .tog{display:grid;grid-template-columns:1fr 1fr;background:#E6E9DF;border-radius:14px;padding:4px}
+.c .tog b{text-align:center;padding:10px 8px;border-radius:11px;font-weight:600;font-size:15.5px;color:var(--mut);white-space:nowrap}
+.c .tog b.on{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.c .tog.dk{background:rgba(0,0,0,.25)}.c .tog.dk b{color:#BFD3C8}.c .tog.dk b.on{background:var(--lime);color:var(--f2);box-shadow:none}
+.sb{width:244px;background:#fff;border-right:1px solid var(--line);padding:24px 16px 16px;display:flex;flex-direction:column;gap:20px;flex:none}
+.sb nav{display:flex;flex-direction:column;gap:2px}
+.sb nav a{padding:12px 14px;border-radius:12px;font-size:17px;font-weight:500;color:var(--mut);display:flex;justify-content:space-between}
+.sb nav a.on{background:var(--f);color:#fff;font-weight:600}
+.sb nav em{font-style:normal;background:var(--lime);color:var(--f2);border-radius:8px;font-size:13px;font-weight:700;padding:1px 8px}
+.dock{margin-top:auto;background:var(--f);color:#fff;border-radius:20px;padding:14px}
+.dock .t{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.dock small{white-space:nowrap;font-size:13px;color:#B7D2C4;display:block}.dock b{font-size:34px;font-weight:700;line-height:1;letter-spacing:-1px;display:block}
+.dock .x{display:grid;grid-template-columns:1fr 1.4fr;gap:8px}.dock .btn{padding:12px 8px}
+.btn{white-space:nowrap;border-radius:12px;padding:12px 16px;font-weight:700;font-size:15.5px;background:var(--f);color:#fff}
+.btn.l{background:var(--lime);color:var(--f2)}.btn.g{background:rgba(255,255,255,.14);color:#fff}.btn.o{background:#fff;box-shadow:inset 0 0 0 1.5px var(--line);color:var(--ink)}
+.main{flex:1;padding:26px 22px 22px;display:flex;flex-direction:column;gap:16px;min-width:0}
+.hd{display:flex;justify-content:space-between;align-items:center}
+.hd h1{font-size:40px;font-weight:700;letter-spacing:-1px;line-height:1}.hd p{color:var(--mut);font-size:16.5px;margin-top:4px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.stats div{border-radius:14px;padding:10px 14px;font-size:15px;font-weight:600;display:flex;align-items:center;gap:10px}
+.stats b{font-size:28px;font-weight:700;line-height:1}
+.s1{background:var(--f);color:#fff}.s2{background:var(--am);color:var(--amd)}.s3{background:#DDE1D6}.s4{background:#FCE4DE;color:#6F1E12}
+.card{background:#fff;border-radius:20px;padding:18px 18px 8px;flex:1;position:relative;box-shadow:0 1px 2px rgba(16,35,27,.06)}
+.card h2{font-size:18px;font-weight:700;margin-bottom:10px;display:flex;justify-content:space-between}.card h2 small{color:var(--mut);font-weight:500;font-size:14.5px}
+.hours,.r{display:grid;grid-template-columns:170px 1fr 150px;align-items:center}
+.hours{color:var(--mut);font-size:13px;margin-bottom:4px;padding:0 10px}.hours div{display:flex;justify-content:space-between}
+.r{height:56px;border-top:1px solid var(--line);padding:0 10px;border-radius:0}
+.r.sel{background:#EEF3E9;border-radius:14px;border-color:transparent;box-shadow:inset 0 0 0 1.5px var(--f)}
+.who{font-weight:600;font-size:16.5px}
+.tr{position:relative;height:18px;border-radius:99px;background:#EDEFE7}
+.bar{position:absolute;top:0;bottom:0;border-radius:99px;background:var(--f)}
+.bar.done{background:#AEB6AD}.bar.plan{background:transparent;border:1.5px dashed #AEB6AD}.bar.warn{background:var(--red)}
+.brk{position:absolute;top:0;bottom:0;background:var(--am);border-radius:99px}
+.lab{white-space:nowrap;text-align:right;font-size:13.5px;color:var(--mut);line-height:1.2}.lab b{display:block;color:var(--ink);font-weight:700;font-size:16.5px}
+.nowline{position:absolute;top:50px;bottom:14px;width:2px;background:var(--f);left:calc(28px + 170px + (100% - 36px - 20px - 320px) * .5192)}
+.nowline:before{content:"● 12:14";position:absolute;top:-22px;left:-30px;background:var(--f);color:var(--lime);font-size:12px;font-weight:700;padding:3px 8px;border-radius:99px;white-space:nowrap}
+.det{width:330px;background:#fff;border-left:1px solid var(--line);padding:22px 20px;flex:none;display:flex;flex-direction:column;gap:14px}
+.det.solo{border:0;border-radius:20px;height:780px;box-shadow:0 20px 50px rgba(0,0,0,.18)}
+.det h2{font-size:26px;font-weight:700;letter-spacing:-.5px;line-height:1.1}
+.blk{background:var(--f);color:#fff;border-radius:18px;padding:14px 16px;display:flex;align-items:center;gap:14px}
+.blk small{color:#B7D2C4;font-size:14px}.blk b{display:block;font-size:40px;font-weight:700;letter-spacing:-1.5px;line-height:1}
+.ev{display:flex;gap:12px;font-size:16px;padding:9px 0;border-bottom:1px solid var(--line)}.ev b{width:54px;font-weight:700}
+.kv{display:flex;justify-content:space-between;font-size:15.5px;color:var(--mut)}.kv b{color:var(--ink)}
+.rq{background:var(--bg);border-radius:16px;padding:14px}
+.rq h3{font-size:17px;font-weight:700}.rq p{font-size:14.5px;color:var(--mut);margin:1px 0 10px}
+.cmp{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px}
+.cmp div{background:#fff;border-radius:10px;padding:8px 10px;font-size:13px;color:var(--mut)}.cmp div+div{background:var(--f);color:#B7D2C4}
+.cmp b{display:block;font-size:19px;color:var(--ink)}.cmp div+div b{color:#fff}
+.x2{display:grid;grid-template-columns:1fr 1fr;gap:6px}.x2 .btn{padding:10px 0}
+/* phone */
+.ph{flex:1;display:flex;flex-direction:column;background:var(--bg);position:relative}
+.hero{background:var(--f);color:#fff;padding:20px 20px 22px;border-radius:0 0 32px 32px}
+.hero .top{display:flex;justify-content:space-between;align-items:center}
+.tog b{padding:8px 12px!important;font-size:14.5px!important}.sb .tog b{padding:10px 8px!important;font-size:15.5px!important}
+.ringw{position:relative;width:250px;height:250px;margin:16px auto 14px}
+.ringw div{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding-right:30px}
+.ringw small{font-size:17px;color:#B7D2C4}.ringw b{font-size:50px;font-weight:800;letter-spacing:-2px;line-height:1}
+.big{height:76px;border-radius:20px;font-size:24px;font-weight:700;background:var(--lime);color:var(--f2);width:100%}
+.big.o{height:58px;background:rgba(255,255,255,.14);color:#fff;font-size:19px;margin-top:10px}
+.sec{padding:16px 20px;flex:1}
+.sec h3{font-size:14px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px}
+.li{background:#fff;border-radius:16px;padding:12px 16px;display:flex;justify-content:space-between;font-size:17px;margin-bottom:8px}.li b{font-weight:700}
+.tabs{display:grid;grid-template-columns:repeat(4,1fr);background:#fff;border-top:1px solid var(--line);padding:8px 10px 14px;flex:none}
+.tabs b{text-align:center;padding:10px 0;border-radius:12px;font-weight:600;font-size:14.5px;color:var(--mut)}
+.tabs b.on{background:var(--f);color:#fff}
+.ptop{display:flex;justify-content:space-between;align-items:center;padding:20px 20px 0}
+.grp{font-size:13.5px;font-weight:700;padding:6px 12px;border-radius:10px;display:flex;justify-content:space-between;margin:10px 0 6px}
+.pr{background:#fff;border-radius:14px;padding:9px 14px;margin-bottom:5px}
+.pr div{display:flex;justify-content:space-between;align-items:center;font-size:16px;font-weight:600}.pr span{font-size:13.5px;color:var(--mut);font-weight:400}
+.pr .tr{height:8px;margin-top:6px}
+.pdock{background:var(--f);color:#fff;margin:0 10px 8px;border-radius:18px;padding:10px;display:flex;justify-content:space-between;align-items:center;flex:none}
+.pdock small{font-size:13px;color:#B7D2C4;display:block;line-height:1}.pdock b{font-size:23px;font-weight:700}
+.pdock .btn{padding:11px 13px;font-size:15px}
+.dtabs{display:grid;grid-template-columns:1fr 1fr;background:#E6E9DF;border-radius:14px;padding:4px}
+.dtabs b{text-align:center;padding:9px 6px;border-radius:11px;font-weight:600;font-size:15px;color:var(--mut)}
+.dtabs b.on{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.dtabs em{font-style:normal;background:var(--lime);color:var(--f2);border-radius:7px;font-size:12.5px;font-weight:700;padding:1px 7px;margin-left:4px}
+.lbl{font:600 15px system-ui;color:#444;margin-bottom:8px}
+body{width:1640px}.desk{width:1560px}</style></head><body>
+<div class="cap">D — your mix</div>
+<div class="sub">C's look (forest green, lime, bold letters) + A's team timeline + C's side panel with an Aanvragen tab. The work timer is the "C" of the logo, and the logo now uses the same greens as the app.</div>
+
+<div class="desk c">
+  <aside class="sb">
+    <span class="logo" data-h="34" style="padding-left:6px"></span>
+    <div class="tog"><b class="on">Beheer</b><b>Mijn klok</b></div>
+    <nav><a class="on">Vandaag</a><a>Aanvragen <em>2</em></a><a>Team</a><a>Rooster</a><a>Exports</a><a>Kiosks</a><a>Meer</a></nav>
+    <div class="dock"><div class="t"><span class="cring" data-s="46" data-dark="1"></span><div><small>Jij werkt · 08:02</small><b>4u 12</b></div></div><div class="x"><button class="btn g">Pauze</button><button class="btn l">Stop werk</button></div></div>
+  </aside>
+  <section class="main">
+    <div class="hd"><div><h1>Vandaag</h1><p>vrijdag 2 oktober · Bakkerij Peeters, Gent</p></div><div style="display:flex;gap:8px"><button class="btn o">Export maken</button><button class="btn">Medewerker uitnodigen</button></div></div>
+    <div class="stats"><div class="s1"><b>4</b>aan het werk</div><div class="s2"><b>1</b>op pauze</div><div class="s3"><b>2</b>niet bezig</div><div class="s4"><b>1</b>aandacht</div></div>
+    <div class="card"><h2>Wie werkt wanneer <small>06:00 – 18:00</small></h2>
+      <div class="hours"><span></span><div><span>06</span><span>08</span><span>10</span><span>12</span><span>14</span><span>16</span><span>18</span></div><span></span></div>
+      <div id="rows"></div><i class="nowline"></i></div>
+  </section>
+  <aside class="det">
+    <div class="dtabs"><b class="on">Medewerker</b><b>Aanvragen <em>2</em></b></div>
+    <h2>Jan Peeters</h2>
+    <div class="blk"><span class="cring" data-s="58" data-dark="1"></span><div><small>Werkt sinds 08:02</small><b>4u 12</b></div></div>
+    <div><div class="ev"><b>08:02</b>Gestart · app</div><div class="ev"><b>—</b>Nog geen pauze</div><div class="ev" style="color:var(--mut)"><b>16:30</b>Gepland einde</div></div>
+    <div class="kv"><span>Deze week (indicatief)</span><b>28u 40</b></div>
+    <div class="kv"><span>Gepland deze week</span><b>38u 00</b></div>
+    <div style="margin-top:auto;display:grid;gap:8px"><button class="btn">Uren bekijken</button><button class="btn o">Correctie toevoegen</button></div>
+  </aside>
+</div>
+
+<div class="row2">
+  <div><div class="lbl">Phone · Mijn klok</div><div class="phone c"><div class="ph">
+    <div class="hero"><div class="top"><span class="logo" data-h="28"></span><div class="tog dk"><b class="on">Mijn klok</b><b>Beheer</b></div></div>
+      <div class="ringw"><span class="cring" data-s="250" data-dark="1"></span><div><small>Je werkt</small><b>4u 12</b><small>sinds 08:02</small></div></div>
+      <button class="big">Stop werk</button><button class="big o">Pauze nemen</button></div>
+    <div class="sec"><h3>Vandaag</h3><div class="li"><span>Gestart</span><b>08:02</b></div><div class="li"><span>Gepland tot</span><b>16:30</b></div></div>
+    <div class="tabs"><b class="on">Klok</b><b>Uren</b><b>Vragen</b><b>Ik</b></div>
+  </div></div></div>
+
+  <div><div class="lbl">Phone · Beheer</div><div class="phone c"><div class="ph">
+    <div class="ptop"><span class="logo" data-h="28"></span><div class="tog"><b>Mijn klok</b><b class="on">Beheer</b></div></div>
+    <div class="sec" style="padding-top:12px"><h1 style="font-size:34px;font-weight:700;letter-spacing:-1px">Vandaag</h1>
+      <div class="grp" style="background:var(--f);color:#fff">Aan het werk <span>4</span></div><div id="pw"></div>
+      <div class="grp" style="background:var(--am);color:var(--amd)">Op pauze <span>1</span></div><div id="pb"></div>
+      <div class="grp" style="background:#FCE4DE;color:#6F1E12">Aandacht <span>1</span></div><div class="pr"><div>An Jacobs<span>Gisteren niet uitgeklokt</span></div></div>
+    </div>
+    <div class="pdock"><div style="display:flex;gap:10px;align-items:center"><span class="cring" data-s="40" data-dark="1"></span><div><small>Jij werkt</small><b>4u 12</b></div></div><div style="display:flex;gap:6px"><button class="btn g">Pauze</button><button class="btn l">Stop werk</button></div></div>
+    <div class="tabs"><b class="on">Vandaag</b><b>Aanvragen</b><b>Team</b><b>Meer</b></div>
+  </div></div></div>
+
+  <div><div class="lbl">Desktop side panel · tab Aanvragen</div><aside class="det solo c">
+    <div class="dtabs"><b>Medewerker</b><b class="on">Aanvragen <em>2</em></b></div>
+    <div class="rq"><h3>Els Maes</h3><p>Do 1 oktober · starttijd<br>"Was vroeger begonnen, vergeten te klokken."</p><div class="cmp"><div>Was<b>08:30</b></div><div>Wordt<b>08:00</b></div></div><div class="x2"><button class="btn">Goedkeuren</button><button class="btn o">Weigeren</button></div></div>
+    <div class="rq"><h3>Tom Claes</h3><p>Wo 30 september · pauze toevoegen</p><div class="cmp"><div>Was<b>geen</b></div><div>Wordt<b>12:00–12:30</b></div></div><div class="x2"><button class="btn">Goedkeuren</button><button class="btn o">Weigeren</button></div></div>
+    <div class="rq" style="background:#FCE4DE"><h3 style="color:#6F1E12">An Jacobs</h3><p style="color:#6F1E12">Gisteren niet uitgeklokt.</p><button class="btn" style="background:var(--red);width:100%;padding:10px 0">Eindtijd toevoegen</button></div>
+  </aside></div>
+
+  <div class="notes" style="padding-top:30px"><h3>Logo</h3>
+    <div style="background:#fff;border-radius:14px;padding:16px 18px;margin-bottom:8px" class="c"><span class="logo" data-h="44" style="background:none"></span></div>
+    <div style="background:#0E4A33;border-radius:14px;padding:16px 18px;color:#fff"><span class="logo" data-h="44"></span></div>
+    <div class="sw"><i style="background:#0E4A33"></i><i style="background:#B5F04E"></i><i style="background:#F5F6F1"></i><i style="background:#F6C453"></i><i style="background:#D8432E"></i></div>
+    <ul><li>Letters in forest green, dot in lime: the same two greens as the app.</li><li>The timer is the logo's "c": it fills as you work, the dot glows while the clock runs.</li></ul></div>
+</div>
+<script src="identity-base.js"></script><script>
+// logo-C timer: open ring (gap on the right) with the "now" dot in the gap, as in the wordmark
+const cring=(s,dark,p=.525)=>{const a=(-45-270*p)*Math.PI/180,x=(130+105*Math.cos(a)).toFixed(1),y=(130+105*Math.sin(a)).toFixed(1),big=270*p>180?1:0;
+return `<svg width="${s}" height="${s}" viewBox="0 0 260 260"><g fill="none" stroke-width="${s<80?30:24}" stroke-linecap="round"><path d="M204.2 55.8A105 105 0 1 0 204.2 204.2" stroke="${dark?"rgba(255,255,255,.16)":"#E6E9DF"}"/><path d="M204.2 55.8A105 105 0 ${big} 0 ${x} ${y}" stroke="${dark?"#fff":"#0E4A33"}"/></g><circle cx="235" cy="130" r="${s<80?22:17}" fill="#B5F04E"/></svg>`};
+document.querySelectorAll(".cring").forEach(e=>{e.style.lineHeight=0;e.style.flex="none";e.innerHTML=cring(+e.dataset.s,e.dataset.dark)});
+document.querySelectorAll(".logo").forEach(e=>e.innerHTML=LOGO(e.dataset.h||30).replace("#22c55e","#B5F04E"));
+fill("#rows",(p,i)=>`<div class="r ${i===0?"sel":""}"><div class="who">${p.n}</div><div class="tr">${bar(p)}</div><div class="lab"><b>${p.dur}</b>${p.label.replace(/^Werkt /,"")}</div></div>`);
+const pr=p=>`<div class="pr"><div>${p.n}<span>${p.label.replace(/^(Werkt|Pauze) /,"")}</span></div><div class="tr">${bar(p)}</div></div>`;
+fill("#pw",pr,PEOPLE.filter(p=>p.s==="work"));fill("#pb",pr,PEOPLE.filter(p=>p.s==="break"));
+</script></body></html>

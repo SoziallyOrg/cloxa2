@@ -6,7 +6,7 @@ import { t } from "@cloxa/i18n";
 
 import { cx } from "./cx";
 import { tap } from "./haptics";
-import { ELEVATED, useModalDialog } from "./useModalDialog";
+import { useModalDialog } from "./useModalDialog";
 
 export interface ActionSheetAction {
   key: string;
@@ -14,7 +14,7 @@ export interface ActionSheetAction {
   onSelect: () => void;
   /** Red, for actions that remove or undo something. */
   destructive?: boolean;
-  /** Bold, like the iOS preferred action: e.g. the last choice made. */
+  /** Forest, the preferred choice: e.g. the last one made. */
   preferred?: boolean;
 }
 
@@ -29,12 +29,12 @@ export interface ActionSheetProps {
 }
 
 const ACTION =
-  "pressable focus-ring flex min-h-14 w-full items-center justify-center px-4 py-3 text-center text-title-3 focus-visible:-outline-offset-3";
+  "pressable focus-ring flex min-h-control w-full items-center justify-center rounded-control px-4 py-3 text-center text-headline";
 
 /**
- * The iOS action sheet: a list of choices over the bottom of the screen, and
- * "Annuleer" on its own below. A destructive choice is red. Desktop shows the
- * same card centred. Picking a choice closes the sheet.
+ * A plain dialog with the choices as big buttons, "Annuleer" below. Bottom of
+ * the screen on phones, centred on desktop. A destructive choice is red.
+ * Picking a choice closes it.
  */
 export function ActionSheet({
   open,
@@ -56,16 +56,15 @@ export function ActionSheet({
         if (event.target === event.currentTarget) requestClose();
       }}
       className={cx(
-        ELEVATED,
-        "m-0 mt-auto w-full max-w-none border-0 bg-transparent p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] text-ink",
+        "m-0 mt-auto w-full max-w-none border-0 bg-transparent p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] text-ink",
         "data-closing:animate-sheet-out open:motion-safe:animate-sheet-in",
-        "backdrop:bg-black/40 open:backdrop:animate-fade-in data-closing:backdrop:animate-fade-out",
+        "backdrop:bg-ink/50 open:backdrop:animate-fade-in data-closing:backdrop:animate-fade-out",
         "md:m-auto md:w-[min(26rem,calc(100%-3rem))] md:data-closing:animate-fade-out md:open:motion-safe:animate-alert-in",
       )}
     >
-      <div className="overflow-hidden rounded-alert material-sheet">
-        <div className="flex flex-col gap-1 px-4 py-3.5 text-center">
-          <h2 id={titleId} className="text-subhead font-semibold text-ink-2">
+      <div className="flex flex-col gap-4 rounded-sheet bg-paper p-5">
+        <div className="flex flex-col gap-1">
+          <h2 id={titleId} className="text-title-3">
             {title}
           </h2>
           {message ? (
@@ -74,15 +73,18 @@ export function ActionSheet({
             </p>
           ) : null}
         </div>
-        <ul>
+        <ul className="flex flex-col gap-2">
           {actions.map((action) => (
-            <li key={action.key} className="border-t-[0.5px] border-separator">
+            <li key={action.key}>
               <button
                 type="button"
                 className={cx(
                   ACTION,
-                  action.destructive ? "text-danger" : "text-ink",
-                  action.preferred && "font-semibold",
+                  action.destructive
+                    ? "bg-danger text-white"
+                    : action.preferred
+                      ? "bg-forest text-white"
+                      : "border-[1.5px] border-line bg-card text-ink",
                 )}
                 onClick={() => {
                   tap();
@@ -95,14 +97,14 @@ export function ActionSheet({
             </li>
           ))}
         </ul>
+        <button
+          type="button"
+          onClick={requestClose}
+          className={cx(ACTION, "text-ink-2")}
+        >
+          {t("ui.cancel")}
+        </button>
       </div>
-      <button
-        type="button"
-        onClick={requestClose}
-        className={cx(ACTION, "mt-2 rounded-alert bg-surface font-semibold text-ink")}
-      >
-        {t("ui.cancel")}
-      </button>
     </dialog>
   );
 }

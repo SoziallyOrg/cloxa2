@@ -5,13 +5,15 @@ import { shortDisplayName } from "@/components/employee/account-name";
 import { EmployeeFrame } from "@/components/employee/EmployeeNav";
 import { RegisterShellWorker } from "@/components/offline/ShellWorker";
 import { requireEmployeeArea } from "@/lib/auth/context";
+import { isPrivileged } from "@/lib/auth/routing";
+import { loadClockBar } from "@/lib/clock/bar";
 import { createClient } from "@/lib/supabase/server";
 
 /** `/app/**`: an active membership with an employee row. */
 export default async function EmployeeAppLayout({ children }: { children: ReactNode }) {
   const context = await requireEmployeeArea();
   const supabase = await createClient();
-  const [employeeResult, pendingResult] = await Promise.all([
+  const [employeeResult, pendingResult, clockBar] = await Promise.all([
     supabase
       .from("employees")
       .select("display_name")
@@ -22,6 +24,8 @@ export default async function EmployeeAppLayout({ children }: { children: ReactN
       .select("id", { count: "exact", head: true })
       .eq("employee_id", context.employeeId)
       .eq("status", "pending"),
+    // Shown off the Klok screen while clocked in; a failed read just hides it.
+    loadClockBar(context.employeeId),
   ]);
   const { data: employee, error } = employeeResult;
   if (error) throw new Error(`employee_unavailable:${error.code}`);
@@ -36,7 +40,11 @@ export default async function EmployeeAppLayout({ children }: { children: ReactN
         fullName: employee.display_name,
       }}
     >
-      <EmployeeFrame pendingQuestions={pendingQuestions}>
+      <EmployeeFrame
+        pendingQuestions={pendingQuestions}
+        canManage={isPrivileged(context.membership.role)}
+        clockBar={clockBar}
+      >
         <RegisterShellWorker />
         {children}
       </EmployeeFrame>

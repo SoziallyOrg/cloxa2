@@ -196,7 +196,7 @@ export function OffboardSection({
           </ul>
         </div>
         {errorKey ? <Notice tone="error">{t(errorKey)}</Notice> : null}
-        <Button variant="destructive" wide loading={pending} onClick={confirm}>
+        <Button variant="danger" wide loading={pending} onClick={confirm}>
           {t("manageEmployee.offboardConfirm")}
         </Button>
       </Sheet>

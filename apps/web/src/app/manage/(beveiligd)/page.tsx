@@ -420,7 +420,7 @@ export default async function ManagePage({
             ) : null
           }
         />
-        <div className="flex flex-col gap-8 px-gutter pb-10">
+        <div className="flex flex-col gap-8 px-gutter pb-10 md:px-gutter-desktop">
           <NumbersRow
             label={t("manage.numbersLabel")}
             items={[

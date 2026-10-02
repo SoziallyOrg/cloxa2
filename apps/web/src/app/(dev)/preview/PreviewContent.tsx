@@ -210,7 +210,7 @@ export function PreviewContent() {
           <Button variant="secondary" onClick={NOOP}>
             {t("actions.startBreak")}
           </Button>
-          <Button variant="destructive" onClick={NOOP}>
+          <Button variant="danger" onClick={NOOP}>
             {t("actions.stopWork")}
           </Button>
           <Button variant="plain" onClick={NOOP}>
@@ -239,7 +239,7 @@ export function PreviewContent() {
           <Button variant="secondary" wide onClick={() => setActions(true)}>
             {t("preview.openActionSheet")}
           </Button>
-          <Button variant="destructive" wide onClick={() => setAlert(true)}>
+          <Button variant="danger" wide onClick={() => setAlert(true)}>
             {t("preview.openAlert")}
           </Button>
         </div>
@@ -275,7 +275,7 @@ export function PreviewContent() {
           <TabBar items={NAV_DEMO} label={t("preview.tabBarHeading")} />
         </div>
         <p className="px-4 text-footnote text-ink-2">{t("preview.sidebarHeading")}</p>
-        <div className="max-w-sidebar rounded-list material-sidebar p-3">
+        <div className="max-w-sidebar rounded-list bg-card p-3">
           <SidebarNav items={NAV_DEMO} label={t("preview.sidebarHeading")} />
         </div>
       </section>

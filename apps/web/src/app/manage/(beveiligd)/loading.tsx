@@ -21,7 +21,10 @@ export default function TodayLoading() {
         <SkeletonTitle />
         <Skeleton className="-mt-2 ml-gutter h-4 w-44" />
       </div>
-      <div aria-hidden="true" className="flex flex-col gap-8 px-gutter pt-4">
+      <div
+        aria-hidden="true"
+        className="flex flex-col gap-8 px-gutter pt-4 md:px-gutter-desktop"
+      >
         <div className="grid grid-cols-2 md:grid-cols-4">
           {[0, 1, 2, 3].map((cell) => (
             <div key={cell} className="flex flex-col gap-2 py-3">

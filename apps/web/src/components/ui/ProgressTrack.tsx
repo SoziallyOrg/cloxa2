@@ -10,7 +10,7 @@ export interface ProgressTrackProps {
 }
 
 /**
- * A 6px `fill` track with an ink bar. A native `<progress>`: accessible out
+ * A forest bar on a `track`. A native `<progress>`: accessible out
  * of the box, and its width needs no inline style (the CSP forbids those).
  */
 export function ProgressTrack({
@@ -29,7 +29,7 @@ export function ProgressTrack({
         value={safeValue}
         max={safeMax}
         aria-label={label}
-        className="block h-1.5 w-full appearance-none overflow-hidden rounded-full border-0 bg-fill text-ink [&::-moz-progress-bar]:rounded-full [&::-moz-progress-bar]:bg-ink [&::-webkit-progress-bar]:rounded-full [&::-webkit-progress-bar]:bg-fill [&::-webkit-progress-value]:rounded-full [&::-webkit-progress-value]:bg-ink"
+        className="block h-2 w-full appearance-none overflow-hidden rounded-full border-0 bg-track text-forest [&::-moz-progress-bar]:rounded-full [&::-moz-progress-bar]:bg-forest [&::-webkit-progress-bar]:rounded-full [&::-webkit-progress-bar]:bg-track [&::-webkit-progress-value]:rounded-full [&::-webkit-progress-value]:bg-forest"
       />
       <div className="flex items-baseline justify-between gap-4 text-subhead text-ink-2 tabular-nums">
         <span>{startLabel}</span>

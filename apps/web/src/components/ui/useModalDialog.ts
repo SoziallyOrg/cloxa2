@@ -2,13 +2,6 @@
 
 import { useCallback, useEffect, useRef } from "react";
 
-/**
- * Dialogs sit one level up: in dark mode their backgrounds and rows lift a
- * step (iOS elevated colours), so rows stay visible on the sheet.
- */
-export const ELEVATED =
-  "[--color-grouped:var(--color-grouped-elevated)] [--color-surface:var(--color-surface-elevated)]";
-
 /** Longest exit animation (sheet-out); a safety net if `animationend` never fires. */
 const EXIT_FALLBACK_MS = 400;
 

@@ -86,8 +86,8 @@ export function TeamList({ rows, empty, revokeAction }: TeamListProps) {
           autoComplete="off"
           enterKeyHint="search"
           className={cx(
-            "min-h-touch-target w-full rounded-control border-0 bg-surface pr-4 pl-11 text-body text-ink placeholder:text-ink-2",
-            "outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink",
+            "min-h-touch-target w-full rounded-control border border-field bg-card pr-4 pl-11 text-body text-ink placeholder:text-ink-2",
+            "outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest",
           )}
         />
       </label>

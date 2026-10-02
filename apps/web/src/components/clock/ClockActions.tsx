@@ -26,7 +26,7 @@ const SUCCESS_KEY: Record<
 const SUCCESS_TONE: Record<ActionKind, string> = {
   startWork: "bg-working/12 text-working",
   stopBreak: "bg-working/12 text-working",
-  startBreak: "bg-break/12 text-break",
+  startBreak: "bg-break-tint text-break-ink",
   stopWork: "bg-fill text-ink",
 };
 

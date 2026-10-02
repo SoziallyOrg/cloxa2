@@ -5,7 +5,7 @@ import { useId } from "react";
 import { t } from "@cloxa/i18n";
 
 import { cx } from "./cx";
-import { ELEVATED, useModalDialog } from "./useModalDialog";
+import { useModalDialog } from "./useModalDialog";
 
 export interface AlertProps {
   open: boolean;
@@ -23,12 +23,12 @@ export interface AlertProps {
 }
 
 const BUTTON =
-  "pressable focus-ring min-h-touch-target px-3 py-2.5 text-body focus-visible:-outline-offset-3";
+  "pressable focus-ring min-h-control rounded-control px-3 py-2.5 text-headline";
 
 /**
- * The iOS alert: a small centred card with a title, a message and two
- * buttons side by side. For irreversible steps only; everyday choices use an
- * `ActionSheet`. A tap outside does nothing, as on iOS; Esc cancels.
+ * A small centred dialog with a title, a message and two buttons. For
+ * irreversible steps only; everyday choices use an `ActionSheet`. A tap
+ * outside does nothing; Esc cancels.
  */
 export function Alert({
   open,
@@ -51,30 +51,26 @@ export function Alert({
       aria-labelledby={titleId}
       aria-describedby={message ? messageId : undefined}
       className={cx(
-        ELEVATED,
-        "m-auto w-[min(18rem,calc(100%-3rem))] max-w-none overflow-hidden rounded-alert border-0 material-sheet p-0 text-ink",
+        "m-auto w-[min(24rem,calc(100%-2rem))] max-w-none rounded-alert border-0 bg-card p-5 text-ink",
         "data-closing:animate-fade-out open:motion-safe:animate-alert-in",
-        "backdrop:bg-black/40 open:backdrop:animate-fade-in data-closing:backdrop:animate-fade-out",
+        "backdrop:bg-ink/50 open:backdrop:animate-fade-in data-closing:backdrop:animate-fade-out",
       )}
     >
-      <div className="flex flex-col gap-1 px-4 pt-5 pb-4 text-center">
-        <h2 id={titleId} className="text-headline break-words">
+      <div className="flex flex-col gap-2">
+        <h2 id={titleId} className="text-title-3 break-words">
           {title}
         </h2>
         {message ? (
-          <p id={messageId} className="text-subhead text-ink">
+          <p id={messageId} className="text-body text-ink-2">
             {message}
           </p>
         ) : null}
       </div>
-      <div className="grid grid-cols-2 border-t-[0.5px] border-separator">
+      <div className="mt-5 grid grid-cols-2 gap-3">
         <button
           type="button"
           onClick={requestClose}
-          className={cx(
-            BUTTON,
-            "border-r-[0.5px] border-separator font-semibold text-ink",
-          )}
+          className={cx(BUTTON, "border-[1.5px] border-line bg-card text-ink")}
         >
           {cancelLabel ?? t("ui.cancel")}
         </button>
@@ -84,7 +80,10 @@ export function Alert({
             onConfirm();
             requestClose();
           }}
-          className={cx(BUTTON, destructive ? "text-danger" : "text-ink")}
+          className={cx(
+            BUTTON,
+            destructive ? "bg-danger text-white" : "bg-forest text-white",
+          )}
         >
           {confirmLabel}
         </button>

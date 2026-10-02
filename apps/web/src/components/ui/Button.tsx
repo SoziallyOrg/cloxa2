@@ -5,8 +5,15 @@ import { t } from "@cloxa/i18n";
 import { ActivityIndicator } from "./ActivityIndicator";
 import { cx } from "./cx";
 
-export type ButtonVariant = "primary" | "secondary" | "plain" | "destructive";
-/** `lg`: Klok's main action (64px, full width). `md`: 56px, everything else. */
+/**
+ * `primary`: forest on light surfaces. `action`: lime with forest-deep text,
+ * only on forest surfaces (the one main action there). `secondary`: outline.
+ * `ghost-on-forest`: white at 14% on forest. `danger`: destructive. `plain`:
+ * text only.
+ */
+export type ButtonVariant =
+  "primary" | "action" | "secondary" | "ghost-on-forest" | "plain" | "danger";
+/** `lg`: Klok's main action (72px, full width). `md`: 56px, everything else. */
 export type ButtonSize = "lg" | "md";
 
 export interface ButtonProps extends Omit<
@@ -22,19 +29,19 @@ export interface ButtonProps extends Omit<
   children: ReactNode;
 }
 
-// Secondary buttons are soft `surface` fills, never `paper`: in dark mode
-// paper is black, which read as a black button on the lifted grey of a
-// sheet. Surface lifts with the sheet (see `ELEVATED`). No borders.
+// `ghost-on-forest` and `action` carry `on-forest` so the focus ring turns lime.
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
-  primary: "bg-ink text-paper",
-  secondary: "bg-surface text-ink",
+  primary: "bg-forest text-white",
+  action: "on-forest bg-lime text-forest-deep",
+  secondary: "border-[1.5px] border-line bg-card text-ink",
+  "ghost-on-forest": "on-forest bg-white/14 text-white",
   plain: "text-ink",
-  destructive: "bg-surface text-danger",
+  danger: "bg-danger text-white",
 };
 
 const SIZE_CLASSES: Record<ButtonSize, string> = {
-  lg: "min-h-primary-action w-full text-headline",
-  md: "min-h-control text-headline",
+  lg: "min-h-primary-action w-full rounded-clock text-title-3",
+  md: "min-h-control rounded-control text-headline",
 };
 
 /** Button looks for a link that navigates (never nest a `<button>` in an `<a>`). */
@@ -44,7 +51,7 @@ export function buttonClassName(
   wide = false,
 ): string {
   return cx(
-    "pressable focus-ring inline-flex items-center justify-center gap-3 rounded-control text-center select-none",
+    "pressable focus-ring inline-flex items-center justify-center gap-3 text-center select-none",
     VARIANT_CLASSES[variant],
     SIZE_CLASSES[size],
     variant === "plain" ? "px-3" : "px-6",
@@ -53,8 +60,8 @@ export function buttonClassName(
 }
 
 /**
- * The one interactive primitive every screen builds on. One `primary` (solid
- * ink) per screen. Dims while pressed. Disabled buttons keep readable text
+ * The one interactive primitive every screen builds on. One main action per
+ * screen. Dims while pressed. Disabled buttons keep readable text
  * (never a faded grey) so seniors can still read why nothing happens.
  */
 export function Button({

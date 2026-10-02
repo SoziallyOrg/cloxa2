@@ -28,10 +28,10 @@ const COLUMNS = ["", "", "grid-cols-2", "grid-cols-3", "grid-cols-4", "grid-cols
 const THUMB_WIDTH = [
   "",
   "",
-  "w-[calc((100%-4px)/2)]",
-  "w-[calc((100%-4px)/3)]",
-  "w-[calc((100%-4px)/4)]",
-  "w-[calc((100%-4px)/5)]",
+  "w-[calc((100%-8px)/2)]",
+  "w-[calc((100%-8px)/3)]",
+  "w-[calc((100%-8px)/4)]",
+  "w-[calc((100%-8px)/5)]",
 ];
 const THUMB_OFFSET = [
   "translate-x-0",
@@ -42,7 +42,7 @@ const THUMB_OFFSET = [
 ];
 
 /**
- * The iOS segmented control: a pill track with a sliding thumb. Radio-group
+ * The toggle: a soft container with a white tile under the active segment. Radio-group
  * semantics: one tab stop, arrow keys move the choice, Home and End jump to
  * the ends.
  */
@@ -96,14 +96,14 @@ export function SegmentedControl<V extends string>({
       role="radiogroup"
       aria-label={label}
       className={cx(
-        "relative grid min-h-touch-target rounded-[10px] bg-track p-0.5",
+        "relative grid min-h-touch-target rounded-[14px] bg-toggle p-1",
         COLUMNS[count],
       )}
     >
       <span
         aria-hidden="true"
         className={cx(
-          "absolute top-0.5 bottom-0.5 left-0.5 rounded-[8px] bg-thumb shadow-[0_3px_8px_rgb(0_0_0/0.12),0_3px_1px_rgb(0_0_0/0.04)] transition-transform duration-300 ease-spring",
+          "absolute top-1 bottom-1 left-1 rounded-[10px] bg-thumb shadow-card transition-transform duration-300 ease-spring",
           THUMB_WIDTH[count],
           THUMB_OFFSET[index],
         )}
@@ -123,8 +123,8 @@ export function SegmentedControl<V extends string>({
             onClick={() => choose(position, false)}
             onKeyDown={onKeyDown}
             className={cx(
-              "focus-ring relative z-10 min-w-0 pressable truncate rounded-[8px] px-1.5 text-subhead text-ink",
-              checked ? "font-semibold" : "font-medium",
+              "focus-ring relative z-10 min-w-0 pressable truncate rounded-[10px] px-2 text-subhead text-ink",
+              checked ? "font-bold" : "font-semibold text-ink-2",
             )}
           >
             {option.label}

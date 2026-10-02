@@ -5,6 +5,7 @@ import { colors } from "./tokens";
 
 const AA_TEXT = 4.5;
 const AA_LARGE = 3;
+const c = colors.light;
 
 describe("contrastRatio", () => {
   it("matches the WCAG reference values", () => {
@@ -14,44 +15,71 @@ describe("contrastRatio", () => {
   });
 });
 
-for (const scheme of ["light", "dark"] as const) {
-  const c = colors[scheme];
-  // Every background text can sit on: the page, a grouped page, a row, a fill.
-  const backgrounds = {
-    paper: c.paper,
-    grouped: c.grouped,
-    surface: c.surface,
-    fill: c.fill,
-    "grouped (sheet)": c.groupedElevated,
-    "surface (sheet)": c.surfaceElevated,
-    // Alerts and action sheets: the translucent material (90% white) over the
-    // page dimmed by the 40% black backdrop: 0.9 * 255 + 0.1 * 153 = 245.
-    material: scheme === "light" ? "#f4f4f4" : "#1e1e20",
-  };
+// Every background text can sit on: the page, a card, a soft fill, the toggle.
+const lightBackgrounds = {
+  paper: c.paper,
+  card: c.card,
+  fill: c.fill,
+  toggle: c.toggle,
+};
 
-  describe(`${scheme} scheme`, () => {
-    for (const [name, background] of Object.entries(backgrounds)) {
-      it(`ink, ink-2 and every status colour reach AA text on ${name}`, () => {
-        for (const text of [c.ink, c.ink2, c.working, c.break, c.attention, c.danger]) {
-          expect(contrastRatio(text, background)).toBeGreaterThanOrEqual(AA_TEXT);
-        }
-      });
-
-      it(`ink-3 reaches AA large text on ${name}`, () => {
-        expect(contrastRatio(c.ink3, background)).toBeGreaterThanOrEqual(AA_LARGE);
-      });
-    }
-
-    it("ink keeps AAA contrast for body text on the page", () => {
-      expect(contrastRatio(c.ink, c.paper)).toBeGreaterThanOrEqual(7);
+describe("text on light surfaces", () => {
+  for (const [name, background] of Object.entries(lightBackgrounds)) {
+    it(`ink, ink-2, forest and the status text colours reach AA on ${name}`, () => {
+      for (const text of [c.ink, c.ink2, c.forest, c.attention, c.danger, c.breakInk]) {
+        expect(contrastRatio(text, background)).toBeGreaterThanOrEqual(AA_TEXT);
+      }
     });
 
-    it("the selected segment label reaches AA on its thumb", () => {
-      expect(contrastRatio(c.ink, c.thumb)).toBeGreaterThanOrEqual(AA_TEXT);
+    it(`ink-3 reaches AA large text on ${name}`, () => {
+      expect(contrastRatio(c.ink3, background)).toBeGreaterThanOrEqual(AA_LARGE);
     });
+  }
 
-    it("the primary button (paper on ink) reaches AA", () => {
-      expect(contrastRatio(c.paper, c.ink)).toBeGreaterThanOrEqual(AA_TEXT);
-    });
+  it("input borders reach 3:1 on card and paper", () => {
+    expect(contrastRatio(c.field, c.card)).toBeGreaterThanOrEqual(AA_LARGE);
+    expect(contrastRatio(c.field, c.paper)).toBeGreaterThanOrEqual(AA_LARGE);
   });
-}
+
+  it("ink keeps AAA contrast for body text on the page", () => {
+    expect(contrastRatio(c.ink, c.paper)).toBeGreaterThanOrEqual(7);
+  });
+});
+
+describe("text on brand surfaces", () => {
+  it("lime is a background: forest-deep text on lime reaches AA", () => {
+    expect(contrastRatio(c.forestDeep, c.lime)).toBeGreaterThanOrEqual(AA_TEXT);
+  });
+
+  it("white and the secondary text reach AA on forest", () => {
+    expect(contrastRatio("#ffffff", c.forest)).toBeGreaterThanOrEqual(AA_TEXT);
+    expect(contrastRatio(c.onForest2, c.forest)).toBeGreaterThanOrEqual(AA_TEXT);
+  });
+
+  it("lime stays visible as a non-text dot on forest", () => {
+    expect(contrastRatio(c.lime, c.forest)).toBeGreaterThanOrEqual(AA_LARGE);
+  });
+
+  it("the pause block: amber-ink text on amber, white text on forest", () => {
+    expect(contrastRatio(c.breakInk, c.break)).toBeGreaterThanOrEqual(AA_TEXT);
+  });
+
+  it("the attention block: its ink on the soft red", () => {
+    expect(contrastRatio(c.dangerTintInk, c.dangerTint)).toBeGreaterThanOrEqual(
+      AA_TEXT,
+    );
+  });
+
+  it("the primary button (white on forest) and destructive button (white on danger) reach AA", () => {
+    expect(contrastRatio(c.card, c.forest)).toBeGreaterThanOrEqual(AA_TEXT);
+    expect(contrastRatio(c.card, c.danger)).toBeGreaterThanOrEqual(AA_TEXT);
+  });
+
+  it("the selected toggle label reaches AA on its white tile", () => {
+    expect(contrastRatio(c.ink, c.thumb)).toBeGreaterThanOrEqual(AA_TEXT);
+  });
+
+  it("the bar red is only used for non-text (>= 3:1 on paper)", () => {
+    expect(contrastRatio(c.dangerBar, c.paper)).toBeGreaterThanOrEqual(AA_LARGE);
+  });
+});

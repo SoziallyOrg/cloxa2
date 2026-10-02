@@ -22,7 +22,7 @@ const DOT_CLASSES: Record<StatusTone, string> = {
 
 const WORD_CLASSES: Record<StatusTone, string> = {
   working: "text-working",
-  break: "text-break",
+  break: "text-break-ink",
   attention: "text-attention",
   danger: "text-danger",
   off: "text-ink-2",

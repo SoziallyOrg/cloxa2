@@ -33,7 +33,7 @@ type Pick = "previous" | "this" | "custom";
 const day = (key: string) =>
   key ? formatBrusselsDate(new Date(`${key}T12:00:00Z`)) : t("common.none");
 
-const DATE_INPUT = cx(inputClassName, "bg-paper tabular-nums");
+const DATE_INPUT = cx(inputClassName, "tabular-nums");
 
 /**
  * The period as quick picks (last month, this month, or your own dates) and

@@ -86,7 +86,7 @@ export function SkeletonTitle() {
   return (
     <div
       aria-hidden="true"
-      className="px-gutter pt-[calc(var(--spacing-nav-bar)+0.25rem)] pb-3"
+      className="px-gutter pt-3 pb-5 md:px-gutter-desktop md:pt-8"
     >
       <Skeleton className="h-9 w-48 rounded-lg" />
     </div>

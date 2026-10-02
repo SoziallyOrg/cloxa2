@@ -6,7 +6,10 @@ import { ChartNoAxesGantt, Ellipsis, FileDown, Inbox, Users } from "lucide-react
 
 import { t } from "@cloxa/i18n";
 
-import { Logo } from "../brand/Logo";
+import type { ClockBarData } from "@/lib/clock/bar";
+
+import { ClockBar, ClockBarProvider, ClockBarSpacer } from "../clock/ClockBar";
+import { PhoneTopBar, SidebarHead } from "../shell/FrameParts";
 import { SidebarLayout, SidebarNav } from "../ui/SidebarLayout";
 import { TabBar, type NavItem } from "../ui/TabBar";
 import {
@@ -80,43 +83,60 @@ export interface ManageFrameProps {
   account: ManageAccount;
   /** Correction requests waiting for a decision: the Aanvragen count. */
   pendingRequests: number;
+  /** Set while the manager (who also has an employee record) is clocked in. */
+  clockBar: ClockBarData | null;
   children: ReactNode;
 }
 
 /**
- * The `/manage` frame, the same as the employee app's: a translucent
- * sidebar with the account at the bottom on desktop, a tab bar on phones.
- * Vandaag uses the full width for its timeline; everything else keeps the
+ * The `/manage` frame, the same shell as the employee app: a white sidebar
+ * with the account at the bottom on desktop (icons only on tablets), a tab
+ * bar on phones. Vandaag uses the full width; everything else keeps the
  * readable column.
  */
-export function ManageFrame({ account, pendingRequests, children }: ManageFrameProps) {
+export function ManageFrame({
+  account,
+  pendingRequests,
+  clockBar,
+  children,
+}: ManageFrameProps) {
   const pathname = usePathname();
   const label = t("manageNav.sidebarLabel");
+  // Managers are always allowed to manage here; the switch needs a clock too.
+  const roles = {
+    current: "manage",
+    hasEmployee: account.canClock,
+    canManage: true,
+  } as const;
 
   return (
     <ManageAccountProvider account={account}>
-      <SidebarLayout
-        wide={pathname === "/manage"}
-        sidebar={
-          <>
-            <div className="px-3 pt-1">
-              <Logo />
-            </div>
-            <SidebarNav
-              items={navItems(pathname, pendingRequests, true)}
-              label={label}
-            />
-            <div className="mt-auto">
-              <ManageAccountButton account={account} />
-            </div>
-          </>
-        }
-        tabBar={
-          <TabBar items={navItems(pathname, pendingRequests, false)} label={label} />
-        }
-      >
-        {children}
-      </SidebarLayout>
+      <ClockBarProvider data={clockBar}>
+        <SidebarLayout
+          wide={pathname === "/manage"}
+          topBar={<PhoneTopBar {...roles} />}
+          contentEnd={<ClockBarSpacer placement="content" />}
+          sidebar={
+            <>
+              <SidebarHead {...roles} />
+              <SidebarNav
+                items={navItems(pathname, pendingRequests, true)}
+                label={label}
+              />
+              <div className="mt-auto flex flex-col gap-3">
+                <ClockBarSpacer placement="sidebar" />
+                <ManageAccountButton account={account} />
+              </div>
+            </>
+          }
+          tabBar={
+            <TabBar items={navItems(pathname, pendingRequests, false)} label={label} />
+          }
+        >
+          {children}
+        </SidebarLayout>
+        <ClockBar data={clockBar} />
+      </ClockBarProvider>
     </ManageAccountProvider>
   );
 }

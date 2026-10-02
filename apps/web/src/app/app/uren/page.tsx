@@ -11,7 +11,6 @@ import { weekTotalMs, workedMs } from "@/components/clock/week-total";
 import { HoursList, type HoursRow } from "@/components/employee/HoursList";
 import { ScheduleBlocksList } from "@/components/employee/ScheduleBlocksList";
 import { SelfExportLink } from "@/components/exports/SelfExportLink";
-import { AccountButton } from "@/components/employee/Account";
 import { ModuleSection } from "@/components/modules/ModuleSection";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { List, Row, Section } from "@/components/ui/List";
@@ -138,10 +137,7 @@ export default async function HoursPage({
   return (
     <PageTransition>
       <PullToRefresh>
-        <NavBar
-          title={t("hours.heading")}
-          trailing={<AccountButton placement="bar" />}
-        />
+        <NavBar title={t("hours.heading")} />
         <List className="pb-10">
           {weekTotal !== null ? (
             <section className="flex flex-col gap-0.5">

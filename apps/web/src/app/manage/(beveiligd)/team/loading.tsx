@@ -5,7 +5,7 @@ export default function TeamLoading() {
   return (
     <div className="flex flex-col pb-10">
       <SkeletonTitle />
-      <div className="flex flex-col gap-6 px-gutter">
+      <div className="flex flex-col gap-6 px-gutter md:px-gutter-desktop">
         <div aria-hidden="true" className="flex flex-col gap-6">
           <Skeleton className="h-touch-target w-full rounded-[10px]" />
           <Skeleton className="h-touch-target w-full rounded-control" />

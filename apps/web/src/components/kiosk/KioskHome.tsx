@@ -91,7 +91,7 @@ export function KioskHome({
         <h1 className="text-2xl font-bold">{t("kiosk.chooseEmployee")}</h1>
 
         {employees.length > SEARCH_THRESHOLD ? (
-          <label className="flex items-center gap-3 rounded-md border-2 border-line bg-paper px-4 py-3">
+          <label className="flex items-center gap-3 rounded-md border-2 border-line bg-card px-4 py-3">
             <Search aria-hidden="true" className="size-6" />
             <input
               type="search"
@@ -117,11 +117,11 @@ export function KioskHome({
                 setPin("");
                 onSelect(employee);
               }}
-              className="focus-ring flex min-h-kiosk-tile w-full min-w-0 flex-col items-center justify-center gap-2 rounded-lg border border-line bg-paper p-3"
+              className="focus-ring flex min-h-kiosk-tile w-full min-w-0 flex-col items-center justify-center gap-2 rounded-lg border border-line bg-card p-3"
             >
               <span
                 aria-hidden="true"
-                className="flex size-12 shrink-0 items-center justify-center rounded-full bg-ink text-lg font-bold text-paper"
+                className="flex size-12 shrink-0 items-center justify-center rounded-full bg-forest text-lg font-bold text-white"
               >
                 {employee.initials ?? initialsOf(employee.name)}
               </span>
@@ -161,8 +161,8 @@ export function KioskHome({
           <span
             key={index}
             className={cx(
-              "size-4 rounded-full border-2 border-ink",
-              index < pin.length ? "bg-ink" : "bg-transparent",
+              "size-4 rounded-full border-2 border-forest",
+              index < pin.length ? "bg-forest" : "bg-transparent",
             )}
           />
         ))}
@@ -178,7 +178,7 @@ export function KioskHome({
             type="button"
             disabled={busy}
             onClick={() => pressDigit(digit)}
-            className="focus-ring size-pin-key rounded-lg border border-line bg-paper text-2xl font-bold"
+            className="focus-ring size-pin-key rounded-lg border border-line bg-card text-2xl font-bold"
           >
             {digit}
           </button>
@@ -190,7 +190,7 @@ export function KioskHome({
           type="button"
           disabled={busy}
           onClick={() => pressDigit(ZERO_DIGIT)}
-          className="focus-ring size-pin-key rounded-lg border border-line bg-paper text-2xl font-bold"
+          className="focus-ring size-pin-key rounded-lg border border-line bg-card text-2xl font-bold"
         >
           {ZERO_DIGIT}
         </button>

@@ -36,6 +36,8 @@ export interface ClockFaceInput {
 export interface ClockFace {
   /** Worked time while working, the break so far while on break; null when off. */
   timerMs: number | null;
+  /** Worked time of the open shift (without breaks), also while on break; null when off. */
+  workedMs: number | null;
   timerSpoken: string | null;
   /** "Gestart om 08:02 · geen pauze". */
   subline: string | null;
@@ -88,6 +90,7 @@ export function clockFace({
   if (state === "off" || since === null) {
     return {
       timerMs: null,
+      workedMs: null,
       timerSpoken: null,
       subline: null,
       progress: null,
@@ -112,6 +115,7 @@ export function clockFace({
 
   return {
     timerMs,
+    workedMs,
     timerSpoken:
       breakStart !== null
         ? t("clock.breakSpoken", { value: formatDurationMs(timerMs) })

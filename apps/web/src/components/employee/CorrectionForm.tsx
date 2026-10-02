@@ -84,7 +84,7 @@ function StepDots({ step }: { step: 1 | 2 | 3 }) {
             key={dot}
             className={cx(
               "size-2 rounded-full",
-              dot === step ? "bg-ink" : dot < step ? "bg-ink-3" : "bg-separator",
+              dot === step ? "bg-forest" : dot < step ? "bg-ink-3" : "bg-separator",
             )}
           />
         ))}
@@ -97,7 +97,7 @@ function StepDots({ step }: { step: 1 | 2 | 3 }) {
 /** The bottom action, in reach of the thumb and above the tab bar on phones. */
 function BottomAction({ children }: { children: React.ReactNode }) {
   return (
-    <div className="sticky bottom-[calc(var(--spacing-tab-bar)+env(safe-area-inset-bottom))] mt-auto flex flex-col gap-3 bg-grouped/85 px-gutter pt-2 pb-4 backdrop-blur-md md:static md:mt-0 md:bg-transparent md:pb-10 md:backdrop-blur-none">
+    <div className="sticky bottom-[calc(var(--spacing-tab-bar)+env(safe-area-inset-bottom))] mt-auto flex flex-col gap-3 bg-paper px-gutter pt-2 pb-4 md:static md:mt-0 md:bg-transparent md:px-gutter-desktop md:pb-10">
       {children}
     </div>
   );
@@ -409,7 +409,7 @@ function MomentStep({ state, targets, setState }: StepProps) {
             onChange={(event) =>
               setState((current) => ({ ...current, time: event.target.value }))
             }
-            className="min-h-16 w-full rounded-control border-0 bg-surface px-4 text-large-title font-light text-ink tabular-nums outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+            className="min-h-16 w-full rounded-control border border-field bg-card px-4 text-large-title font-light text-ink tabular-nums outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest"
           />
         </div>
       ) : null}

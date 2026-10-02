@@ -51,7 +51,7 @@ export function SessionActions({
         </p>
         <form action={(formData) => signOut(warning, formData)} className="contents">
           <input type="hidden" name="confirm" value="1" />
-          <Button type="submit" variant="destructive" wide>
+          <Button type="submit" variant="danger" wide>
             {t("offline.signOutAnyway")}
           </Button>
         </form>

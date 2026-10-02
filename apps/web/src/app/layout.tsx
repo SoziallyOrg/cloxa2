@@ -6,8 +6,8 @@ import { colors } from "@cloxa/ui-tokens";
 
 import { env } from "@/lib/env.server";
 
-// Self-hosted Inter: the SF-like stand-in where San Francisco isn't installed.
-import "@fontsource-variable/inter/wght.css";
+// Brand typeface, self-hosted (CSP is `font-src 'self'`).
+import "@fontsource-variable/bricolage-grotesque/wght.css";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -30,10 +30,8 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: colors.light.paper },
-    { media: "(prefers-color-scheme: dark)", color: colors.dark.paper },
-  ],
+  // The forest status bar over the forest clock block and the logo's tile.
+  themeColor: colors.light.forest,
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {

@@ -5,7 +5,6 @@ import { ChevronLeft } from "lucide-react";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 
 import { cx } from "./cx";
-import { NavBarFrame } from "./NavBarFrame";
 import { POP } from "./transitions";
 
 export type NavBarBack =
@@ -13,53 +12,53 @@ export type NavBarBack =
   | { onClick: () => void; label: string; href?: never };
 
 export interface NavBarProps {
-  /** The page title: large under the bar, inline once scrolled. */
+  /** The page title (the page's `h1`). */
   title: string;
   /**
    * Pushed pages: a chevron plus the previous page's title. A link, or a
    * button for steps within one page (the correction wizard).
    */
   back?: NavBarBack;
-  /** `NavBarButton`s, e.g. "Klaar" or an icon button. */
+  /** Page actions, right of the title on desktop: `NavBarButton`s. */
   trailing?: ReactNode;
-  /** One quiet line under the large title, e.g. today's date. */
+  /** One quiet line under the title, e.g. today's date. */
   subtitle?: ReactNode;
-  /** The page background, so the bar blends in before it collapses. */
+  /** Kept for existing call sites; every page now sits on paper. */
   tone?: "grouped" | "plain";
-  /** Full-width pages (the timeline); lists keep the readable column. */
+  /** Kept for existing call sites; the frame (`SidebarLayout`) sets the column width. */
   wide?: boolean;
 }
 
 /**
- * The iOS navigation bar with a large title. Renders on the server; only the
- * collapse-on-scroll is a small client island (`NavBarFrame`).
+ * The page header: a back link when pushed, the title with a quiet subtitle,
+ * and the page actions on the right. A plain server component: no sticky or
+ * translucent bar, the page just scrolls.
  */
-export function NavBar({
-  title,
-  back,
-  trailing,
-  subtitle,
-  tone = "grouped",
-  wide = false,
-}: NavBarProps) {
+export function NavBar({ title, back, trailing, subtitle }: NavBarProps) {
   return (
-    <NavBarFrame
-      title={title}
-      tone={tone}
-      wide={wide}
-      leading={back ? <BackButton {...back} /> : null}
-      trailing={trailing}
-    >
-      <div className="flex flex-col gap-1 px-gutter pt-1 pb-4">
-        <h1 className="text-large-title break-words">{title}</h1>
-        {subtitle ? <p className="text-subhead text-ink-2">{subtitle}</p> : null}
+    <header className="flex w-full flex-col gap-2 px-gutter pt-3 pb-5 md:px-gutter-desktop md:pt-8">
+      {back ? (
+        <div className="-ml-3">
+          <BackButton {...back} />
+        </div>
+      ) : null}
+      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+        <div className="flex min-w-0 flex-col gap-1">
+          <h1 className="text-large-title break-words md:text-[40px] md:leading-[44px]">
+            {title}
+          </h1>
+          {subtitle ? <p className="text-subhead text-ink-2">{subtitle}</p> : null}
+        </div>
+        {trailing ? (
+          <div className="flex shrink-0 flex-wrap items-center gap-2">{trailing}</div>
+        ) : null}
       </div>
-    </NavBarFrame>
+    </header>
   );
 }
 
 const BACK =
-  "focus-ring flex h-bar-button max-w-full min-w-0 items-center rounded-control pr-2 text-body text-ink pressable";
+  "focus-ring flex min-h-bar-button max-w-full min-w-0 items-center rounded-control pr-3 text-body font-bold text-forest pressable";
 
 function BackButton({ href, onClick, label }: NavBarBack) {
   const content = (
@@ -83,7 +82,7 @@ function BackButton({ href, onClick, label }: NavBarBack) {
 }
 
 type NavBarButtonBase = {
-  /** Emphasised (semibold), for the confirming action such as "Klaar". */
+  /** Emphasised (forest), for the confirming action such as "Klaar". */
   strong?: boolean;
 };
 
@@ -108,12 +107,12 @@ export type NavBarButtonProps = (NavBarTextButton | NavBarIconButton) &
       >)
   );
 
-/** A trailing bar action: text ("Klaar", "Bewerk") or an icon, 44px target. */
+/** A page action: text ("Klaar", "Bewerk") or an icon, 48px target. */
 export function NavBarButton(props: NavBarButtonProps) {
   const { strong = false, icon: Icon, label, children, ...rest } = props;
   const className = cx(
-    "pressable focus-ring inline-flex h-bar-button min-w-bar-button items-center justify-center rounded-control px-2 text-body text-ink",
-    strong && "font-semibold",
+    "pressable focus-ring inline-flex min-h-bar-button min-w-bar-button items-center justify-center rounded-control px-4 text-body font-bold",
+    strong ? "bg-forest text-white" : "border-[1.5px] border-line bg-card text-ink",
   );
   const content = Icon ? (
     <Icon aria-hidden="true" className="size-6" strokeWidth={2} />

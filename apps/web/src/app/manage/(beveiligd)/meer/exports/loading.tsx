@@ -5,7 +5,7 @@ export default function ExportsLoading() {
   return (
     <div className="flex flex-col pb-10">
       <SkeletonTitle />
-      <div className="flex flex-col gap-8 px-gutter">
+      <div className="flex flex-col gap-8 px-gutter md:px-gutter-desktop">
         <div aria-hidden="true" className="flex flex-col gap-3">
           <Skeleton className="h-touch-target w-full rounded-[10px]" />
           <Skeleton className="h-row w-full rounded-list" />

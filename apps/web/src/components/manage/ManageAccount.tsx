@@ -13,6 +13,8 @@ import { ChevronRight, Clock, ShieldCheck } from "lucide-react";
 
 import { t } from "@cloxa/i18n";
 
+import { queuedCountFor } from "@/lib/offline/browser";
+
 import { SessionRows } from "../auth/SessionActions";
 import { initials } from "../employee/account-name";
 import { Row, Section } from "../ui/List";
@@ -25,12 +27,25 @@ export interface ManageAccount {
   fullName: string;
   /** A manager who also clocks gets "Naar mijn klok". */
   canClock: boolean;
+  /** Their own employee row: the clock bar can queue clock actions for it. */
+  employeeId: string | null;
 }
 
-const AccountContext = createContext<(() => void) | null>(null);
+interface AccountContextValue {
+  openSheet: () => void;
+  employeeId: string | null;
+}
 
-// Managers never queue clock actions in /manage, so signing out never warns.
+const AccountContext = createContext<AccountContextValue | null>(null);
+
 const NOTHING_QUEUED = () => Promise.resolve(0);
+
+/** Signing out warns about clock actions the clock bar still has queued on this device. */
+function useQueuedCount(): () => Promise<number> {
+  const context = use(AccountContext);
+  const employeeId = context?.employeeId ?? null;
+  return employeeId === null ? NOTHING_QUEUED : () => queuedCountFor(employeeId);
+}
 
 /**
  * The manager's account sheet: back to the own clock, security, and signing
@@ -55,7 +70,10 @@ export function ManageAccountProvider({
     setOpen(true);
   }, [pathname]);
 
-  const value = useMemo(() => openSheet, [openSheet]);
+  const value = useMemo(
+    () => ({ openSheet, employeeId: account.employeeId }),
+    [openSheet, account.employeeId],
+  );
 
   return (
     <AccountContext value={value}>
@@ -71,7 +89,7 @@ export function ManageAccountProvider({
             title={t("manageNav.security")}
           />
         </Section>
-        <SessionRows queuedCount={NOTHING_QUEUED} />
+        <SheetSessionRows />
       </Sheet>
     </AccountContext>
   );
@@ -79,7 +97,7 @@ export function ManageAccountProvider({
 
 /** Initials and name at the bottom of the desktop sidebar; opens the account sheet. */
 export function ManageAccountButton({ account }: { account: ManageAccount }) {
-  const openSheet = use(AccountContext);
+  const openSheet = use(AccountContext)?.openSheet;
   if (!openSheet) throw new Error("ManageAccountButton needs a ManageAccountProvider");
 
   return (
@@ -87,25 +105,31 @@ export function ManageAccountButton({ account }: { account: ManageAccount }) {
       type="button"
       aria-haspopup="dialog"
       onClick={openSheet}
-      className="focus-ring flex min-h-touch-target w-full pressable items-center gap-3 rounded-list px-3 text-left text-body text-ink"
+      className="focus-ring flex min-h-touch-target w-full pressable items-center justify-center gap-3 rounded-control px-2 text-left text-body font-semibold text-ink lg:justify-start"
     >
       <span
         aria-hidden="true"
-        className="flex size-8 shrink-0 items-center justify-center rounded-full bg-track text-footnote font-semibold text-ink"
+        className="flex size-9 shrink-0 items-center justify-center rounded-full bg-fill text-footnote font-bold text-forest"
       >
         {initials(account.fullName)}
       </span>
-      <span className="min-w-0 flex-1 truncate">{account.shortName}</span>
+      <span className="sr-only min-w-0 flex-1 truncate lg:not-sr-only">
+        {account.shortName}
+      </span>
       <ChevronRight
         aria-hidden="true"
-        className="size-5 shrink-0 text-ink-3"
+        className="hidden size-5 shrink-0 text-ink-3 lg:block"
         strokeWidth={2.5}
       />
     </button>
   );
 }
 
-/** "Afmelden" and "Overal afmelden" for `/manage` pages (nothing is ever queued here). */
+/** "Afmelden" and "Overal afmelden" for `/manage` pages. */
 export function ManageSessionRows() {
-  return <SessionRows queuedCount={NOTHING_QUEUED} />;
+  return <SessionRows queuedCount={useQueuedCount()} />;
+}
+
+function SheetSessionRows() {
+  return <SessionRows queuedCount={useQueuedCount()} />;
 }

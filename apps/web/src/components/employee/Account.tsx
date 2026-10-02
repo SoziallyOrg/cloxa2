@@ -96,7 +96,7 @@ export function AccountButton({ placement }: AccountButtonProps) {
   const avatar = (
     <span
       aria-hidden="true"
-      className="flex size-8 shrink-0 items-center justify-center rounded-full bg-track text-footnote font-semibold text-ink"
+      className="flex size-9 shrink-0 items-center justify-center rounded-full bg-fill text-footnote font-bold text-forest"
     >
       {initials(account.fullName)}
     </span>
@@ -108,7 +108,7 @@ export function AccountButton({ placement }: AccountButtonProps) {
         type="button"
         aria-haspopup="dialog"
         onClick={openSheet}
-        className="focus-ring -mr-1 min-h-bar-button max-w-[40vw] pressable truncate rounded-control px-2 text-body text-ink-2 md:hidden"
+        className="focus-ring -mr-1 min-h-bar-button max-w-[40vw] pressable truncate rounded-control px-2 text-body font-semibold text-ink-2 md:hidden"
       >
         {account.shortName}
       </button>
@@ -121,13 +121,15 @@ export function AccountButton({ placement }: AccountButtonProps) {
         type="button"
         aria-haspopup="dialog"
         onClick={openSheet}
-        className="focus-ring flex min-h-touch-target w-full pressable items-center gap-3 rounded-list px-3 text-left text-body text-ink"
+        className="focus-ring flex min-h-touch-target w-full pressable items-center justify-center gap-3 rounded-control px-2 text-left text-body font-semibold text-ink lg:justify-start"
       >
         {avatar}
-        <span className="min-w-0 flex-1 truncate">{account.shortName}</span>
+        <span className="sr-only min-w-0 flex-1 truncate lg:not-sr-only">
+          {account.shortName}
+        </span>
         <ChevronRight
           aria-hidden="true"
-          className="size-5 shrink-0 text-ink-3"
+          className="hidden size-5 shrink-0 text-ink-3 lg:block"
           strokeWidth={2.5}
         />
       </button>

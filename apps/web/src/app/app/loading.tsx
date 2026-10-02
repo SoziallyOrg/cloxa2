@@ -2,18 +2,11 @@ import { t } from "@cloxa/i18n";
 
 import { Skeleton } from "@/components/ui/Skeleton";
 
-/** Klok while it loads: the header, status, timer and the action at the bottom. */
+/** Klok while it loads: status, timer and the action at the bottom (the frame brings the header). */
 export default function KlokLoading() {
   return (
     <div role="status" className="flex flex-1 flex-col">
       <span className="sr-only">{t("ui.loadingContent")}</span>
-      <div
-        aria-hidden="true"
-        className="box-content flex h-nav-bar items-center justify-between px-gutter pt-[env(safe-area-inset-top)] md:hidden"
-      >
-        <Skeleton className="h-7 w-24" />
-        <Skeleton className="h-4 w-16" />
-      </div>
       <div
         aria-hidden="true"
         className="flex flex-1 flex-col px-gutter pb-6 md:justify-center md:px-gutter-desktop md:py-16"
@@ -28,7 +21,7 @@ export default function KlokLoading() {
             <Skeleton className="h-3.5 w-28" />
           </div>
         </div>
-        <Skeleton className="mt-auto h-primary-action w-full rounded-control md:mt-14" />
+        <Skeleton className="mt-auto h-primary-action w-full rounded-clock md:mt-14" />
       </div>
     </div>
   );

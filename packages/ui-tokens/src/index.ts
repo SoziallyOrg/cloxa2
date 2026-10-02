@@ -3,7 +3,6 @@ export {
   colors,
   focusRing,
   fontStack,
-  materials,
   pressedOpacity,
   radius,
   sizing,

@@ -31,6 +31,8 @@ export default defineConfig([
   },
   prettier,
   globalIgnores([
+    // Static design reference (identity-d.html and its helper scripts).
+    "docs/design/**",
     "**/.next/**",
     "**/.pnpm-store/**",
     "**/coverage/**",

@@ -117,7 +117,7 @@ export function RequestsList({ rows, withdrawAction }: RequestsListProps) {
             {selected.pending ? (
               <div className="flex flex-col gap-2">
                 <Button
-                  variant="destructive"
+                  variant="danger"
                   wide
                   loading={pending}
                   onClick={() => withdraw(selected.id)}

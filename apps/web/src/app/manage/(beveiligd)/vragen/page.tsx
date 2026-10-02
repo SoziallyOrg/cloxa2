@@ -214,7 +214,7 @@ export default async function ManageVragenPage({
     <PageTransition>
       <PullToRefresh>
         <NavBar title={t("manageVragen.heading")} />
-        <div className="flex flex-col gap-6 px-gutter pb-10">
+        <div className="flex flex-col gap-6 px-gutter pb-10 md:px-gutter-desktop">
           <SegmentNav
             key={tab}
             label={t("manageVragen.tabsLabel")}

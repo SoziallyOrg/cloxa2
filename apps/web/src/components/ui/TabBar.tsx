@@ -25,18 +25,17 @@ export interface TabBarProps {
 }
 
 /**
- * The tab bar: translucent material with a hairline on top, above the home
- * indicator. Thin monochrome line icons (1.5px) with small labels; the
- * active tab is ink, the others `ink-2` (AA even at 11px). No colour. Place
- * it fixed at the bottom (see `SidebarLayout`).
+ * The phone tab bar: a solid white bar with a hairline on top. The active
+ * item is a forest rounded tile with white text; icon and word always
+ * together. Place it fixed at the bottom (see `SidebarLayout`).
  */
 export function TabBar({ items, label }: TabBarProps) {
   return (
     <nav
       aria-label={label}
-      className="border-t-[0.5px] border-separator material-bar pb-[env(safe-area-inset-bottom)]"
+      className="border-t border-line bg-card pb-[env(safe-area-inset-bottom)]"
     >
-      <ul className="mx-auto flex h-tab-bar max-w-readable">
+      <ul className="mx-auto flex h-tab-bar max-w-readable items-stretch gap-1 px-2 py-2">
         {items
           .slice(0, 5)
           .map(({ key, label: itemLabel, href, current, icon: Icon, count }) => (
@@ -45,27 +44,22 @@ export function TabBar({ items, label }: TabBarProps) {
                 href={href as Route}
                 aria-current={current ? "page" : undefined}
                 className={cx(
-                  "focus-ring flex h-full pressable flex-col items-center justify-center gap-0.5 rounded-control pt-1 focus-visible:-outline-offset-3",
-                  current ? "text-ink" : "text-ink-2",
+                  "focus-ring flex h-full pressable flex-col items-center justify-center gap-0.5 rounded-control",
+                  current ? "on-forest bg-forest text-white" : "text-ink-2",
                 )}
               >
                 <span className="relative">
-                  <Icon aria-hidden="true" className="size-6" strokeWidth={1.5} />
+                  <Icon aria-hidden="true" className="size-6" strokeWidth={1.75} />
                   {count !== undefined && count > 0 ? (
                     <span
                       aria-hidden="true"
-                      className="absolute -top-1 left-4 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-ink px-1 text-caption-2 font-semibold text-paper"
+                      className="absolute -top-1 left-4 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-lime px-1 text-caption-2 text-forest-deep"
                     >
                       {count}
                     </span>
                   ) : null}
                 </span>
-                <span
-                  className={cx(
-                    "max-w-full truncate px-1 text-caption-2",
-                    current ? "font-semibold" : "font-medium",
-                  )}
-                >
+                <span className="max-w-full truncate px-1 text-caption-2 font-bold">
                   {itemLabel}
                 </span>
               </Link>

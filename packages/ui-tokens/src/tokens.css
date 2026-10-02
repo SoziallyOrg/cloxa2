@@ -1,139 +1,161 @@
 /*
- * Tailwind 4 theme tokens: direction C with the iOS-fidelity layer
- * (docs/design.md). Keep in sync with `tokens.ts`. Dark mode follows the OS
- * preference (`prefers-color-scheme`), no toggle. Colour means status and
- * nothing else; ink is the action.
+ * Tailwind 4 theme tokens: identity D, "Signaal + ring" (docs/design.md).
+ * Keep in sync with `tokens.ts`. Light only: the forest surfaces are the
+ * "dark" of the brand. Colour means status, and every status carries a word.
+ * Where an older token name is still meaningful it stays and is remapped
+ * (`surface` = a white card, `grouped` = the paper page, ...).
  */
 @theme {
-  /* San Francisco on Apple devices, self-hosted Inter everywhere else. */
-  --font-sans:
-    -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter Variable", system-ui,
-    sans-serif;
+  --font-sans: "Bricolage Grotesque Variable", system-ui, sans-serif;
 
-  --color-ink: #0a0a0a;
-  /* Secondary label: >= 4.5:1 on every background. */
-  --color-ink-2: #6c6c70;
-  /* Tertiary: only for 18px+ or non-essential text (>= 3:1). */
-  --color-ink-3: #8a8a8e;
-  --color-paper: #ffffff;
-  --color-fill: #f5f5f7;
-  --color-line: #e8e8ea;
+  --color-ink: #10231b;
+  /* Secondary text: >= 4.5:1 on paper and on card. */
+  --color-ink-2: #5f6b64;
+  /* Tertiary: only for 18px+ or non-essential text, icons (>= 3:1). */
+  --color-ink-3: #78837c;
+  --color-paper: #f5f6f1;
+  --color-card: #ffffff;
+  --color-line: #e2e5dc;
+  /* Soft fill on paper or card: quiet notices, avatars. */
+  --color-fill: #edefe7;
 
-  /* Pages stay white; row groups sit on the soft fill (batch 1). Separator
-     and pressed row are quiet: a hairline, a subtle highlight. */
-  --color-grouped: #ffffff;
-  --color-surface: #f5f5f7;
-  /* Inside sheets: dark mode lifts both one step, as iOS does. */
-  --color-grouped-elevated: #ffffff;
-  --color-surface-elevated: #f5f5f7;
-  --color-separator: #e2e2e6;
-  --color-pressed: #e8e8ec;
-  /* Controls: the off track of a switch, the thumb of a segmented control. */
-  --color-track: #e5e5ea;
+  /* Legacy names, remapped: row groups are white cards on the paper page. */
+  --color-grouped: #f5f6f1;
+  --color-surface: #ffffff;
+  --color-separator: #e2e5dc;
+  --color-pressed: #edefe7;
+  /* Timeline track and progress track; the toggle container is `toggle`. */
+  --color-track: #edefe7;
+  --color-toggle: #e6e9df;
   --color-thumb: #ffffff;
+  /* Input borders: >= 3:1 on white and paper. */
+  --color-field: #7f8a83;
+
+  --color-forest: #0e4a33;
+  --color-forest-deep: #0a3626;
+  /* Lime is only ever a background (with forest-deep text) or a dot. */
+  --color-lime: #b5f04e;
+  --color-leaf: #1fa855;
+  --color-on-forest-2: #b7d2c4;
+  --color-idle: #dde1d6;
+  --color-idle-bar: #aeb6ad;
 
   /* Status: always paired with a word, never colour alone. */
-  /* Muted, not saturated. */
-  --color-working: #207936;
-  --color-break: #b45309;
-  --color-attention: #c2410c;
-  --color-danger: #b91c1c;
-  --color-working-tint: rgb(32 121 54 / 0.12);
-  --color-break-tint: rgb(180 83 9 / 0.12);
-  --color-attention-tint: rgb(194 65 12 / 0.12);
-  --color-danger-tint: rgb(185 28 28 / 0.12);
+  --color-working: #0e4a33;
+  --color-break: #f6c453;
+  --color-break-ink: #6b4a00;
+  /* Text and buttons (white on it >= 4.5:1). The brighter bar red is below. */
+  --color-attention: #bf3623;
+  --color-danger: #bf3623;
+  --color-danger-bar: #d8432e;
+  --color-working-tint: rgb(14 74 51 / 0.1);
+  --color-break-tint: rgb(246 196 83 / 0.3);
+  --color-attention-tint: #fce4de;
+  --color-danger-tint: #fce4de;
+  --color-danger-tint-ink: #6f1e12;
 
-  /* Translucent materials, always with `backdrop-blur-material`. */
-  --color-material-bar: rgb(249 249 249 / 0.8);
-  --color-material-sidebar: rgb(250 250 251 / 0.85);
-  --color-material-sheet: rgb(255 255 255 / 0.9);
-  --blur-material: 20px;
-
-  /* The iOS text styles. `display` (timer) and `number` (KPIs) are ours. */
-  --text-large-title: 34px;
-  --text-large-title--line-height: 41px;
-  --text-large-title--font-weight: 600;
-  --text-large-title--letter-spacing: -0.02em;
-  --text-title-1: 28px;
+  /* Type: bold, tight numbers and titles; calm 18px body. */
+  --text-large-title: 36px;
+  --text-large-title--line-height: 40px;
+  --text-large-title--font-weight: 800;
+  --text-large-title--letter-spacing: -0.03em;
+  --text-title-1: 30px;
   --text-title-1--line-height: 34px;
-  --text-title-1--letter-spacing: -0.01em;
-  --text-title-2: 22px;
+  --text-title-1--font-weight: 700;
+  --text-title-1--letter-spacing: -0.025em;
+  --text-title-2: 24px;
   --text-title-2--line-height: 28px;
-  --text-title-2--letter-spacing: -0.008em;
+  --text-title-2--font-weight: 700;
+  --text-title-2--letter-spacing: -0.02em;
   --text-title-3: 20px;
   --text-title-3--line-height: 25px;
-  --text-headline: 17px;
-  --text-headline--line-height: 22px;
-  --text-headline--font-weight: 600;
-  --text-body: 17px;
-  --text-body--line-height: 1.45;
-  --text-callout: 16px;
-  --text-callout--line-height: 21px;
-  --text-subhead: 15px;
-  --text-subhead--line-height: 20px;
-  --text-footnote: 13px;
-  --text-footnote--line-height: 18px;
-  --text-caption: 12px;
-  --text-caption--line-height: 16px;
-  --text-caption-2: 11px;
-  --text-caption-2--line-height: 13px;
-  --text-caption-2--font-weight: 500;
+  --text-title-3--font-weight: 700;
+  --text-title-3--letter-spacing: -0.01em;
+  --text-section: 18px;
+  --text-section--line-height: 24px;
+  --text-section--font-weight: 700;
+  --text-headline: 18px;
+  --text-headline--line-height: 23px;
+  --text-headline--font-weight: 700;
+  --text-body: 18px;
+  --text-body--line-height: 1.4;
+  --text-callout: 17px;
+  --text-callout--line-height: 22px;
+  --text-subhead: 16px;
+  --text-subhead--line-height: 21px;
+  --text-footnote: 14.5px;
+  --text-footnote--line-height: 19px;
+  --text-caption: 13.5px;
+  --text-caption--line-height: 18px;
+  --text-caption--font-weight: 700;
+  --text-caption-2: 12.5px;
+  --text-caption-2--line-height: 16px;
+  --text-caption-2--font-weight: 600;
 
-  --text-display: 96px;
+  --text-display: 88px;
   --text-display--line-height: 1;
-  --text-display--font-weight: 250;
+  --text-display--font-weight: 800;
   --text-display--letter-spacing: -0.04em;
-  /* Page titles on screens not yet on `NavBar`. */
-  --text-title: 32px;
-  --text-title--line-height: 1.15;
-  --text-title--font-weight: 600;
-  --text-title--letter-spacing: -0.015em;
-  --text-number: 34px;
+  --text-title: 34px;
+  --text-title--line-height: 1.1;
+  --text-title--font-weight: 800;
+  --text-title--letter-spacing: -0.03em;
+  --text-number: 36px;
   --text-number--line-height: 1.1;
-  --text-number--font-weight: 500;
-  --text-number--letter-spacing: -0.02em;
-  --text-base: 17px;
-  --text-base--line-height: 1.45;
-  --text-sm: 15px;
+  --text-number--font-weight: 700;
+  --text-number--letter-spacing: -0.03em;
+  --text-base: 18px;
+  --text-base--line-height: 1.4;
+  --text-sm: 16px;
   --text-sm--line-height: 1.4;
 
-  --radius-control: 14px;
+  /* Buttons and nav items 12; rows and cards 14-20; clock block 20; hero 32. */
+  --radius-control: 12px;
   --radius-group: 16px;
   --radius-list: 16px;
-  --radius-sheet: 14px;
-  --radius-alert: 14px;
-  --radius-md: 14px;
+  --radius-card: 18px;
+  --radius-sheet: 20px;
+  --radius-alert: 20px;
+  --radius-clock: 20px;
+  --radius-hero: 32px;
+  --radius-md: 12px;
   --radius-lg: 16px;
+
+  --shadow-card: 0 1px 2px rgb(16 35 27 / 0.06);
 
   /* Sizes on the 4px grid. */
   --spacing-touch-target: 48px;
-  --spacing-bar-button: 44px;
+  --spacing-bar-button: 48px;
   --spacing-control: 56px;
   --spacing-row: 56px;
   --spacing-row-two-line: 64px;
-  --spacing-primary-action: 64px;
-  --spacing-nav-bar: 44px;
-  --spacing-tab-bar: 50px;
-  --spacing-sidebar: 260px;
+  --spacing-primary-action: 72px;
+  --spacing-nav-bar: 48px;
+  --spacing-tab-bar: 68px;
+  --spacing-sidebar: 244px;
+  --spacing-sidebar-icons: 76px;
+  --spacing-side-panel: 330px;
   --spacing-readable: 720px;
+  --spacing-main: 1200px;
   --spacing-inset: 16px;
-  --spacing-gutter: 24px;
-  --spacing-gutter-desktop: 40px;
-  --spacing-section: 32px;
+  --spacing-gutter: 20px;
+  --spacing-gutter-desktop: 32px;
+  --spacing-section: 28px;
   --spacing-kiosk-tile: 120px;
   --spacing-pin-key: 88px;
 
-  /* iOS-like springs: a fast start that settles softly, no bounce. */
+  /* A fast start that settles softly, no bounce. */
   --ease-spring: cubic-bezier(0.32, 0.72, 0, 1);
 
-  --animate-sheet-in: sheet-in 460ms var(--ease-spring);
-  --animate-sheet-out: sheet-out 260ms cubic-bezier(0.4, 0, 1, 1) forwards;
-  --animate-alert-in: alert-in 280ms var(--ease-spring);
+  --animate-sheet-in: sheet-in 360ms var(--ease-spring);
+  --animate-sheet-out: sheet-out 240ms cubic-bezier(0.4, 0, 1, 1) forwards;
+  --animate-alert-in: alert-in 240ms var(--ease-spring);
   --animate-fade-in: fade-in 180ms ease-out;
   --animate-fade-out: fade-out 180ms ease-in forwards;
   --animate-pop-in: pop-in 320ms cubic-bezier(0.2, 0.8, 0.2, 1);
   --animate-shimmer: shimmer 1.4s ease-in-out infinite;
   --animate-activity: activity 1s steps(8) infinite;
+  --animate-now-pulse: now-pulse 2s ease-in-out infinite;
 
   @keyframes sheet-in {
     from {
@@ -153,7 +175,7 @@
   }
   @keyframes alert-in {
     from {
-      transform: scale(1.12);
+      transform: scale(0.96);
       opacity: 0;
     }
     to {
@@ -201,48 +223,31 @@
       opacity: 0.55;
     }
   }
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-ink: #f5f5f5;
-    --color-ink-2: #98989f;
-    --color-ink-3: #7c7c80;
-    --color-paper: #000000;
-    --color-fill: #1c1c1e;
-    --color-line: #2c2c2e;
-
-    --color-grouped: #000000;
-    --color-surface: #1c1c1e;
-    --color-grouped-elevated: #1c1c1e;
-    --color-surface-elevated: #2c2c2e;
-    --color-separator: #2e2e30;
-    --color-pressed: #2c2c2e;
-    --color-track: #39393d;
-    --color-thumb: #636366;
-
-    --color-working: #30d158;
-    --color-break: #ffd60a;
-    --color-attention: #ff9f0a;
-    --color-danger: #ff6961;
-    --color-working-tint: rgb(48 209 88 / 0.22);
-    --color-break-tint: rgb(255 214 10 / 0.22);
-    --color-attention-tint: rgb(255 159 10 / 0.22);
-    --color-danger-tint: rgb(255 105 97 / 0.22);
-
-    --color-material-bar: rgb(22 22 23 / 0.8);
-    --color-material-sidebar: rgb(12 12 13 / 0.85);
-    --color-material-sheet: rgb(30 30 32 / 0.9);
+  /* The "now" dot in the logo ring: a gentle glow, never a blink. */
+  @keyframes now-pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.45;
+    }
   }
 }
 
 /* A shared, always-visible focus style applied via a class, never inline
-   styles (the CSP forbids those): 3px ink outline, 2px offset. */
+   styles (the CSP forbids those): 2px forest outline, 2px offset; on forest
+   surfaces (`.on-forest`) it is lime. */
 .focus-ring {
   outline: none;
 }
 
 .focus-ring:focus-visible {
-  outline: 3px solid var(--color-ink);
+  outline: 2px solid var(--color-forest);
   outline-offset: 2px;
+}
+
+.on-forest .focus-ring:focus-visible,
+.focus-ring.on-forest:focus-visible {
+  outline-color: var(--color-lime);
 }

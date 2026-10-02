@@ -22,7 +22,7 @@ export interface SwitchProps {
 }
 
 /**
- * A monochrome toggle for booleans in settings: ink when on, grey when off. A real
+ * A toggle for booleans in settings: forest when on, soft grey with a border when off. A real
  * `role="switch"` button (Space and Enter toggle it) with a 48px hit area
  * around the 51×31 track.
  */
@@ -55,20 +55,18 @@ export function Switch({
           onCheckedChange?.(next);
         }}
         className={cx(
-          "group focus-ring relative inline-flex h-[31px] w-[51px] shrink-0 items-center rounded-full p-0.5 transition-colors duration-200",
+          "group focus-ring relative inline-flex h-[32px] w-[56px] shrink-0 items-center rounded-[12px] p-[3px] transition-colors duration-200",
           // A larger invisible hit area (48px) for fingers.
           "before:absolute before:-inset-2 before:content-['']",
           "disabled:cursor-not-allowed disabled:opacity-50",
-          on ? "bg-ink" : "bg-track",
+          on ? "bg-forest" : "bg-toggle ring-2 ring-field ring-inset",
         )}
       >
         <span
           aria-hidden="true"
           className={cx(
-            "size-[27px] rounded-full shadow-[0_3px_8px_rgb(0_0_0/0.15),0_3px_1px_rgb(0_0_0/0.06)] transition-[translate,width,background-color] duration-300 ease-spring group-active:w-[31px]",
-            on
-              ? "translate-x-5 bg-paper group-active:translate-x-4"
-              : "translate-x-0 bg-thumb",
+            "size-[26px] rounded-[9px] shadow-card transition-[translate,background-color] duration-200 ease-spring",
+            on ? "translate-x-6 bg-white" : "translate-x-0 bg-field",
           )}
         />
       </button>

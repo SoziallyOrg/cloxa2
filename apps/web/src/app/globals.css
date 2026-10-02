@@ -2,8 +2,8 @@
 @import "@cloxa/ui-tokens/tokens.css";
 
 :root {
-  /* Native controls (date/time pickers, scrollbars) follow the OS scheme. */
-  color-scheme: light dark;
+  /* Light only (docs/design.md): native controls match the paper page. */
+  color-scheme: light;
 }
 
 body {
@@ -20,7 +20,7 @@ body {
 
 /*
  * Numbers use tabular figures where they line up or tick. Not on the whole
- * page: Inter's tabular feature also widens hyphens and colons in words.
+ * page: tabular figures also widen hyphens and colons in words.
  */
 :where(time, .text-display, .text-number) {
   font-variant-numeric: tabular-nums;
@@ -41,25 +41,6 @@ body {
     scale: 0.98;
     transition-duration: 0ms;
   }
-}
-
-/* Translucent bar materials (nav bar, tab bar, sidebar, sheets). */
-@utility material-bar {
-  background-color: var(--color-material-bar);
-  -webkit-backdrop-filter: saturate(180%) blur(var(--blur-material));
-  backdrop-filter: saturate(180%) blur(var(--blur-material));
-}
-
-@utility material-sidebar {
-  background-color: var(--color-material-sidebar);
-  -webkit-backdrop-filter: saturate(180%) blur(var(--blur-material));
-  backdrop-filter: saturate(180%) blur(var(--blur-material));
-}
-
-@utility material-sheet {
-  background-color: var(--color-material-sheet);
-  -webkit-backdrop-filter: saturate(180%) blur(var(--blur-material));
-  backdrop-filter: saturate(180%) blur(var(--blur-material));
 }
 
 /*

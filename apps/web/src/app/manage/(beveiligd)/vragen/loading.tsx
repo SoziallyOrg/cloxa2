@@ -8,7 +8,10 @@ export default function RequestsLoading() {
     <div role="status" className="flex flex-col pb-10">
       <span className="sr-only">{t("ui.loadingContent")}</span>
       <SkeletonTitle />
-      <div aria-hidden="true" className="flex flex-col gap-6 px-gutter">
+      <div
+        aria-hidden="true"
+        className="flex flex-col gap-6 px-gutter md:px-gutter-desktop"
+      >
         <Skeleton className="h-touch-target w-full rounded-[10px]" />
         {[0, 1].map((group) => (
           <div key={group} className="flex flex-col rounded-list bg-surface">

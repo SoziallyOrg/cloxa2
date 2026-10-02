@@ -5,7 +5,7 @@ export default function ScheduleLoading() {
   return (
     <div className="flex flex-col pb-10">
       <SkeletonTitle />
-      <div className="flex flex-col gap-8 px-gutter">
+      <div className="flex flex-col gap-8 px-gutter md:px-gutter-desktop">
         <div aria-hidden="true" className="flex flex-col gap-2 px-4">
           <Skeleton className="h-3.5 w-32" />
           <Skeleton className="h-8 w-28" />

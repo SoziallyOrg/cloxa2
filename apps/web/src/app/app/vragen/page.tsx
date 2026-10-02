@@ -3,7 +3,6 @@ import { MessageSquare } from "lucide-react";
 
 import { formatBrusselsDate, formatBrusselsShortDate, t } from "@cloxa/i18n";
 
-import { AccountButton } from "@/components/employee/Account";
 import { RequestsList, type RequestRow } from "@/components/employee/RequestsList";
 import { buttonClassName } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -90,10 +89,7 @@ export default async function QuestionsPage() {
   return (
     <PageTransition className="flex flex-1 flex-col">
       <PullToRefresh className="flex flex-1 flex-col">
-        <NavBar
-          title={t("questions.heading")}
-          trailing={<AccountButton placement="bar" />}
-        />
+        <NavBar title={t("questions.heading")} />
         {rows.length === 0 ? (
           <div className="flex flex-1 flex-col justify-center pb-10">
             <EmptyState
@@ -108,7 +104,7 @@ export default async function QuestionsPage() {
             <List className="pb-6">
               <RequestsList rows={rows} withdrawAction={withdrawCorrectionAction} />
             </List>
-            <div className="sticky bottom-[calc(var(--spacing-tab-bar)+env(safe-area-inset-bottom))] mt-auto bg-grouped/85 px-gutter pt-2 pb-4 backdrop-blur-md md:static md:mt-0 md:bg-transparent md:pb-10 md:backdrop-blur-none">
+            <div className="sticky bottom-[calc(var(--spacing-tab-bar)+env(safe-area-inset-bottom))] mt-auto bg-paper px-gutter pt-2 pb-4 md:static md:mt-0 md:bg-transparent md:px-gutter-desktop md:pb-10">
               {newRequest}
             </div>
           </>

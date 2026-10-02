@@ -13,11 +13,15 @@ export interface ListProps {
 }
 
 /**
- * Row groups on a white page: `Section`s inside the 24px gutter, 32px apart.
+ * Row groups on the paper page: `Section`s (white cards) inside the gutter, 28px apart.
  */
 export function List({ children, className }: ListProps) {
   return (
-    <div className={cx("flex flex-col gap-8 px-gutter", className)}>{children}</div>
+    <div
+      className={cx("flex flex-col gap-7 px-gutter md:px-gutter-desktop", className)}
+    >
+      {children}
+    </div>
   );
 }
 
@@ -33,7 +37,7 @@ export interface SectionProps {
   "data-testid"?: string;
 }
 
-/** One soft group of rows (`fill`, 16px radius) with its label and footer. */
+/** One white card of rows on paper (18px radius, hairlines between rows) with its label and footer. */
 export function Section({
   header,
   headingLevel = 2,
@@ -47,13 +51,13 @@ export function Section({
   return (
     <section className={cx("flex flex-col", className)} data-testid={testId}>
       {header ? (
-        <Heading className="px-4 pb-2 text-subhead font-normal text-ink-2">
+        <Heading className="px-1 pb-2 text-footnote font-bold text-ink-2">
           {header}
         </Heading>
       ) : null}
-      <ul className="overflow-hidden rounded-list bg-surface">{children}</ul>
+      <ul className="overflow-hidden rounded-card bg-card shadow-card">{children}</ul>
       {footer ? (
-        <div className="px-4 pt-2 text-subhead text-ink-2">{footer}</div>
+        <div className="px-1 pt-2 text-subhead text-ink-2">{footer}</div>
       ) : null}
     </section>
   );
@@ -109,9 +113,8 @@ const INTERACTIVE =
 
 /**
  * One row: a link (`href`), a button (`onClick` or `type`), or static. 56px
- * (64px with a subtitle). The separator is inset from the leading edge,
- * after the icon. Long titles truncate with an ellipsis. Pressed rows get a
- * subtle highlight, as iOS rows do, rather than dim.
+ * (64px with a subtitle). A hairline separates rows. Long titles truncate with an ellipsis. Pressed rows get a
+ * subtle highlight rather than dim.
  */
 export function Row(props: RowProps) {
   const {
@@ -214,12 +217,12 @@ function RowBody({
             "ml-4 size-[22px] shrink-0",
             tone === "danger" ? "text-danger" : "text-ink-2",
           )}
-          strokeWidth={1.5}
+          strokeWidth={1.75}
         />
       ) : null}
       <span
         className={cx(
-          "flex min-w-0 flex-1 gap-3 py-2.5 pr-4 group-not-first/row:border-t-[0.5px] group-not-first/row:border-separator",
+          "flex min-w-0 flex-1 gap-3 py-2.5 pr-4 group-not-first/row:border-t group-not-first/row:border-line",
           Icon ? "ml-3" : "ml-4",
           wrap ? "items-start" : "items-center",
           subtitle ? "min-h-row-two-line" : "min-h-row",
@@ -230,7 +233,7 @@ function RowBody({
             className={cx(
               wrap ? "text-body break-words" : "truncate text-body",
               tone === "danger" ? "text-danger" : "text-ink",
-              checked && "font-semibold",
+              checked && "font-bold",
             )}
           >
             {title}
@@ -253,7 +256,7 @@ function RowBody({
         {checked === undefined ? null : checked ? (
           <Check
             aria-hidden="true"
-            className="size-5 shrink-0 text-ink"
+            className="size-5 shrink-0 text-forest"
             strokeWidth={2.75}
           />
         ) : (
@@ -285,7 +288,7 @@ export function ListItem({ children, className }: ListItemProps) {
     <li className="group/row">
       <div
         className={cx(
-          "ml-4 flex min-h-row flex-col justify-center py-3 pr-4 group-not-first/row:border-t-[0.5px] group-not-first/row:border-separator",
+          "ml-4 flex min-h-row flex-col justify-center py-3 pr-4 group-not-first/row:border-t group-not-first/row:border-line",
           className,
         )}
       >

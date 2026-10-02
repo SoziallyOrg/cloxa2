@@ -5,7 +5,7 @@ import { useId, useRef, useState, type PointerEvent, type ReactNode } from "reac
 import { t } from "@cloxa/i18n";
 
 import { cx } from "./cx";
-import { ELEVATED, useModalDialog } from "./useModalDialog";
+import { useModalDialog } from "./useModalDialog";
 
 export type SheetDetent = "medium" | "large";
 
@@ -39,8 +39,9 @@ const DISMISS_VELOCITY = 0.5; // px per ms
 const EXPAND_DISTANCE = 60;
 
 /**
- * An iOS sheet on phones (grabber, rounded top, springs up, drag down to
- * dismiss) and a centred modal card on desktop. A native modal `<dialog>`:
+ * A bottom dialog on phones (rounded top, slides up, drag down to dismiss)
+ * and a centred modal card on desktop. Content sits on the paper colour so
+ * `Section` cards stay visible. A native modal `<dialog>`:
  * the page behind is inert, Esc closes it, focus returns to the opener.
  * Never `confirm()`.
  */
@@ -128,14 +129,13 @@ export function Sheet({
       }}
       className={cx(
         // Phone: a sheet from the bottom edge.
-        ELEVATED,
-        "m-0 mt-auto flex w-full max-w-none flex-col overflow-visible rounded-t-sheet border-0 bg-grouped p-0 text-ink",
+        "m-0 mt-auto flex w-full max-w-none flex-col overflow-visible rounded-t-sheet border-0 bg-paper p-0 text-ink",
         "transition-[height,transform] duration-300 ease-spring",
         HEIGHT[current ?? "fit"],
         "not-open:hidden data-closing:animate-sheet-out open:motion-safe:animate-sheet-in",
         "backdrop:bg-black/40 open:backdrop:animate-fade-in data-closing:backdrop:animate-fade-out",
         // The surface continues below the bottom edge, so a drag up shows no gap.
-        "after:absolute after:inset-x-0 after:top-full after:h-[50vh] after:bg-grouped md:after:hidden",
+        "after:absolute after:inset-x-0 after:top-full after:h-[50vh] after:bg-paper md:after:hidden",
         // Desktop: a centred card.
         "md:m-auto md:h-fit md:max-h-[85dvh] md:w-[min(34rem,calc(100%-3rem))] md:rounded-alert",
         "md:data-closing:animate-fade-out md:open:motion-safe:animate-alert-in",
@@ -149,27 +149,22 @@ export function Sheet({
         onPointerCancel={onPointerUp}
       >
         <div aria-hidden="true" className="flex justify-center pt-1.5 md:hidden">
-          <span className="h-[5px] w-9 rounded-full bg-separator" />
+          <span className="h-1 w-10 rounded-full bg-line" />
         </div>
-        {/* As on iOS: the title centred, the close button trailing. */}
-        <div className="grid min-h-14 grid-cols-[1fr_auto_1fr] items-center gap-2 px-2 md:pt-2">
-          <span aria-hidden="true" />
-          <h2
-            id={titleId}
-            className="max-w-[60vw] text-center text-headline break-words md:max-w-sm"
-          >
+        <div className="flex min-h-16 items-center justify-between gap-3 px-gutter pt-1 md:px-8 md:pt-4">
+          <h2 id={titleId} className="min-w-0 text-title-3 break-words">
             {title}
           </h2>
           <button
             type="button"
             onClick={requestClose}
-            className="focus-ring min-h-touch-target shrink-0 pressable justify-self-end rounded-control px-3 text-body font-semibold text-ink"
+            className="focus-ring min-h-touch-target shrink-0 pressable rounded-control border-[1.5px] border-line bg-card px-4 text-body font-bold text-ink"
           >
             {closeLabel ?? t("common.close")}
           </button>
         </div>
       </div>
-      <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto overscroll-contain px-gutter pt-1 pb-[max(1.5rem,env(safe-area-inset-bottom))] md:px-8 md:pb-8">
+      <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto overscroll-contain px-gutter pt-2 pb-[max(1.5rem,env(safe-area-inset-bottom))] md:px-8 md:pb-8">
         {description ? (
           <div id={descriptionId} className="text-body text-ink-2">
             {description}

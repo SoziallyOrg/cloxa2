@@ -22,7 +22,7 @@ test("employee logs in with an email code, cannot enter /manage, and logs out", 
   await page.goto("/manage");
   await expect(page).toHaveURL(/\/app$/);
 
-  // Logout lives in the account sheet, opened from the name in the header.
+  // Logout lives in the account sheet, opened from the name in the sidebar (the Ik tab on phones).
   await page.getByRole("button", { name: "Jan J.", exact: true }).click();
   await page
     .getByRole("dialog")

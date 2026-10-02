@@ -28,9 +28,9 @@ const BENEFITS = ["simple", "safe", "admin"] as const;
 const QUESTIONS = ["dimona", "phone", "data", "secretariat", "price"] as const;
 
 const SECTION = "mt-20 md:mt-28";
-const H2 = "text-title-1 font-semibold md:text-[34px] md:leading-[1.15]";
+const H2 = "text-title-1 md:text-[34px] md:leading-[1.15]";
 
-/** A screenshot with fictional data; the dark one is only fetched in dark mode. */
+/** A screenshot with fictional data (the app is light only). */
 function Screenshot({
   name,
   width,
@@ -45,21 +45,15 @@ function Screenshot({
   className: string;
 }) {
   return (
-    <picture>
-      <source
-        media="(prefers-color-scheme: dark)"
-        srcSet={`/marketing/${name}-dark.webp`}
-      />
-      <img
-        src={`/marketing/${name}-light.webp`}
-        width={width}
-        height={height}
-        alt={alt}
-        loading="lazy"
-        decoding="async"
-        className={`${className} h-auto rounded-2xl border border-separator`}
-      />
-    </picture>
+    <img
+      src={`/marketing/${name}-light.webp`}
+      width={width}
+      height={height}
+      alt={alt}
+      loading="lazy"
+      decoding="async"
+      className={`${className} h-auto rounded-2xl border border-separator`}
+    />
   );
 }
 
@@ -67,7 +61,7 @@ export default function LandingPage() {
   return (
     <SiteChrome>
       <section className={`${SITE_WIDTH} pt-10 md:pt-20`}>
-        <h1 className="max-w-3xl text-[40px] leading-[1.05] font-semibold tracking-[-0.03em] md:text-[64px]">
+        <h1 className="max-w-3xl text-[40px] leading-[1.05] font-extrabold tracking-[-0.035em] md:text-[64px]">
           {t("landing.hero.title")}
         </h1>
         <p className="mt-6 max-w-2xl text-title-3 text-ink-2">

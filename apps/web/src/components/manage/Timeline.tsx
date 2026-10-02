@@ -82,7 +82,7 @@ export function TimelineTrack({
           strokeDasharray={md ? "4 3" : "3 2"}
         />
       ))}
-      {work.map((span, index) => bar(span, `w${index}`, "fill-ink"))}
+      {work.map((span, index) => bar(span, `w${index}`, "fill-forest"))}
       {/* Work that began before the window: a flat left edge, no rounded start. */}
       {work
         .filter((span) => span.continuesLeft)
@@ -93,10 +93,10 @@ export function TimelineTrack({
             y={0}
             width={radius * 2}
             height={height}
-            className="fill-ink"
+            className="fill-forest"
           />
         ))}
-      {breaks.map((span, index) => bar(span, `b${index}`, "fill-ink-3"))}
+      {breaks.map((span, index) => bar(span, `b${index}`, "fill-break"))}
       {openEdgePct !== null ? (
         <rect
           x={pct(openEdgePct)}
@@ -105,7 +105,7 @@ export function TimelineTrack({
           height={height + (md ? 6 : 4)}
           rx={md ? 2 : 1.5}
           transform={md ? "translate(-2 0)" : "translate(-1.5 0)"}
-          className="fill-ink motion-safe:animate-pulse"
+          className="fill-forest motion-safe:animate-pulse"
         />
       ) : null}
     </svg>

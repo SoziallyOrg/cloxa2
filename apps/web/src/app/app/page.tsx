@@ -12,9 +12,7 @@ import { formatBrusselsTime, t } from "@cloxa/i18n";
 
 import { MapPin } from "lucide-react";
 
-import { Logo } from "@/components/brand/Logo";
 import type { PlannedDay } from "@/components/clock/clock-face";
-import { AccountButton } from "@/components/employee/Account";
 import { EmployeeHomeContainer } from "@/components/employee/EmployeeHomeContainer";
 import { SitePicker } from "@/components/clock/SitePicker";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -34,17 +32,12 @@ import { chooseSiteAction } from "./actions";
 const RECENT_EVENTS_WINDOW_MS = 3 * 24 * 3600 * 1000;
 
 /**
- * Klok is the hero page, so no large title: on phones the logotype on the
- * left and the name (the account sheet) on the right. Desktop has both in
- * the sidebar.
+ * Klok is the hero page, so no large title. The logo, the role switch and
+ * the account (the Ik tab) live in the app frame.
  */
 function KlokFrame({ children }: { children: React.ReactNode }) {
   return (
     <PageTransition className="flex flex-1 flex-col">
-      <header className="box-content flex h-nav-bar items-center justify-between gap-4 px-gutter pt-[env(safe-area-inset-top)] md:hidden">
-        <Logo />
-        <AccountButton placement="header" />
-      </header>
       <PullToRefresh className="flex flex-1 flex-col">{children}</PullToRefresh>
     </PageTransition>
   );

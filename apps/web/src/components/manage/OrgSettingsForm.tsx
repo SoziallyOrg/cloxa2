@@ -155,8 +155,8 @@ export function OrgSettingsForm({ initial, action }: OrgSettingsFormProps) {
                 aria-describedby={error ? `${id}-error ${id}-hint` : `${id}-hint`}
                 aria-invalid={error ? true : undefined}
                 className={cx(
-                  "min-h-touch-target w-16 rounded-control border-0 bg-paper text-center text-body text-ink tabular-nums",
-                  "outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink",
+                  "min-h-touch-target w-16 rounded-control border border-field bg-card text-center text-body text-ink tabular-nums",
+                  "outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest",
                   "aria-invalid:ring-2 aria-invalid:ring-danger",
                 )}
               />

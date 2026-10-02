@@ -193,7 +193,7 @@ export default async function ManageTeamPage({
             />
           }
         />
-        <div className="flex flex-col gap-6 px-gutter pb-10">
+        <div className="flex flex-col gap-6 px-gutter pb-10 md:px-gutter-desktop">
           <SegmentNav
             key={segment}
             label={t("manageTeam.filterLabel")}
