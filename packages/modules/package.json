@@ -14,10 +14,10 @@
   "dependencies": {
     "@cloxa/domain": "workspace:*",
     "@cloxa/i18n": "workspace:*",
-    "zod": "4.5.4"
+    "zod": "4.6.5"
   },
   "devDependencies": {
-    "@types/node": "24.13.6",
+    "@types/node": "24.19.0",
     "typescript": "6.0.3",
     "vitest": "4.1.11"
   }
