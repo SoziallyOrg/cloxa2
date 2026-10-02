@@ -412,7 +412,7 @@ function MomentStep({ state, targets, setState }: StepProps) {
             onChange={(event) =>
               setState((current) => ({ ...current, time: event.target.value }))
             }
-            className="min-h-16 w-full rounded-control border border-field bg-card px-4 text-large-title text-ink tabular-nums outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest"
+            className="min-h-16 w-full rounded-control border border-field bg-card px-4 text-large-title text-ink tabular-nums focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest"
           />
         </div>
       ) : null}

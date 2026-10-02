@@ -10,7 +10,7 @@ export type TextInputProps = Omit<InputHTMLAttributes<HTMLInputElement>, "classN
  */
 export const inputClassName = cx(
   "min-h-row w-full rounded-control border border-field bg-card px-4 text-body text-ink placeholder:text-ink-3",
-  "outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest",
+  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest",
   "aria-invalid:ring-2 aria-invalid:ring-danger",
 );
 

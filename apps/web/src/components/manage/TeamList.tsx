@@ -74,7 +74,7 @@ function RevokeButton({ label }: { label: string }) {
 }
 
 const FIELD =
-  "min-h-touch-target rounded-control border border-field bg-card text-body text-ink outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest";
+  "min-h-touch-target rounded-control border border-field bg-card text-body text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest";
 
 function statusBadge(row: TeamListRow): ReactNode {
   return row.status ? (
