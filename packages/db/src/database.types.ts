@@ -38,7 +38,7 @@ export type Database = {
           entity_id: string | null;
           hash: string;
           id: string;
-          metadata: Json;
+          metadata: NonNullable<Json>;
           organization_id: string;
           prev_hash: string;
         };
@@ -50,7 +50,7 @@ export type Database = {
           entity_id?: string | null;
           hash: string;
           id?: string;
-          metadata?: Json;
+          metadata?: NonNullable<Json>;
           organization_id: string;
           prev_hash: string;
         };
@@ -62,7 +62,7 @@ export type Database = {
           entity_id?: string | null;
           hash?: string;
           id?: string;
-          metadata?: Json;
+          metadata?: NonNullable<Json>;
           organization_id?: string;
           prev_hash?: string;
         };
@@ -184,7 +184,7 @@ export type Database = {
           offline: boolean;
           offline_reason: string | null;
           organization_id: string;
-          proposed: Json;
+          proposed: NonNullable<Json>;
           reason: string | null;
           requested_by: string;
           status: string;
@@ -202,7 +202,7 @@ export type Database = {
           offline?: boolean;
           offline_reason?: string | null;
           organization_id: string;
-          proposed?: Json;
+          proposed?: NonNullable<Json>;
           reason?: string | null;
           requested_by: string;
           status?: string;
@@ -220,7 +220,7 @@ export type Database = {
           offline?: boolean;
           offline_reason?: string | null;
           organization_id?: string;
-          proposed?: Json;
+          proposed?: NonNullable<Json>;
           reason?: string | null;
           requested_by?: string;
           status?: string;
@@ -245,7 +245,7 @@ export type Database = {
       };
       employee_module_data: {
         Row: {
-          data: Json;
+          data: NonNullable<Json>;
           employee_id: string;
           module: string;
           organization_id: string;
@@ -253,7 +253,7 @@ export type Database = {
           updated_by: string;
         };
         Insert: {
-          data?: Json;
+          data?: NonNullable<Json>;
           employee_id: string;
           module: string;
           organization_id: string;
@@ -261,7 +261,7 @@ export type Database = {
           updated_by: string;
         };
         Update: {
-          data?: Json;
+          data?: NonNullable<Json>;
           employee_id?: string;
           module?: string;
           organization_id?: string;
@@ -593,7 +593,7 @@ export type Database = {
       };
       org_modules: {
         Row: {
-          config: Json;
+          config: NonNullable<Json>;
           enabled: boolean;
           module: string;
           organization_id: string;
@@ -601,7 +601,7 @@ export type Database = {
           updated_by: string;
         };
         Insert: {
-          config?: Json;
+          config?: NonNullable<Json>;
           enabled?: boolean;
           module: string;
           organization_id: string;
@@ -609,7 +609,7 @@ export type Database = {
           updated_by: string;
         };
         Update: {
-          config?: Json;
+          config?: NonNullable<Json>;
           enabled?: boolean;
           module?: string;
           organization_id?: string;
@@ -631,7 +631,7 @@ export type Database = {
           created_at: string;
           id: string;
           name: string;
-          settings: Json;
+          settings: NonNullable<Json>;
           timezone: string;
           updated_at: string;
         };
@@ -639,7 +639,7 @@ export type Database = {
           created_at?: string;
           id?: string;
           name: string;
-          settings?: Json;
+          settings?: NonNullable<Json>;
           timezone?: string;
           updated_at?: string;
         };
@@ -647,7 +647,7 @@ export type Database = {
           created_at?: string;
           id?: string;
           name?: string;
-          settings?: Json;
+          settings?: NonNullable<Json>;
           timezone?: string;
           updated_at?: string;
         };
@@ -661,7 +661,7 @@ export type Database = {
           id: string;
           notified_at: string | null;
           organization_id: string;
-          pattern: Json;
+          pattern: NonNullable<Json>;
           valid_from: string;
           version: number;
         };
@@ -672,7 +672,7 @@ export type Database = {
           id?: string;
           notified_at?: string | null;
           organization_id: string;
-          pattern: Json;
+          pattern: NonNullable<Json>;
           valid_from: string;
           version: number;
         };
@@ -683,7 +683,7 @@ export type Database = {
           id?: string;
           notified_at?: string | null;
           organization_id?: string;
-          pattern?: Json;
+          pattern?: NonNullable<Json>;
           valid_from?: string;
           version?: number;
         };
@@ -807,18 +807,14 @@ export type Database = {
     };
     Functions: {
       rpc_accept_membership: {
-        Args: never;
+        Args: Record<PropertyKey, never>;
         Returns: {
           membership_id: string;
           organization_id: string;
         }[];
       };
       rpc_admin_activate_pilot_request: {
-        Args: {
-          p_owner_user_id: string;
-          p_request_id: string;
-          p_site_name?: string;
-        };
+        Args: { p_owner_user_id: string; p_request_id: string; p_site_name?: string };
         Returns: {
           employee_id: string;
           membership_id: string;
@@ -872,10 +868,7 @@ export type Database = {
           retry_after: number;
         }[];
       };
-      rpc_auth_attempt_reset: {
-        Args: { p_email_hash: string };
-        Returns: undefined;
-      };
+      rpc_auth_attempt_reset: { Args: { p_email_hash: string }; Returns: undefined };
       rpc_auth_link_failure: { Args: { p_ip_hash: string }; Returns: undefined };
       rpc_clock: {
         Args: {
@@ -956,7 +949,7 @@ export type Database = {
           offline: boolean;
           offline_reason: string | null;
           organization_id: string;
-          proposed: Json;
+          proposed: NonNullable<Json>;
           reason: string | null;
           requested_by: string;
           status: string;
@@ -1025,7 +1018,7 @@ export type Database = {
         }[];
       };
       rpc_kiosk_pairing_failures: {
-        Args: never;
+        Args: Record<PropertyKey, never>;
         Returns: {
           failures: number;
           paused: boolean;
@@ -1056,9 +1049,9 @@ export type Database = {
         Args: { p_invitation_id: string; p_user_id: string };
         Returns: string;
       };
-      rpc_my_data_export: { Args: never; Returns: Json };
+      rpc_my_data_export: { Args: Record<PropertyKey, never>; Returns: Json };
       rpc_my_status: {
-        Args: never;
+        Args: Record<PropertyKey, never>;
         Returns: {
           employee_id: string;
           last_event_id: string;
@@ -1097,17 +1090,10 @@ export type Database = {
         Returns: undefined;
       };
       rpc_record_self_export: {
-        Args: {
-          p_employee_id: string;
-          p_period_from: string;
-          p_period_to: string;
-        };
+        Args: { p_employee_id: string; p_period_from: string; p_period_to: string };
         Returns: undefined;
       };
-      rpc_reinstate_employee: {
-        Args: { p_employee_id: string };
-        Returns: undefined;
-      };
+      rpc_reinstate_employee: { Args: { p_employee_id: string }; Returns: undefined };
       rpc_request_correction: {
         Args: {
           p_kind: string;
@@ -1127,7 +1113,7 @@ export type Database = {
           offline: boolean;
           offline_reason: string | null;
           organization_id: string;
-          proposed: Json;
+          proposed: NonNullable<Json>;
           reason: string | null;
           requested_by: string;
           status: string;
@@ -1152,7 +1138,7 @@ export type Database = {
       rpc_set_employee_module_data: {
         Args: { p_data: Json; p_employee_id: string; p_module: string };
         Returns: {
-          data: Json;
+          data: NonNullable<Json>;
           employee_id: string;
           module: string;
           organization_id: string;
@@ -1172,14 +1158,9 @@ export type Database = {
       };
       rpc_set_my_pin: { Args: { p_pin: string }; Returns: number };
       rpc_set_org_module: {
-        Args: {
-          p_config?: Json;
-          p_enabled: boolean;
-          p_module: string;
-          p_org: string;
-        };
+        Args: { p_config?: Json; p_enabled: boolean; p_module: string; p_org: string };
         Returns: {
-          config: Json;
+          config: NonNullable<Json>;
           enabled: boolean;
           module: string;
           organization_id: string;
@@ -1202,7 +1183,7 @@ export type Database = {
           id: string;
           notified_at: string | null;
           organization_id: string;
-          pattern: Json;
+          pattern: NonNullable<Json>;
           valid_from: string;
           version: number;
         };
@@ -1213,10 +1194,7 @@ export type Database = {
           isSetofReturn: false;
         };
       };
-      rpc_sign_out_everywhere: {
-        Args: { p_employee_id: string };
-        Returns: number;
-      };
+      rpc_sign_out_everywhere: { Args: { p_employee_id: string }; Returns: number };
       rpc_subject_export: { Args: { p_employee_id: string }; Returns: Json };
       rpc_submit_pilot_request: {
         Args: {
@@ -1265,7 +1243,7 @@ export type Database = {
           offline: boolean;
           offline_reason: string | null;
           organization_id: string;
-          proposed: Json;
+          proposed: NonNullable<Json>;
           reason: string | null;
           requested_by: string;
           status: string;
@@ -1302,9 +1280,7 @@ export type Tables<
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
     : never) = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
-}
+> = DefaultSchemaTableNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
   ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
       DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
       Row: infer R;
@@ -1329,9 +1305,7 @@ export type TablesInsert<
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never) = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
-}
+> = DefaultSchemaTableNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Insert: infer I;
     }
@@ -1353,9 +1327,7 @@ export type TablesUpdate<
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never) = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
-}
+> = DefaultSchemaTableNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Update: infer U;
     }
@@ -1377,9 +1349,7 @@ export type Enums<
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
     : never) = never,
-> = DefaultSchemaEnumNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
-}
+> = DefaultSchemaEnumNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
   ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
   : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
     ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
@@ -1393,9 +1363,7 @@ export type CompositeTypes<
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
     : never) = never,
-> = PublicCompositeTypeNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
-}
+> = PublicCompositeTypeNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
   ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
     ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
