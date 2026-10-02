@@ -25,7 +25,7 @@ function change(request: RequestModel): string {
 
 /**
  * The Aanvragen list. From 1024px a table; choosing a row puts its Was/Wordt
- * detail and the decision buttons in the side panel. Below that: one card per
+ * detail and the decision buttons in the side panel (a sheet below 1280px). Below that: one card per
  * request with the buttons inside. Both are in the markup and CSS picks one,
  * so the first paint is right at every width. Decided requests show their
  * outcome instead of buttons.
@@ -111,10 +111,16 @@ export function RequestsBoard({
         </DataTable>
       </div>
 
-      <SidePanel title={selected?.employeeName ?? t("manageToday.panelTitle")}>
+      <SidePanel
+        title={selected?.employeeName ?? t("manageToday.panelTitle")}
+        sheetOpen={selected !== null}
+        onSheetClose={() => setSelectedId(null)}
+      >
         {selected ? (
           <div className="flex flex-col gap-3">
-            <h2 className="text-title-2">{t("manageVragen.detailHeading")}</h2>
+            <h2 className="hidden text-title-2 xl:block">
+              {t("manageVragen.detailHeading")}
+            </h2>
             <RequestCard request={selected} surface="soft" {...actions} />
           </div>
         ) : (

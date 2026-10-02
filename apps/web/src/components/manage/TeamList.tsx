@@ -291,10 +291,16 @@ export function TeamList({
         </>
       )}
 
-      <SidePanel title={selected?.name ?? t("manageToday.panelTitle")}>
+      <SidePanel
+        title={selected?.name ?? t("manageToday.panelTitle")}
+        sheetOpen={selected !== null}
+        onSheetClose={() => setSelectedId(null)}
+      >
         {selected ? (
           <div className="flex flex-col gap-5">
-            <h2 className="text-title-2 break-words">{selected.name}</h2>
+            <h2 className="hidden text-title-2 break-words xl:block">
+              {selected.name}
+            </h2>
             <dl className="flex flex-col gap-3 text-callout">
               <Fact label={t("manageTeam.codeColumn")} value={selected.code} />
               {showRoles ? (

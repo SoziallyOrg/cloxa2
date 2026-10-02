@@ -89,7 +89,12 @@ Top row = logo left, role switch right. Content on `paper` with white cards. Clo
 (if any) above the tab bar. Manager lists are grouped under status group headers; each
 person row shows a mini timeline bar.
 
-### Desktop (≥1024px; 768–1023 = sidebar collapses to icons, side panel becomes a sheet)
+### Desktop (≥1024px sidebar; side panel docked only ≥1280px)
+
+768–1023px: the sidebar collapses to icons. Below 1280px there is no docked side panel:
+the main column keeps the full width and the panel content opens as a Sheet when a row
+is chosen (Vandaag also has an "Aanvragen n" button in the title row that opens the
+sheet on that tab). The same rule holds for Team, Aanvragen and Uren.
 
 Three columns:
 
@@ -98,11 +103,12 @@ Three columns:
 2. **Main** (fluid, `paper`): title row with page actions on the right, then content
    built for width: stat blocks in a row, timeline, real tables with columns (Team,
    Uren, Exports, Activiteitenlog, Kiosks), forms in two columns at most 720px wide.
-3. **Side panel** (330px, white): context for the selection. On Vandaag it has two tabs,
-   "Medewerker" (selected person: clock block with CRing, today's events, indicative
-   week totals, actions) and "Aanvragen n" (Was/Wordt cards, attention items). On table
-   pages it shows the selected row's detail instead of navigating away. With nothing
-   selected it shows a short hint, or the pending requests when there are any.
+3. **Side panel** (330px, white, ≥1280px only): context for the selection. On Vandaag it
+   has two tabs, "Medewerker" (selected person: clock block with CRing, today's events,
+   indicative week totals, actions) and "Aanvragen n" (Was/Wordt cards, attention
+   items). On table pages it shows the selected row's detail instead of navigating away.
+   With nothing selected it shows a short hint, or the pending requests when there are
+   any.
 
 The employee area on desktop uses the same shell: sidebar (Klok, Uren, Vragen, Ik), main
 with the status hero as a card next to today's/this week's facts, no stretched phone

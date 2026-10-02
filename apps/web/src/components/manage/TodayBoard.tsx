@@ -16,6 +16,7 @@ import { SidePanel } from "../ui/SidePanel";
 import { DayTimeline, type DayTimelineProps } from "./DayTimeline";
 import { PersonPanel } from "./PersonPanel";
 import { RequestCard } from "./RequestCard";
+import { useRequestsPanel } from "./RequestsPanelState";
 import type { TodayPerson } from "./today-types";
 
 export interface TodayBoardProps extends Omit<
@@ -32,8 +33,9 @@ export interface TodayBoardProps extends Omit<
 
 /**
  * Vandaag's interactive half: the day timeline and the side panel it fills.
- * Selection is client state only. Desktop: the panel in the right column with
- * two tabs. Below 1024px: the same content in a sheet once someone is chosen.
+ * Selection is client state only. From 1280px: the panel in the right column
+ * with two tabs. Below: the same content in a sheet, opened by choosing someone
+ * or by the "Aanvragen" button in the title row.
  */
 export function TodayBoard({
   requests,
@@ -45,6 +47,7 @@ export function TodayBoard({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [choice, setChoice] = useState<PanelTabId | null>(null);
   const idPrefix = useId();
+  const requestsPanel = useRequestsPanel();
 
   const selected = timeline.people.find((person) => person.id === selectedId) ?? null;
   const flagged = timeline.people.filter((person) => person.attentionItems.length > 0);
@@ -65,8 +68,11 @@ export function TodayBoard({
       <DayTimeline {...timeline} selectedId={selected?.id ?? null} onSelect={select} />
       <SidePanel
         title={selected?.name ?? t("manageToday.panelTitle")}
-        sheetOpen={selected !== null}
-        onSheetClose={() => select(null)}
+        sheetOpen={selected !== null || requestsPanel.open}
+        onSheetClose={() => {
+          select(null);
+          requestsPanel.setOpen(false);
+        }}
       >
         <div className="flex flex-col gap-5">
           <PanelTabs

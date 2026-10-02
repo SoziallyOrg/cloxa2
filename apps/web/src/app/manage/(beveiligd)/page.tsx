@@ -20,6 +20,10 @@ import { DEFAULT_RING_MS, formatBarTime } from "@/components/clock/clock-bar";
 import { formatDurationMs } from "@/components/clock/format";
 import { brusselsWeekRange, workedMs } from "@/components/clock/week-total";
 import { AutoRefresh } from "@/components/manage/AutoRefresh";
+import {
+  RequestsPanelButton,
+  RequestsPanelProvider,
+} from "@/components/manage/RequestsPanelState";
 import { SiteFilter } from "@/components/manage/SiteFilter";
 import { TodayBoard } from "@/components/manage/TodayBoard";
 import type { PersonBlock, TodayPerson } from "@/components/manage/today-types";
@@ -618,72 +622,77 @@ export default async function ManagePage({
     <PageTransition>
       <AutoRefresh />
       <PullToRefresh>
-        <NavBar
-          title={t("manageToday.heading")}
-          subtitle={subtitle}
-          wide
-          trailing={
-            <>
-              {siteRows.length > 1 ? (
-                <SiteFilter sites={siteRows} selectedSiteId={selectedSiteId} />
-              ) : null}
-              <span className="hidden items-center gap-2 md:flex">
-                <NavBarButton href="/manage/meer/exports">
-                  {t("manageToday.exportAction")}
-                </NavBarButton>
-                <NavBarButton href="/manage/team" strong>
-                  {t("manageTeam.inviteButton")}
-                </NavBarButton>
-              </span>
-            </>
-          }
-        />
-        <div className="@container flex flex-col gap-5 px-gutter pb-10 md:px-gutter-desktop">
-          <div
-            role="group"
-            aria-label={t("manage.numbersLabel")}
-            aria-live="polite"
-            className="grid grid-cols-2 gap-3 @xl:grid-cols-4"
-          >
-            <StatBlock
-              tone="forest"
-              value={workingCount}
-              label={t("manageToday.statWorking")}
-            />
-            <StatBlock
-              tone="break"
-              value={onBreakCount}
-              label={t("manageToday.statBreak")}
-            />
-            <StatBlock
-              tone="idle"
-              value={idleCount}
-              label={t("manageToday.statIdle")}
-            />
-            <StatBlock
-              tone="danger"
-              value={attentionByPerson.size}
-              label={t("manageToday.statAttention")}
+        <RequestsPanelProvider>
+          <NavBar
+            title={t("manageToday.heading")}
+            subtitle={subtitle}
+            wide
+            trailing={
+              <>
+                {siteRows.length > 1 ? (
+                  <SiteFilter sites={siteRows} selectedSiteId={selectedSiteId} />
+                ) : null}
+                <RequestsPanelButton
+                  count={Math.max(pendingCount ?? 0, pendingRequests.length)}
+                />
+                <span className="hidden items-center gap-2 md:flex">
+                  <NavBarButton href="/manage/meer/exports">
+                    {t("manageToday.exportAction")}
+                  </NavBarButton>
+                  <NavBarButton href="/manage/team" strong>
+                    {t("manageTeam.inviteButton")}
+                  </NavBarButton>
+                </span>
+              </>
+            }
+          />
+          <div className="@container flex flex-col gap-5 px-gutter pb-10 md:px-gutter-desktop">
+            <div
+              role="group"
+              aria-label={t("manage.numbersLabel")}
+              aria-live="polite"
+              className="grid grid-cols-2 gap-3 @xl:grid-cols-4"
+            >
+              <StatBlock
+                tone="forest"
+                value={workingCount}
+                label={t("manageToday.statWorking")}
+              />
+              <StatBlock
+                tone="break"
+                value={onBreakCount}
+                label={t("manageToday.statBreak")}
+              />
+              <StatBlock
+                tone="idle"
+                value={idleCount}
+                label={t("manageToday.statIdle")}
+              />
+              <StatBlock
+                tone="danger"
+                value={attentionByPerson.size}
+                label={t("manageToday.statAttention")}
+              />
+            </div>
+            {errorKey ? <Notice tone="error">{t(errorKey)}</Notice> : null}
+            {correctedName ? (
+              <Notice tone="success">
+                {t("manageCorrection.saved", { name: correctedName })}
+              </Notice>
+            ) : null}
+            <TodayBoard
+              people={people}
+              nowPct={nowPct(now, day)}
+              ticks={windowTicks(day)}
+              nowLabel={time(now)}
+              windowLabel={`${time(day.start)} – ${time(day.end)}`}
+              requests={pendingRequests}
+              totalRequests={Math.max(pendingCount ?? 0, pendingRequests.length)}
+              approveAction={approveCorrectionAction}
+              rejectAction={rejectCorrectionAction}
             />
           </div>
-          {errorKey ? <Notice tone="error">{t(errorKey)}</Notice> : null}
-          {correctedName ? (
-            <Notice tone="success">
-              {t("manageCorrection.saved", { name: correctedName })}
-            </Notice>
-          ) : null}
-          <TodayBoard
-            people={people}
-            nowPct={nowPct(now, day)}
-            ticks={windowTicks(day)}
-            nowLabel={time(now)}
-            windowLabel={`${time(day.start)} – ${time(day.end)}`}
-            requests={pendingRequests}
-            totalRequests={Math.max(pendingCount ?? 0, pendingRequests.length)}
-            approveAction={approveCorrectionAction}
-            rejectAction={rejectCorrectionAction}
-          />
-        </div>
+        </RequestsPanelProvider>
       </PullToRefresh>
     </PageTransition>
   );

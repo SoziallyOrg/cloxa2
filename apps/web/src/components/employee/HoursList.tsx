@@ -182,7 +182,7 @@ function DayDetail({ day }: { day: HoursDay }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <h2 className="hidden text-title-2 lg:block">{day.longDate}</h2>
+      <h2 className="hidden text-title-2 xl:block">{day.longDate}</h2>
       <DayBar
         work={day.work}
         breaks={day.breaks}
@@ -193,7 +193,7 @@ function DayDetail({ day }: { day: HoursDay }) {
         {rows.map((row) => (
           <li
             key={row.key}
-            className="flex min-h-12 items-center justify-between gap-4 rounded-control bg-card px-4 py-2 shadow-card lg:bg-paper lg:shadow-none"
+            className="flex min-h-12 items-center justify-between gap-4 rounded-control bg-card px-4 py-2 shadow-card xl:bg-paper xl:shadow-none"
           >
             <span className="text-body">{row.label}</span>
             <span className="text-right text-body font-bold tabular-nums">

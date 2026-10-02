@@ -24,7 +24,8 @@ interface SidePanelContextValue {
 
 const SidePanelContext = createContext<SidePanelContextValue | null>(null);
 
-const DESKTOP_QUERY = "(min-width: 64rem)";
+// 1280px: below that the main column needs the full width (docs/design.md → Layout).
+const DESKTOP_QUERY = "(min-width: 80rem)";
 
 function subscribeDesktop(onChange: () => void): () => void {
   const query = window.matchMedia(DESKTOP_QUERY);
@@ -34,13 +35,13 @@ function subscribeDesktop(onChange: () => void): () => void {
 const isDesktop = () => window.matchMedia(DESKTOP_QUERY).matches;
 const noDesktopOnServer = () => false;
 
-/** Whether the side panel column exists (>= 1024px); false while server-rendering. */
+/** Whether the side panel column exists (>= 1280px); false while server-rendering. */
 export function useIsDesktop(): boolean {
   return useSyncExternalStore(subscribeDesktop, isDesktop, noDesktopOnServer);
 }
 
 /**
- * Main column plus the optional 330px side panel (docs/design.md). The panel
+ * Main column plus the optional 330px side panel, docked from 1280px (docs/design.md). The panel
  * renders nothing, takes no space, until a page fills it with `SidePanel`.
  */
 export function SidePanelHost({ children }: { children: ReactNode }) {
@@ -61,7 +62,7 @@ export function SidePanelHost({ children }: { children: ReactNode }) {
           aria-label={t("shell.sidePanelLabel")}
           className={cx(
             "sticky top-0 h-dvh w-side-panel shrink-0 overflow-y-auto border-l border-line bg-card p-5",
-            filled > 0 ? "hidden lg:block" : "hidden",
+            filled > 0 ? "hidden xl:block" : "hidden",
           )}
         />
       </div>
@@ -70,7 +71,7 @@ export function SidePanelHost({ children }: { children: ReactNode }) {
 }
 
 export interface SidePanelProps {
-  /** The sheet's title when the panel is a sheet (768-1023px and phones). */
+  /** The sheet's title when the panel is a sheet (below 1280px). */
   title: string;
   /** Sheet only: whether it is open (e.g. a person is selected). Ignored on desktop. */
   sheetOpen?: boolean;
@@ -79,7 +80,7 @@ export interface SidePanelProps {
 }
 
 /**
- * Context for the current selection. Desktop (>= 1024px): rendered in the
+ * Context for the current selection. Wide desktop (>= 1280px): rendered in the
  * side panel. Below that: the same content in a `Sheet`, opened by the page.
  * Rendered in one place only, so ids and form fields never double up.
  */
