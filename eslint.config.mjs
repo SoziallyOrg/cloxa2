@@ -40,6 +40,8 @@ export default defineConfig([
     "**/node_modules/**",
     "**/playwright-report/**",
     "**/test-results/**",
+    // Local screenshots and traces from `pnpm screens` (gitignored).
+    "output/**",
     "**/next-env.d.ts",
     "supabase/.temp/**",
   ]),
