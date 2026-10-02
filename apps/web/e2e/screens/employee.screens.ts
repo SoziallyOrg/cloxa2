@@ -215,7 +215,9 @@ test("a fresh start: no hours, no questions, nothing planned", async ({ page }) 
   await page.setViewportSize(VIEWPORTS.phone);
 
   await page.goto("/app/uren");
-  await expect(page.getByText("Geen uren in deze week")).toBeVisible();
+  await expect(
+    page.getByText("Geen uren in deze week").filter({ visible: true }),
+  ).toBeVisible();
   await capture(page, "leeg-uren");
   await page.goto("/app/vragen");
   await expect(page.getByText("Nog geen vragen")).toBeVisible();

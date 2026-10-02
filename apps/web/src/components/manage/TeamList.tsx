@@ -231,7 +231,12 @@ export function TeamList({
                             {row.name}
                           </Link>
                         ) : (
-                          <span className="font-bold">{row.name}</span>
+                          <>
+                            <span className="font-bold">{row.name}</span>
+                            <span className="block text-footnote text-ink-2">
+                              {row.subtitle}
+                            </span>
+                          </>
                         )}
                       </Td>
                       {showRoles ? (
@@ -250,25 +255,32 @@ export function TeamList({
                         {row.lastClock ?? t("common.none")}
                       </Td>
                       <Td align="right">
-                        <button
-                          type="button"
-                          aria-pressed={isSelected}
-                          aria-label={t("manageTeam.showSummary", { name: row.name })}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            setSelectedId(isSelected ? null : row.id);
-                          }}
-                          className={cx(
-                            "focus-ring inline-flex size-12 items-center justify-center rounded-control",
-                            isSelected ? "bg-forest text-white" : "text-ink-2",
-                          )}
-                        >
-                          <PanelRight
-                            aria-hidden="true"
-                            className="size-5"
-                            strokeWidth={1.75}
-                          />
-                        </button>
+                        {row.invitationId && revokeAction ? (
+                          <form action={revokeAction}>
+                            <input type="hidden" name="id" value={row.invitationId} />
+                            <RevokeButton label={t("manageTeam.revoke")} />
+                          </form>
+                        ) : row.href ? (
+                          <button
+                            type="button"
+                            aria-pressed={isSelected}
+                            aria-label={t("manageTeam.showSummary", { name: row.name })}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setSelectedId(isSelected ? null : row.id);
+                            }}
+                            className={cx(
+                              "focus-ring inline-flex size-12 items-center justify-center rounded-control",
+                              isSelected ? "bg-forest text-white" : "text-ink-2",
+                            )}
+                          >
+                            <PanelRight
+                              aria-hidden="true"
+                              className="size-5"
+                              strokeWidth={1.75}
+                            />
+                          </button>
+                        ) : null}
                       </Td>
                     </Tr>
                   );

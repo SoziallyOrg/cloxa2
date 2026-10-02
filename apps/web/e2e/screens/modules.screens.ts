@@ -136,7 +136,9 @@ test("modules for the student: the counter in Uren and the question at Start wer
   await expect(page).toHaveURL(/\/app$/, SETTLED);
 
   await open(page, "/app/uren", "Mijn uren");
-  await expect(page.getByTestId("module-student")).toBeVisible(SETTLED);
+  await expect(
+    page.getByTestId("module-student").filter({ visible: true }),
+  ).toBeVisible(SETTLED);
   await capture(page, "uren-student");
 
   // "Waar werk je vandaag?", closed without an answer: nothing is recorded.

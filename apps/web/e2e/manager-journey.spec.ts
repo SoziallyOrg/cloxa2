@@ -179,12 +179,17 @@ test("manager approves a correction and invites a new team member", async ({
   });
   await expect(managerPage).toHaveURL(/\/manage\/team\?toon=uitgenodigd/);
 
-  const invitationRow = managerPage.getByRole("listitem").filter({ hasText: newEmail });
+  // A table row on desktop, a list item on phones: only one is shown.
+  const invitation = () =>
+    managerPage
+      .getByRole("row")
+      .or(managerPage.getByRole("listitem"))
+      .filter({ hasText: newEmail })
+      .filter({ visible: true });
+  const invitationRow = invitation();
   await expect(invitationRow).toBeVisible();
   await invitationRow.getByRole("button", { name: "Intrekken" }).click();
-  await expect(
-    managerPage.getByRole("listitem").filter({ hasText: newEmail }),
-  ).toHaveCount(0);
+  await expect(invitation()).toHaveCount(0);
 
   // 5. The approved "add" correction appends only a clock_in, leaving an
   // open shift. The employee clocks out on their own device, so the next
