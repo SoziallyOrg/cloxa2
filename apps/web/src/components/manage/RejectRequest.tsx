@@ -15,6 +15,7 @@ export interface RejectRequestProps {
   id: string;
   employeeName: string;
   action: (formData: FormData) => Promise<void>;
+  returnTo?: "vandaag" | "aanvragen";
 }
 
 const NOTE_MAX = 280;
@@ -27,6 +28,7 @@ export function RejectRequest({
   id,
   employeeName,
   action,
+  returnTo = "aanvragen",
   size = "md",
 }: RejectRequestProps) {
   const [open, setOpen] = useState(false);
@@ -64,6 +66,7 @@ export function RejectRequest({
           className="flex flex-col gap-6"
         >
           <input type="hidden" name="id" value={id} />
+          <input type="hidden" name="returnTo" value={returnTo} />
           <Field
             id={fieldId}
             label={t("manageVragen.rejectNoteLabel")}

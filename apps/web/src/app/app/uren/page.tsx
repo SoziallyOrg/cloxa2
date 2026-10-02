@@ -7,7 +7,11 @@ import { modulesFor } from "@cloxa/modules";
 
 import { formatBarTime } from "@/components/clock/clock-bar";
 import { HoursList } from "@/components/employee/HoursList";
-import { buildHoursWeek, weekRangeLabel } from "@/components/employee/hours-week";
+import {
+  buildHoursWeek,
+  parseWeekParam,
+  weekRangeLabel,
+} from "@/components/employee/hours-week";
 import { WeekSwitcher } from "@/components/employee/WeekSwitcher";
 import { ScheduleBlocksList } from "@/components/employee/ScheduleBlocksList";
 import { SelfExportLink } from "@/components/exports/SelfExportLink";
@@ -63,7 +67,6 @@ async function moduleViews(
 }
 
 const DAY_MS = 24 * 3600 * 1000;
-const WEEK_PARAM = /^d{4}-d{2}-d{2}$/;
 
 export default async function HoursPage({
   searchParams,
@@ -78,14 +81,7 @@ export default async function HoursPage({
 
   const todayKey = brusselsDayKey(now);
   const currentMonday = mondayOfWeek(todayKey);
-  // Any date in a past week works; the future and nonsense fall back to this week.
-  const requested =
-    weekRaw &&
-    WEEK_PARAM.test(weekRaw) &&
-    !Number.isNaN(Date.parse(`${weekRaw}T12:00:00Z`))
-      ? mondayOfWeek(weekRaw)
-      : currentMonday;
-  const mondayKey = requested > currentMonday ? currentMonday : requested;
+  const mondayKey = parseWeekParam(weekRaw, currentMonday);
   const isCurrent = mondayKey === currentMonday;
   const weekStart = brusselsLocalToInstant(mondayKey, "00:00").getTime();
   const weekEnd = brusselsLocalToInstant(addDays(mondayKey, 7), "00:00").getTime();

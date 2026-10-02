@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { Shift } from "@cloxa/domain";
 
-import { barWindow, buildHoursWeek, minutesOfDay } from "./hours-week";
+import { barWindow, buildHoursWeek, minutesOfDay, parseWeekParam } from "./hours-week";
 
 // Week of Monday 2026-09-28; Brussels is UTC+2 (CEST).
 const at = (day: number, hour: number, minute = 0) =>
@@ -132,5 +132,35 @@ describe("buildHoursWeek", () => {
     const monday = week.days.find((day) => day.key === "2026-09-28")!;
     const bar = monday.work[0]!;
     expect(bar.startPct + bar.widthPct).toBeCloseTo(100, 5);
+  });
+});
+
+describe("parseWeekParam", () => {
+  const current = "2026-09-28";
+
+  it("accepts a past Monday", () => {
+    expect(parseWeekParam("2026-09-21", current)).toBe("2026-09-21");
+  });
+
+  it("accepts the current Monday", () => {
+    expect(parseWeekParam("2026-09-28", current)).toBe(current);
+  });
+
+  it("falls back for a day that is not a Monday", () => {
+    expect(parseWeekParam("2026-09-22", current)).toBe(current);
+  });
+
+  it("falls back for garbage and impossible dates", () => {
+    expect(parseWeekParam("abc", current)).toBe(current);
+    expect(parseWeekParam("2026-9-21", current)).toBe(current);
+    expect(parseWeekParam("2026-02-30", current)).toBe(current);
+  });
+
+  it("falls back for a future week", () => {
+    expect(parseWeekParam("2026-10-05", current)).toBe(current);
+  });
+
+  it("falls back when missing", () => {
+    expect(parseWeekParam(undefined, current)).toBe(current);
   });
 });

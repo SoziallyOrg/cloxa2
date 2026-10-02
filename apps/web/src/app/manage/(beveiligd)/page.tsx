@@ -23,6 +23,7 @@ import { AutoRefresh } from "@/components/manage/AutoRefresh";
 import { SiteFilter } from "@/components/manage/SiteFilter";
 import { TodayBoard } from "@/components/manage/TodayBoard";
 import type { PersonBlock, TodayPerson } from "@/components/manage/today-types";
+import { Notice } from "@/components/ui/Notice";
 import { NavBar, NavBarButton } from "@/components/ui/NavBar";
 import { PageTransition } from "@/components/ui/PageTransition";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
@@ -39,6 +40,7 @@ import {
 } from "@/lib/manage/attention";
 import { boardCounts, type BoardPerson } from "@/lib/manage/board-counts";
 import { GROUP_LABEL_KEY } from "@/lib/manage/labels";
+import { decideErrorKey } from "@/lib/manage/errors";
 import { loadRequests } from "@/lib/manage/requests";
 import { statusGroup, trackTone } from "@/lib/manage/today-board";
 import {
@@ -59,6 +61,8 @@ import { approveCorrectionAction, rejectCorrectionAction } from "./vragen/action
 // Wide enough to still catch a shift forgotten open from the previous
 // Brussels day, without loading unbounded history.
 const EVENTS_LOOKBACK_MS = 3 * 24 * 3600 * 1000;
+
+const PANEL_REQUESTS = 20;
 
 const time = (at: number) => formatBrusselsTime(new Date(at));
 
@@ -138,6 +142,8 @@ export default async function ManagePage({
   const todayKey = brusselsDayKey(now);
   const params = await searchParams;
   const siteRaw = Array.isArray(params.site) ? params.site[0] : params.site;
+  const errorRaw = Array.isArray(params.error) ? params.error[0] : params.error;
+  const errorKey = decideErrorKey(errorRaw);
 
   const { data: siteRows, error: sitesError } = await supabase
     .from("sites")
@@ -554,7 +560,10 @@ export default async function ManagePage({
     };
   });
 
-  const pendingRequests = await loadRequests(supabase, "pending");
+  // The panel shows the oldest few; Aanvragen has the rest.
+  const pendingRequests = await loadRequests(supabase, "pending", {
+    limit: PANEL_REQUESTS,
+  });
 
   const siteName = selectedSiteId
     ? siteRows.find((site) => site.id === selectedSiteId)?.name
@@ -618,6 +627,7 @@ export default async function ManagePage({
               label={t("manageToday.statAttention")}
             />
           </div>
+          {errorKey ? <Notice tone="error">{t(errorKey)}</Notice> : null}
           <TodayBoard
             people={people}
             nowPct={nowPct(now, day)}
@@ -625,6 +635,7 @@ export default async function ManagePage({
             nowLabel={time(now)}
             windowLabel={`${time(day.start)} – ${time(day.end)}`}
             requests={pendingRequests}
+            totalRequests={Math.max(pendingCount ?? 0, pendingRequests.length)}
             approveAction={approveCorrectionAction}
             rejectAction={rejectCorrectionAction}
           />

@@ -1,6 +1,6 @@
 import { CircleCheck, Inbox } from "lucide-react";
 
-import { t, type CatalogKey } from "@cloxa/i18n";
+import { t } from "@cloxa/i18n";
 
 import { RequestsBoard } from "@/components/manage/RequestsBoard";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -10,6 +10,7 @@ import { PageTransition } from "@/components/ui/PageTransition";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { SegmentNav } from "@/components/ui/SegmentNav";
 import { requireManager } from "@/lib/auth/context";
+import { decideErrorKey } from "@/lib/manage/errors";
 import { loadRequests } from "@/lib/manage/requests";
 import { previewHold } from "@/lib/preview";
 import { createClient } from "@/lib/supabase/server";
@@ -31,10 +32,7 @@ export default async function ManageVragenPage({
 
   const requests = await loadRequests(supabase, tab);
 
-  const errorKey =
-    typeof errorRaw === "string" && errorRaw.startsWith("manage")
-      ? (errorRaw as CatalogKey)
-      : null;
+  const errorKey = decideErrorKey(errorRaw);
 
   const tabs = [
     { value: "pending", label: t("manageVragen.tabOpen"), href: "/manage/vragen" },

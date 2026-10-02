@@ -13,6 +13,7 @@ import {
 import type { StatusTone } from "@/components/ui/StatusLine";
 import type { createClient } from "@/lib/supabase/server";
 
+import { eventsInWindow, earliestTargetMs, windowsByEmployee } from "./request-batch";
 import { buildCorrectionDiff, type CorrectionRequestLike } from "./correction-diff";
 import { requestTiles } from "./today-board";
 
@@ -37,6 +38,8 @@ const DECISION_TONE: Record<string, StatusTone> = {
 };
 
 const DAY_MS = 24 * 3600 * 1000;
+/** Ids per `in(...)` query: keeps the request URL short. */
+const ID_CHUNK = 100;
 
 /** One correction request, fully worded: the board only has to draw it. */
 export interface RequestModel {
@@ -111,6 +114,7 @@ const COLUMNS =
 export async function loadRequests(
   supabase: Supabase,
   tab: "pending" | "decided",
+  options: { limit?: number } = {},
 ): Promise<RequestModel[]> {
   const { data: requestRows, error: requestsError } =
     tab === "pending"
@@ -119,6 +123,7 @@ export async function loadRequests(
           .select(COLUMNS)
           .eq("status", "pending")
           .order("created_at", { ascending: true })
+          .limit(options.limit ?? 1000)
       : await supabase
           .from("correction_requests")
           .select(COLUMNS)
@@ -143,96 +148,127 @@ export async function loadRequests(
     employeeRows.map((employee) => [employee.id, employee.display_name]),
   );
 
-  // One events window per request, around the day it touches. Pending lists
-  // are small (at most 20 per employee by RPC rule), so this stays cheap.
-  return Promise.all(
-    requests.map(async (request): Promise<RequestModel> => {
-      const proposed = (request.proposed ?? {}) as {
-        events?: readonly { occurred_at?: string; target_event_id?: string }[];
-      };
-      let anchorMs: number | null = null;
-      if (request.kind === "add") {
-        anchorMs = proposed.events?.[0]?.occurred_at
-          ? Date.parse(proposed.events[0]!.occurred_at!)
-          : null;
-      } else if (request.target_event_ids.length > 0) {
-        const { data: targetRows } = await supabase
-          .from("clock_events")
-          .select("occurred_at")
-          .in("id", request.target_event_ids)
-          .order("occurred_at", { ascending: true })
-          .limit(1);
-        anchorMs = targetRows?.[0] ? Date.parse(targetRows[0].occurred_at) : null;
-      }
-      const anchor = anchorMs ?? Date.parse(request.created_at);
+  // Batched: one query for every target, then one events window per employee
+  // (the span of that employee's requests); each request filters its own
+  // ±1 day out of that in memory.
+  const proposedOf = (request: CorrectionRow) =>
+    (request.proposed ?? {}) as {
+      events?: readonly { occurred_at?: string; target_event_id?: string }[];
+    };
+  const targetIds = [
+    ...new Set(
+      requests
+        .filter((request) => request.kind !== "add")
+        .flatMap((request) => request.target_event_ids),
+    ),
+  ];
+  const targetTimes = new Map<string, string>();
+  for (let i = 0; i < targetIds.length; i += ID_CHUNK) {
+    const { data: targetRows } = await supabase
+      .from("clock_events")
+      .select("id, occurred_at")
+      .in("id", targetIds.slice(i, i + ID_CHUNK));
+    for (const row of targetRows ?? []) targetTimes.set(row.id, row.occurred_at);
+  }
 
-      const { data: windowRows, error: windowError } = await supabase
+  const anchors = requests.map((request) => {
+    const proposed = proposedOf(request);
+    let anchorMs: number | null = null;
+    if (request.kind === "add") {
+      anchorMs = proposed.events?.[0]?.occurred_at
+        ? Date.parse(proposed.events[0]!.occurred_at!)
+        : null;
+    } else if (request.target_event_ids.length > 0) {
+      anchorMs = earliestTargetMs(request.target_event_ids, targetTimes);
+    }
+    return anchorMs ?? Date.parse(request.created_at);
+  });
+
+  const spans = windowsByEmployee(
+    requests.map((request, index) => ({
+      id: request.id,
+      employeeId: request.employee_id,
+      anchorMs: anchors[index]!,
+    })),
+  );
+  const windowResults = await Promise.all(
+    [...spans].map(async ([employeeId, span]) => {
+      const { data, error } = await supabase
         .from("clock_events")
         .select(
           "id, type, occurred_at, employee_id, site_id, source, supersedes_event_id, correction_id",
         )
-        .eq("employee_id", request.employee_id)
-        .gte("occurred_at", new Date(anchor - DAY_MS).toISOString())
-        .lte("occurred_at", new Date(anchor + DAY_MS).toISOString())
+        .eq("employee_id", employeeId)
+        .gte("occurred_at", new Date(span.fromMs).toISOString())
+        .lte("occurred_at", new Date(span.toMs).toISOString())
         .order("occurred_at");
-      if (windowError) {
-        throw new Error(`clock_events_unavailable:${windowError.code}`);
-      }
-
-      const requestLike: CorrectionRequestLike = {
-        kind: request.kind as CorrectionRequestLike["kind"],
-        targetEventIds: request.target_event_ids,
-        proposed: proposed as CorrectionRequestLike["proposed"],
-      };
-      const diff = buildCorrectionDiff(requestLike, windowRows.map(toClockEvent));
-
-      const changes = diff.changes.map((change) => ({
-        typeLabel: t(EVENT_TYPE_LABEL_KEY[change.type] ?? "manageVragen.kindAdd"),
-        beforeLabel: change.beforeIso
-          ? formatBrusselsTime(new Date(change.beforeIso))
-          : null,
-        afterLabel: change.afterIso
-          ? formatBrusselsTime(new Date(change.afterIso))
-          : null,
-      }));
-      const tiles = requestTiles(changes);
-      const resultingShift = diff.afterShifts.find(
-        (shift) =>
-          Math.abs(shift.start - anchor) < DAY_MS ||
-          (shift.end !== null && Math.abs(shift.end - anchor) < DAY_MS),
-      );
-
-      const model: RequestModel = {
-        id: request.id,
-        employeeId: request.employee_id,
-        employeeName: employeeNames.get(request.employee_id) ?? "?",
-        dayLabel: formatBrusselsLongDay(new Date(anchor)),
-        kindLabel: request.offline
-          ? // Queued offline and did not fit: say so, not "vergeten".
-            t("offline.requestLabel")
-          : t(KIND_LABEL_KEY[request.kind] ?? "manageVragen.kindAdd"),
-        offline: request.offline,
-        touches: [...new Set(changes.map((change) => change.typeLabel))].join(", "),
-        was: tiles.was,
-        wordt: tiles.wordt,
-        resultingShiftLabel: resultingShift
-          ? `${formatBrusselsTime(new Date(resultingShift.start))}–${resultingShift.end ? formatBrusselsTime(new Date(resultingShift.end)) : t("shifts.openEnd")}`
-          : null,
-        reason: request.reason,
-      };
-      return tab === "pending"
-        ? model
-        : {
-            ...model,
-            decision: {
-              tone: DECISION_TONE[request.status] ?? "off",
-              statusLabel:
-                request.status === "approved"
-                  ? t("manageVragen.decisionApproved")
-                  : t("manageVragen.decisionRejected"),
-              note: request.decision_note,
-            },
-          };
+      if (error) throw new Error(`clock_events_unavailable:${error.code}`);
+      return data;
     }),
   );
+  const windowEvents = windowResults.flat();
+
+  return requests.map((request, index): RequestModel => {
+    const proposed = proposedOf(request);
+    const anchor = anchors[index]!;
+    const windowRows = eventsInWindow(windowEvents, {
+      employeeId: request.employee_id,
+      anchorMs: anchor,
+    });
+
+    const requestLike: CorrectionRequestLike = {
+      kind: request.kind as CorrectionRequestLike["kind"],
+      targetEventIds: request.target_event_ids,
+      proposed: proposed as CorrectionRequestLike["proposed"],
+    };
+    const diff = buildCorrectionDiff(requestLike, windowRows.map(toClockEvent));
+
+    const changes = diff.changes.map((change) => ({
+      typeLabel: t(EVENT_TYPE_LABEL_KEY[change.type] ?? "manageVragen.kindAdd"),
+      beforeLabel: change.beforeIso
+        ? formatBrusselsTime(new Date(change.beforeIso))
+        : null,
+      afterLabel: change.afterIso
+        ? formatBrusselsTime(new Date(change.afterIso))
+        : null,
+    }));
+    const tiles = requestTiles(changes);
+    const resultingShift = diff.afterShifts.find(
+      (shift) =>
+        Math.abs(shift.start - anchor) < DAY_MS ||
+        (shift.end !== null && Math.abs(shift.end - anchor) < DAY_MS),
+    );
+
+    const model: RequestModel = {
+      id: request.id,
+      employeeId: request.employee_id,
+      employeeName: employeeNames.get(request.employee_id) ?? "?",
+      dayLabel: formatBrusselsLongDay(new Date(anchor)),
+      kindLabel: request.offline
+        ? // Queued offline and did not fit: say so, not "vergeten".
+          t("offline.requestLabel")
+        : t(KIND_LABEL_KEY[request.kind] ?? "manageVragen.kindAdd"),
+      offline: request.offline,
+      touches: [...new Set(changes.map((change) => change.typeLabel))].join(", "),
+      was: tiles.was,
+      wordt: tiles.wordt,
+      resultingShiftLabel: resultingShift
+        ? `${formatBrusselsTime(new Date(resultingShift.start))}–${resultingShift.end ? formatBrusselsTime(new Date(resultingShift.end)) : t("shifts.openEnd")}`
+        : null,
+      reason: request.reason,
+    };
+    return tab === "pending"
+      ? model
+      : {
+          ...model,
+          decision: {
+            tone: DECISION_TONE[request.status] ?? "off",
+            statusLabel:
+              request.status === "approved"
+                ? t("manageVragen.decisionApproved")
+                : t("manageVragen.decisionRejected"),
+            note: request.decision_note,
+          },
+        };
+  });
 }

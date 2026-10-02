@@ -99,6 +99,17 @@ test("employee clocks a shift with a break, sees it in Mijn uren and asks for a 
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Mijn uren");
   await expect(page.getByText("Totaal deze week", { exact: true })).toBeVisible();
   await expect(page.getByText("indicatief", { exact: true })).toBeVisible();
+
+  // The week switcher works: the previous week shows another range.
+  const weekSwitcher = page.getByRole("navigation", { name: "Kies een week" });
+  const weekLabel = weekSwitcher.locator("p");
+  const currentWeekLabel = await weekLabel.innerText();
+  await weekSwitcher.getByRole("link", { name: "Vorige week" }).click();
+  await expect(page).toHaveURL(/\/app\/uren\?week=\d{4}-\d{2}-\d{2}$/);
+  await expect(weekLabel).not.toHaveText(currentWeekLabel);
+  await weekSwitcher.getByRole("link", { name: "Deze week" }).click();
+  await expect(weekLabel).toHaveText(currentWeekLabel);
+
   // Days, newest first: today's row. A phone shows "08:02–16:31", the desktop
   // table has Start and Einde columns, so check the two times.
   const newest = page

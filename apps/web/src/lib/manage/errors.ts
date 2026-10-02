@@ -29,6 +29,32 @@ export function mapDecideCorrectionError(error: unknown): DecideCorrectionErrorK
   return "manageVragen.errorGeneric";
 }
 
+/** Keys the decide actions may put in `?error=`: the mapper's, plus the missing-note one. */
+export const DECIDE_ERROR_KEYS = [
+  "manageVragen.errorInvalidSequence",
+  "manageVragen.errorSelfDecision",
+  "manageVragen.errorStale",
+  "manageVragen.errorGeneric",
+  "manageVragen.rejectNoteRequired",
+] as const;
+
+export type DecideErrorKey = (typeof DECIDE_ERROR_KEYS)[number];
+
+/** A query value as a safe copy key, or null: never trust `?error=` as a catalog key. */
+export function decideErrorKey(value: unknown): DecideErrorKey | null {
+  return typeof value === "string" &&
+    (DECIDE_ERROR_KEYS as readonly string[]).includes(value)
+    ? (value as DecideErrorKey)
+    : null;
+}
+
+export type DecideReturnTo = "vandaag" | "aanvragen";
+
+/** The fixed place a decision returns to; anything else means Aanvragen. */
+export function decideReturnTo(value: unknown): DecideReturnTo {
+  return value === "vandaag" ? "vandaag" : "aanvragen";
+}
+
 export type SetScheduleErrorKey =
   | "schedule.errorInvalidValidFrom"
   | "schedule.errorInvalidPattern"

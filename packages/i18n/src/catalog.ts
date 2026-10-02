@@ -568,6 +568,7 @@ export const catalog = {
     tabRequests: "Aanvragen",
     personHint: "Kies een medewerker in de lijst om haar of zijn dag te zien.",
     allRequests: "Alle aanvragen bekijken",
+    requestsCapped: "Hier staan de {shown} oudste van {total} aanvragen.",
     statusBreakSince: "Pauze sinds {time}",
     statusStoppedAt: "Gestopt om {time}",
     statusPlannedFrom: "Gepland vanaf {time}",

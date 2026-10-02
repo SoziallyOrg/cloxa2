@@ -258,6 +258,26 @@ export function buildHoursWeek({
   };
 }
 
+const WEEK_PARAM = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * The Monday asked for in `?week=`. Only a real date that is a Monday and not
+ * after the current week counts; anything else falls back to the current week.
+ */
+export function parseWeekParam(
+  value: string | undefined,
+  currentMonday: string,
+): string {
+  if (!value || !WEEK_PARAM.test(value)) return currentMonday;
+  const date = new Date(`${value}T12:00:00Z`);
+  // Rejects 2026-02-30, which Date would silently roll over.
+  if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value) {
+    return currentMonday;
+  }
+  if (date.getUTCDay() !== 1) return currentMonday;
+  return value > currentMonday ? currentMonday : value;
+}
+
 const SHORT_DAY = new Intl.DateTimeFormat("nl-BE", {
   timeZone: "Europe/Brussels",
   day: "numeric",

@@ -13,6 +13,8 @@ export interface RequestCardProps {
   readonly surface?: "soft" | "plain";
   readonly approveAction?: (formData: FormData) => Promise<void>;
   readonly rejectAction?: (formData: FormData) => Promise<void>;
+  /** Where the actions send you back to on an error; the action validates it. */
+  readonly returnTo?: "vandaag" | "aanvragen";
 }
 
 /**
@@ -26,6 +28,7 @@ export function RequestCard({
   surface = "plain",
   approveAction,
   rejectAction,
+  returnTo = "aanvragen",
 }: RequestCardProps) {
   const { id, employeeName, decision } = request;
   return (
@@ -95,6 +98,7 @@ export function RequestCard({
         <div className="grid grid-cols-2 gap-2">
           <form action={approveAction} className="contents">
             <input type="hidden" name="id" value={id} />
+            <input type="hidden" name="returnTo" value={returnTo} />
             <SubmitButton wide size={surface === "soft" ? "sm" : "md"}>
               {t("manageVragen.approve")}
             </SubmitButton>
@@ -103,6 +107,7 @@ export function RequestCard({
             id={id}
             employeeName={employeeName}
             action={rejectAction}
+            returnTo={returnTo}
             size={surface === "soft" ? "sm" : "md"}
           />
         </div>

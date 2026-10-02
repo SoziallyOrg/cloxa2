@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import { RpcError } from "@cloxa/db";
 
 import {
+  decideErrorKey,
+  decideReturnTo,
   mapDecideCorrectionError,
   mapInviteError,
   mapSetScheduleError,
@@ -84,5 +86,39 @@ describe("mapSetScheduleError", () => {
   it("falls back to a generic error", () => {
     expect(mapSetScheduleError(rpcError("anything"))).toBe("schedule.errorGeneric");
     expect(mapSetScheduleError(new TypeError("network"))).toBe("schedule.errorGeneric");
+  });
+});
+
+describe("decideErrorKey", () => {
+  it("accepts every key the decide actions can return", () => {
+    for (const message of [
+      "invalid_sequence",
+      "self_decision_not_allowed",
+      "not_pending",
+      "whatever",
+    ]) {
+      const key = mapDecideCorrectionError(rpcError(message));
+      expect(decideErrorKey(key)).toBe(key);
+    }
+    expect(decideErrorKey("manageVragen.rejectNoteRequired")).toBe(
+      "manageVragen.rejectNoteRequired",
+    );
+  });
+
+  it("drops anything else, including other catalog keys", () => {
+    expect(decideErrorKey("manageVragen.nope")).toBeNull();
+    expect(decideErrorKey("manageVragen.heading")).toBeNull();
+    expect(decideErrorKey("")).toBeNull();
+    expect(decideErrorKey(undefined)).toBeNull();
+    expect(decideErrorKey(["manageVragen.errorStale"])).toBeNull();
+  });
+});
+
+describe("decideReturnTo", () => {
+  it("only knows vandaag, else aanvragen", () => {
+    expect(decideReturnTo("vandaag")).toBe("vandaag");
+    expect(decideReturnTo("aanvragen")).toBe("aanvragen");
+    expect(decideReturnTo("https://evil.example")).toBe("aanvragen");
+    expect(decideReturnTo(null)).toBe("aanvragen");
   });
 });

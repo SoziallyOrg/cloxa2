@@ -24,6 +24,8 @@ export interface TodayBoardProps extends Omit<
 > {
   /** Open correction requests, worded for the panel. */
   requests: readonly RequestModel[];
+  /** All open requests; more than `requests` when the panel shows only the oldest. */
+  totalRequests: number;
   approveAction: (formData: FormData) => Promise<void>;
   rejectAction: (formData: FormData) => Promise<void>;
 }
@@ -35,6 +37,7 @@ export interface TodayBoardProps extends Omit<
  */
 export function TodayBoard({
   requests,
+  totalRequests,
   approveAction,
   rejectAction,
   ...timeline
@@ -48,7 +51,7 @@ export function TodayBoard({
   const tab = activePanelTab({
     choice,
     selectedId: selected?.id ?? null,
-    pendingCount: requests.length,
+    pendingCount: totalRequests,
   });
 
   // Choosing someone means "show me them": drop an earlier tab choice.
@@ -76,7 +79,7 @@ export function TodayBoard({
               {
                 value: "requests",
                 label: t("manageToday.tabRequests"),
-                count: requests.length,
+                count: totalRequests,
               },
             ]}
           />
@@ -94,6 +97,7 @@ export function TodayBoard({
             ) : (
               <RequestsTab
                 requests={requests}
+                totalRequests={totalRequests}
                 flagged={flagged}
                 approveAction={approveAction}
                 rejectAction={rejectAction}
@@ -108,11 +112,13 @@ export function TodayBoard({
 
 function RequestsTab({
   requests,
+  totalRequests,
   flagged,
   approveAction,
   rejectAction,
 }: {
   requests: readonly RequestModel[];
+  totalRequests: number;
   flagged: readonly TodayPerson[];
   approveAction: (formData: FormData) => Promise<void>;
   rejectAction: (formData: FormData) => Promise<void>;
@@ -140,8 +146,17 @@ function RequestsTab({
           surface="soft"
           approveAction={approveAction}
           rejectAction={rejectAction}
+          returnTo="vandaag"
         />
       ))}
+      {totalRequests > requests.length ? (
+        <p className="text-subhead text-ink-2">
+          {t("manageToday.requestsCapped", {
+            shown: requests.length,
+            total: totalRequests,
+          })}
+        </p>
+      ) : null}
       {requests.length > 0 ? (
         <Link
           href={"/manage/vragen" as Route}
