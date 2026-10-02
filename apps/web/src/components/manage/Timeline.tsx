@@ -180,20 +180,24 @@ export function DayAxis({
 
 /** A vertical forest line over every row at "now", 2px wide. */
 export function DayNowLine({ positionPct }: { positionPct: number }) {
+  // Absolute, so the svg's default 150px height never stretches the grid row
+  // beyond the rows (with one person the line used to run past the card).
   return (
-    <svg
-      aria-hidden="true"
-      focusable="false"
-      className="block h-full w-full overflow-visible"
-    >
-      <line
-        x1={pct(positionPct)}
-        x2={pct(positionPct)}
-        y1="0"
-        y2="100%"
-        className="stroke-forest"
-        strokeWidth={2}
-      />
-    </svg>
+    <span className="relative block h-full">
+      <svg
+        aria-hidden="true"
+        focusable="false"
+        className="absolute inset-0 h-full w-full overflow-visible"
+      >
+        <line
+          x1={pct(positionPct)}
+          x2={pct(positionPct)}
+          y1="0"
+          y2="100%"
+          className="stroke-forest"
+          strokeWidth={2}
+        />
+      </svg>
+    </span>
   );
 }
