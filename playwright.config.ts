@@ -1,88 +1,90 @@
+import { execSync } from "node:child_process";
+import { generateKeyPairSync, randomBytes } from "node:crypto";
+
 import { defineConfig, devices } from "@playwright/test";
 
-import {
-  getLocalStackStatus,
-  loadLocalEnvironment,
-  requireFictionalEmail,
-  requireLiteralLoopbackOrigin,
-  requireLocalOrigin,
-  requireLocalPassword,
-  validateLocalStack,
-} from "./scripts/local-auth-config.mjs";
+/**
+ * E2E against the local Supabase stack. Needs `pnpm db:start` and
+ * `pnpm --filter @cloxa/web dev:seed`; see apps/web/e2e. Not in CI yet.
+ */
+const PORT = 3100;
+// localhost, not 127.0.0.1: browsers accept `Secure` cookies over http only there.
+const BASE_URL = `http://localhost:${PORT}`;
 
-const port = 3100;
-const baseURL = `http://127.0.0.1:${port}`;
-const useProductionServer = process.env.CLOXA_E2E_PRODUCTION === "1";
+function localSupabase(): Record<string, string> {
+  const status = JSON.parse(
+    execSync("supabase status -o json", {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }),
+  ) as Record<string, string>;
+  return {
+    NEXT_PUBLIC_SUPABASE_URL: status["API_URL"] ?? "",
+    NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: status["PUBLISHABLE_KEY"] ?? "",
+    SUPABASE_SECRET_KEY: status["SECRET_KEY"] ?? "",
+  };
+}
 
-loadLocalEnvironment();
-requireLocalOrigin(process.env.NEXT_PUBLIC_SUPABASE_URL);
-const localStatus = getLocalStackStatus();
-const localSettings = validateLocalStack(process.env, localStatus);
-requireFictionalEmail(process.env.CLOXA_LOCAL_MANAGER_EMAIL);
-requireLocalPassword(
-  process.env.CLOXA_LOCAL_MANAGER_PASSWORD,
-  "CLOXA_LOCAL_MANAGER_PASSWORD",
-);
-requireLocalPassword(
-  process.env.CLOXA_LOCAL_EMPLOYEE_PASSWORD,
-  "CLOXA_LOCAL_EMPLOYEE_PASSWORD",
-);
-requireLocalPassword(
-  process.env.CLOXA_LOCAL_EMPLOYEE_RESET_PASSWORD,
-  "CLOXA_LOCAL_EMPLOYEE_RESET_PASSWORD",
-);
+// Fresh per run: nothing here outlives the test server.
+const secret = () => randomBytes(32).toString("base64url");
+const exportSigningKey = () =>
+  Buffer.from(
+    generateKeyPairSync("ed25519").privateKey.export({ format: "pem", type: "pkcs8" }),
+  ).toString("base64");
 
-process.env.CLOXA_SITE_URL = baseURL;
-process.env.NEXT_PUBLIC_SUPABASE_URL = localSettings.supabaseUrl;
-process.env.CLOXA_LOCAL_MAILPIT_URL = requireLiteralLoopbackOrigin(
-  localStatus.MAILPIT_URL ?? localStatus.INBUCKET_URL,
-  "Mailpit URL",
-);
-// Playwright 1.62.1 otherwise captures form values in failure-only aria snapshots.
-process.env.PLAYWRIGHT_NO_COPY_PROMPT = "1";
+// The app trusts `x-real-ip` (CLOXA_PROXY_MODE=vercel), as behind the real
+// platform. One random address per run (198.18.0.0/15, reserved for testing)
+// keeps repeated runs out of each other's per-IP limiter buckets.
+const [a = 0, b = 0] = randomBytes(2);
+const clientIp = `198.${18 + (a & 1)}.${b}.${(a >> 1) + 1}`;
 
 export default defineConfig({
-  testDir: "./apps/web/e2e",
-  globalSetup: "./apps/web/e2e/local.setup.mts",
-  fullyParallel: true,
-  forbidOnly: Boolean(process.env.CI),
+  testDir: "apps/web/e2e",
+  fullyParallel: false,
+  workers: 1,
   retries: 0,
   reporter: "list",
-  preserveOutput: "never",
-  workers: 2,
   use: {
-    baseURL,
-    // Passwords, Auth cookies and email links must not be stored in test artifacts.
-    trace: "off",
-    screenshot: "off",
-    video: "off",
-    serviceWorkers: "block",
+    baseURL: BASE_URL,
+    trace: "retain-on-failure",
+    extraHTTPHeaders: { "x-real-ip": clientIp },
   },
   projects: [
+    { name: "chromium", use: { ...devices["Desktop Chrome"] } },
+    // Design-review screenshots (`pnpm screens`), never part of `pnpm e2e`.
     {
-      name: "chromium-desktop",
-      use: { ...devices["Desktop Chrome"] },
-    },
-    {
-      name: "chromium-mobile",
-      testIgnore: /local-auth\.spec\.mts/u,
-      use: { ...devices["Pixel 5"] },
+      name: "screens",
+      testMatch: /\.screens\.ts$/,
+      use: {
+        ...devices["Desktop Chrome"],
+        locale: "nl-BE",
+        timezoneId: "Europe/Brussels",
+        // Native date/time pickers follow the browser language, not `locale`.
+        launchOptions: { args: ["--lang=nl-BE"] },
+      },
     },
   ],
   webServer: {
-    command: `pnpm --filter @cloxa/web ${
-      useProductionServer ? "start" : "dev"
-    } --hostname 127.0.0.1 --port ${port}`,
-    env: {
-      CLOXA_SITE_URL: baseURL,
-      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: localSettings.publishableKey,
-      NEXT_PUBLIC_SUPABASE_URL: localSettings.supabaseUrl,
-      SUPABASE_SECRET_KEY: localSettings.secretKey,
-    },
+    // A production build (`next build && next start`): exercises the real CSP
+    // and Secure cookies, and does not clash with a `next dev` that may already
+    // run for this app. Docker builds the standalone server instead (see
+    // next.config.ts), which pnpm symlinks make unusable on Windows.
+    command: `pnpm --filter @cloxa/web build && pnpm --filter @cloxa/web exec next start --port ${PORT}`,
+    url: `${BASE_URL}/login`,
     reuseExistingServer: false,
-    stdout: "ignore",
-    stderr: "ignore",
-    timeout: 120_000,
-    url: baseURL,
+    timeout: 300_000,
+    env: {
+      ...localSupabase(),
+      CLOXA_SITE_URL: BASE_URL,
+      CLOXA_PROXY_MODE: "vercel",
+      AUTH_HASH_PEPPER: secret(),
+      FLOW_COOKIE_SECRET: secret(),
+      EXPORT_SIGNING_KEY: exportSigningKey(),
+      EXPORT_SIGNING_KEY_ID: "e2e",
+      // The dev-only /preview route, for `pnpm screens` (404 in real production).
+      CLOXA_PREVIEW: "1",
+      PORT: String(PORT),
+      HOSTNAME: "127.0.0.1",
+    },
   },
 });

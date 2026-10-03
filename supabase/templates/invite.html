@@ -1,14 +1,29 @@
 <!doctype html>
 <html lang="nl-BE">
-  <body>
-    <h1>Uitnodiging voor Cloxa</h1>
-    <p>Je manager nodigt je uit. Open deze eenmalige link en kies je wachtwoord.</p>
+  <body style="font-family: Arial, sans-serif; font-size: 18px; color: #15212a">
+    <h1 style="font-size: 24px">Je bent uitgenodigd voor Cloxa</h1>
     <p>
-      <a href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}&amp;type=invite"
+      Je bent uitgenodigd om Cloxa te gebruiken, de app om werkuren eenvoudig te
+      registreren. Klik op de knop om te starten. Je hebt geen wachtwoord nodig.
+    </p>
+    <p>
+      <a
+        href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&amp;type=invite"
+        style="
+          display: inline-block;
+          background: #0e4a67;
+          color: #ffffff;
+          padding: 16px 28px;
+          border-radius: 10px;
+          text-decoration: none;
+          font-size: 20px;
+        "
         >Uitnodiging aanvaarden</a
       >
     </p>
-    <p>Deze link is één uur geldig. Niet verwacht? Negeer dit bericht.</p>
-    <p>Lokale testomgeving met fictieve gegevens.</p>
+    <p>
+      Werkt de knop niet meer? Ga naar Cloxa, typ je e-mailadres en je krijgt een code.
+      Je uitnodiging blijft 7 dagen geldig. Niet verwacht? Negeer dit bericht.
+    </p>
   </body>
 </html>

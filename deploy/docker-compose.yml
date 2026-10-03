@@ -1,0 +1,69 @@
+# Runs on the Hostinger VPS. Caddy is the only service that touches the
+# public internet; `app` is reachable only on the internal compose network.
+#
+# Usage on the server:
+#   docker compose -f deploy/docker-compose.yml pull
+#   docker compose -f deploy/docker-compose.yml up -d
+#
+# `TAG` selects the image built by .github/workflows/deploy.yml (a release
+# tag such as v1.2.3, or a commit SHA). Defaults to `latest`, but the deploy
+# workflow always passes an explicit tag so a bad `latest` push can't roll
+# production forward by accident.
+
+services:
+  app:
+    image: ghcr.io/sociallyorg/cloxa-web:${TAG:-latest}
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    read_only: true
+    tmpfs:
+      # Next's standalone server writes its build/runtime cache here.
+      - /app/apps/web/.next/cache
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/healthz').then((r) => process.exit(r.status ===
+          200 ? 0 : 1)).catch(() => process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    # No `ports:` — only Caddy reaches this container, over the compose
+    # network by service name.
+    expose:
+      - "3000"
+    networks:
+      - internal
+
+  caddy:
+    image: caddy:2-alpine@sha256:6aeddd44c3078b0f9a35206472a11420648a79c184603ef95957d0a20044cb2b
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+    networks:
+      - internal
+
+networks:
+  internal:
+    driver: bridge
+
+volumes:
+  caddy_data:
+  caddy_config:

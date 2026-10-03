@@ -13,16 +13,36 @@ export default defineConfig([
       },
     },
   },
+  {
+    files: ["apps/web/src/**/*.tsx"],
+    rules: {
+      // next/image injects inline style attributes, which our nonce CSP blocks.
+      // Plain <img> with explicit width/height is the deliberate choice.
+      "@next/next/no-img-element": "off",
+      "react/jsx-no-literals": [
+        "error",
+        {
+          noStrings: true,
+          allowedStrings: [" ", "·", "-", ":", ",", ".", "/", "(", ")"],
+          ignoreProps: true,
+        },
+      ],
+    },
+  },
   prettier,
   globalIgnores([
+    // Static design reference (identity-d.html and its helper scripts).
+    "docs/design/**",
     "**/.next/**",
     "**/.pnpm-store/**",
     "**/coverage/**",
+    "**/dist/**",
     "**/node_modules/**",
     "**/playwright-report/**",
     "**/test-results/**",
+    // Local screenshots and traces from `pnpm screens` (gitignored).
+    "output/**",
     "**/next-env.d.ts",
-    ".impeccable/**",
     "supabase/.temp/**",
   ]),
 ]);

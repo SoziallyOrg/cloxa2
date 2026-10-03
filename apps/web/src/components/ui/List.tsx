@@ -1,0 +1,299 @@
+import Link from "next/link";
+import type { Route } from "next";
+import type { LucideIcon } from "lucide-react";
+import { Check, ChevronRight } from "lucide-react";
+import type { ButtonHTMLAttributes, ReactNode } from "react";
+
+import { cx } from "./cx";
+import { PUSH } from "./transitions";
+
+export interface ListProps {
+  children: ReactNode;
+  className?: string;
+}
+
+/**
+ * Row groups on the paper page: `Section`s (white cards) inside the gutter, 28px apart.
+ */
+export function List({ children, className }: ListProps) {
+  return (
+    <div
+      className={cx("flex flex-col gap-7 px-gutter md:px-gutter-desktop", className)}
+    >
+      {children}
+    </div>
+  );
+}
+
+export interface SectionProps {
+  /** A small sentence-case label above the group, e.g. "Deze week". */
+  header?: ReactNode;
+  /** Heading level for `header` (an `h2` by default). */
+  headingLevel?: 2 | 3;
+  /** A quiet explanation under the group. */
+  footer?: ReactNode;
+  children: ReactNode;
+  className?: string;
+  "data-testid"?: string;
+}
+
+/** One white card of rows on paper (18px radius, hairlines between rows) with its label and footer. */
+export function Section({
+  header,
+  headingLevel = 2,
+  footer,
+  children,
+  className,
+  "data-testid": testId,
+}: SectionProps) {
+  const Heading = `h${headingLevel}` as const;
+
+  return (
+    <section className={cx("flex flex-col", className)} data-testid={testId}>
+      {header ? (
+        <Heading className="px-1 pb-2 text-footnote font-bold text-ink-2">
+          {header}
+        </Heading>
+      ) : null}
+      <ul className="overflow-hidden rounded-card bg-card shadow-card">{children}</ul>
+      {footer ? (
+        <div className="px-1 pt-2 text-subhead text-ink-2">{footer}</div>
+      ) : null}
+    </section>
+  );
+}
+
+interface RowContent {
+  title: ReactNode;
+  subtitle?: ReactNode | undefined;
+  /** Trailing value in the secondary colour, e.g. "7 u 59 min". */
+  value?: ReactNode | undefined;
+  /**
+   * A thin monochrome line icon, only where it helps scanning (settings).
+   * Data rows get none.
+   */
+  icon?: LucideIcon | undefined;
+  /** A trailing chevron: on by default for links, off otherwise. */
+  chevron?: boolean | undefined;
+  /** Red title, for destructive rows ("Afmelden"). */
+  tone?: "default" | "danger" | undefined;
+  /**
+   * A choice row: a trailing checkmark when `true`, an empty slot when
+   * `false` (so titles don't shift). Pair with `aria-pressed`.
+   */
+  checked?: boolean | undefined;
+  /**
+   * Let a long title wrap instead of truncating, with the value and chevron
+   * at the top right. For rows whose text matters (an issue to fix).
+   */
+  wrap?: boolean | undefined;
+}
+
+export type RowProps = RowContent &
+  (
+    | {
+        /** A row that navigates (pushes, with the slide transition). */
+        href: string;
+        /** A plain file download (`<a download>`), not a navigation. */
+        download?: boolean;
+        accessory?: never;
+      }
+    | ({
+        href?: never;
+        /** A trailing control on a static row, e.g. a `Switch`. */
+        accessory?: ReactNode;
+      } & Omit<
+        ButtonHTMLAttributes<HTMLButtonElement>,
+        "className" | "title" | "value" | "children"
+      >)
+  );
+
+const INTERACTIVE =
+  "focus-ring flex w-full items-center text-left transition-colors duration-200 select-none focus-visible:-outline-offset-3 active:bg-pressed active:duration-0 disabled:cursor-not-allowed disabled:opacity-60";
+
+/**
+ * One row: a link (`href`), a button (`onClick` or `type`), or static. 56px
+ * (64px with a subtitle). A hairline separates rows. Long titles truncate with an ellipsis. Pressed rows get a
+ * subtle highlight rather than dim.
+ */
+export function Row(props: RowProps) {
+  const {
+    title,
+    subtitle,
+    value,
+    icon,
+    chevron,
+    tone = "default",
+    checked,
+    wrap,
+  } = props;
+  const content = (withChevron: boolean, accessory?: ReactNode) => (
+    <RowBody
+      title={title}
+      subtitle={subtitle}
+      value={value}
+      icon={icon}
+      tone={tone}
+      chevron={chevron ?? withChevron}
+      checked={checked}
+      wrap={wrap}
+      accessory={accessory}
+    />
+  );
+
+  if (props.href !== undefined) {
+    return (
+      <li className="group/row">
+        {props.download ? (
+          <a href={props.href} download className={INTERACTIVE}>
+            {content(false)}
+          </a>
+        ) : (
+          <Link
+            href={props.href as Route}
+            transitionTypes={PUSH}
+            className={INTERACTIVE}
+          >
+            {content(true)}
+          </Link>
+        )}
+      </li>
+    );
+  }
+
+  const { accessory, ...rest } = props;
+  const button = buttonAttributes(rest);
+  const isButton = button.onClick !== undefined || button.type !== undefined;
+
+  return (
+    <li className="group/row">
+      {isButton ? (
+        <button {...button} type={button.type ?? "button"} className={INTERACTIVE}>
+          {content(false)}
+        </button>
+      ) : (
+        <div className="flex w-full items-center">{content(false, accessory)}</div>
+      )}
+    </li>
+  );
+}
+
+const CONTENT_KEYS = [
+  "title",
+  "subtitle",
+  "value",
+  "icon",
+  "chevron",
+  "tone",
+  "checked",
+  "wrap",
+  "href",
+];
+
+/** The row's own props stripped, leaving the `<button>` attributes. */
+function buttonAttributes(props: object): ButtonHTMLAttributes<HTMLButtonElement> {
+  const attributes: Record<string, unknown> = { ...props };
+  for (const key of CONTENT_KEYS) delete attributes[key];
+  return attributes;
+}
+
+function RowBody({
+  title,
+  subtitle,
+  value,
+  icon: Icon,
+  tone,
+  chevron,
+  checked,
+  wrap,
+  accessory,
+}: RowContent & { accessory?: ReactNode }) {
+  return (
+    <>
+      {Icon ? (
+        <Icon
+          aria-hidden="true"
+          className={cx(
+            "ml-4 size-[22px] shrink-0",
+            tone === "danger" ? "text-danger" : "text-ink-2",
+          )}
+          strokeWidth={1.75}
+        />
+      ) : null}
+      <span
+        className={cx(
+          "flex min-w-0 flex-1 gap-3 py-2.5 pr-4 group-not-first/row:border-t group-not-first/row:border-line",
+          Icon ? "ml-3" : "ml-4",
+          wrap ? "items-start" : "items-center",
+          subtitle ? "min-h-row-two-line" : "min-h-row",
+        )}
+      >
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span
+            className={cx(
+              wrap ? "text-body break-words" : "truncate text-body",
+              tone === "danger" ? "text-danger" : "text-ink",
+              checked && "font-bold",
+            )}
+          >
+            {title}
+          </span>
+          {subtitle ? (
+            <span className="line-clamp-2 text-subhead text-ink-2">{subtitle}</span>
+          ) : null}
+        </span>
+        {value !== undefined && value !== null ? (
+          <span
+            className={cx(
+              "shrink-0 text-right text-body text-ink-2 tabular-nums",
+              wrap ? "whitespace-nowrap" : "max-w-[55%] truncate",
+            )}
+          >
+            {value}
+          </span>
+        ) : null}
+        {accessory}
+        {checked === undefined ? null : checked ? (
+          <Check
+            aria-hidden="true"
+            className="size-5 shrink-0 text-forest"
+            strokeWidth={2.75}
+          />
+        ) : (
+          <span aria-hidden="true" className="size-5 shrink-0" />
+        )}
+        {chevron ? (
+          <ChevronRight
+            aria-hidden="true"
+            className={cx("-mr-1 size-5 shrink-0 text-ink-3", wrap && "mt-0.5")}
+            strokeWidth={2.5}
+          />
+        ) : null}
+      </span>
+    </>
+  );
+}
+
+export interface ListItemProps {
+  children: ReactNode;
+  className?: string;
+}
+
+/**
+ * A row of free content (a text area, a short summary) with the same
+ * padding and inset separator as `Row`. For anything tappable, use `Row`.
+ */
+export function ListItem({ children, className }: ListItemProps) {
+  return (
+    <li className="group/row">
+      <div
+        className={cx(
+          "ml-4 flex min-h-row flex-col justify-center py-3 pr-4 group-not-first/row:border-t group-not-first/row:border-line",
+          className,
+        )}
+      >
+        {children}
+      </div>
+    </li>
+  );
+}

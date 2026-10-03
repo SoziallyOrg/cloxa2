@@ -5,6 +5,8 @@ node_modules/
 out/
 coverage/
 *.tsbuildinfo
+.turbo/
+next-env.d.ts
 
 # Test artifacts
 playwright-report/
@@ -32,3 +34,9 @@ supabase/.temp/
 .vscode/
 .DS_Store
 Thumbs.db
+
+# Local Claude Code settings
+.claude/settings.local.json
+
+# Stray test output
+output/

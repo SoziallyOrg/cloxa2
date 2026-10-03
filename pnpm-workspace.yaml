@@ -1,6 +1,7 @@
 packages:
   - apps/*
   - packages/*
+  - supabase/integration
 
 allowBuilds:
   unrs-resolver: true
@@ -19,6 +20,7 @@ minimumReleaseAgeExclude:
   - eslint-config-next@16.3.4
   - lucide-react@1.39.0
   - next@16.3.4
+  - nodemailer@10.0.12
 
 onlyBuiltDependencies:
   - esbuild

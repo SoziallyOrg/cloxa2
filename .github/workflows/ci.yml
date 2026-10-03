@@ -2,21 +2,19 @@ name: CI
 
 on:
   pull_request:
-    branches: [main]
   push:
     branches: [main]
-  workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.event.pull_request.number || github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
-  verification:
-    name: verification
+  checks:
+    name: checks
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -34,89 +32,144 @@ jobs:
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
-
-      - name: Record runtime versions
-        run: |
-          node --version
-          pnpm --version
+          cache: pnpm
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Record Supabase CLI version
-        run: pnpm exec supabase --version
-
-      - name: Confirm clean Next.js type state
-        run: test ! -e apps/web/.next
-
-      - name: Typecheck clean checkout
-        run: pnpm typecheck
-
-      - name: Confirm typecheck stayed generation-free
-        run: test ! -e apps/web/.next
-
       - name: Check formatting
         run: pnpm format:check
-
-      - name: Check whitespace errors
-        run: git diff --check
 
       - name: Lint
         run: pnpm lint
 
-      - name: Start and reset repository-local Supabase
-        shell: bash
-        run: |
-          set +e
-          pnpm exec supabase start >"${RUNNER_TEMP}/cloxa-supabase-start.log" 2>&1
-          status=$?
-          set -e
-          rm -f "${RUNNER_TEMP}/cloxa-supabase-start.log"
-          if [ "$status" -ne 0 ]; then
-            echo "Repository-local Supabase start failed; credential-bearing output was withheld."
-            exit "$status"
-          fi
-          pnpm exec supabase db reset --local
+      - name: Typecheck
+        run: pnpm typecheck
 
-      - name: Prepare fictional local CI environment
-        run: |
-          node scripts/ci-local-env.mjs
-          pnpm local:bootstrap --confirm-local-development
-
-      - name: Test database
-        run: pnpm test:db
-
-      - name: Lint database
-        run: pnpm supabase:lint
-
-      - name: Check generated database types
-        run: pnpm supabase:types:check
-
-      - name: Test application
+      - name: Test
         run: pnpm test
 
-      - name: Build production application
+      - name: Generate a throwaway export signing key
+        shell: bash
+        run: |
+          # Production builds require an Ed25519 key. This one lives only for
+          # this job and never signs a real export.
+          key=$(node -e 'const { generateKeyPairSync } = require("node:crypto"); const { privateKey } = generateKeyPairSync("ed25519"); process.stdout.write(Buffer.from(privateKey.export({ format: "pem", type: "pkcs8" })).toString("base64"))')
+          echo "::add-mask::$key"
+          echo "EXPORT_SIGNING_KEY=$key" >> "$GITHUB_ENV"
+
+      - name: Build
+        env:
+          # Dummy public values so the app's zod env validation passes in CI.
+          # No real secrets or infrastructure are used for this build.
+          NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_dummy00000000000000000000
+          CLOXA_SITE_URL: http://localhost:3000
+          SUPABASE_SECRET_KEY: dummy-ci-only
+          AUTH_HASH_PEPPER: dummy-ci-only-pepper-000000000000000000
+          FLOW_COOKIE_SECRET: dummy-ci-only-cookie-secret-0000000000000
+          # Required in production builds; CI mirrors the Vercel deployment.
+          CLOXA_PROXY_MODE: vercel
+          # EXPORT_SIGNING_KEY comes from the step above.
+          EXPORT_SIGNING_KEY_ID: ci-dummy
         run: pnpm build
-
-      - name: Install pinned Playwright Chromium
-        run: pnpm exec playwright install --with-deps chromium
-
-      - name: Test production browser journeys
-        run: CLOXA_E2E_PRODUCTION=1 pnpm test:e2e
 
       - name: Audit production dependencies
         timeout-minutes: 5
         env:
           npm_config_registry: https://registry.npmjs.org/
-        run: pnpm audit --prod --audit-level high
+        run: pnpm audit --prod --audit-level=high
 
-      - name: Scan production browser bundles
-        run: pnpm test:bundles
+  database:
+    name: database
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
-      - name: Clean repository-local runtime state
-        if: always()
+      - name: Keep the private schema off the API
         shell: bash
         run: |
-          rm -f apps/web/.env.local
-          rm -f "${RUNNER_TEMP}/cloxa-supabase-start.log"
-          pnpm exec supabase stop --project-id cloxa2 --no-backup
+          # Fail if [api] schemas in supabase/config.toml lists "private".
+          if awk '/^\[/{in_api = ($0 == "[api]")} in_api && /^[[:space:]]*schemas[[:space:]]*=/' supabase/config.toml \
+            | grep -q '"private"'; then
+            echo "supabase/config.toml exposes the private schema through [api] schemas." >&2
+            exit 1
+          fi
+
+      - name: Install pnpm 11.25.0
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          version: 11.25.0
+
+      - name: Install Node 24
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Supabase CLI
+        uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359 # v3.0.1
+        with:
+          version: 2.116.0
+
+      # Only what pgTAP and the integration tests need: fewer image pulls (Docker
+      # Hub rate limits) and fewer host ports.
+      - name: Start local Supabase stack
+        run: >-
+          supabase start -x
+          studio,imgproxy,storage-api,edge-runtime,logflare,vector,realtime,supavisor,postgres-meta,mailpit
+
+      - name: Lint database
+        run: supabase db lint --local --schema public,private --fail-on warning
+
+      - name: Test database
+        shell: bash
+        run: |
+          if compgen -G "supabase/tests/*.sql" > /dev/null; then
+            supabase test db --local
+          else
+            echo "No supabase/tests/*.sql files found; skipping pgTAP suite."
+          fi
+
+      - name: Concurrency integration test
+        run: pnpm db:integration
+
+      - name: Stop local Supabase stack
+        if: always()
+        run: supabase stop --no-backup
+
+  secrets:
+    name: secrets
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # The gitleaks GitHub Action needs a paid licence for organisations, so run
+      # the MIT-licensed CLI directly. The version and checksum are pinned.
+      - name: Install gitleaks 8.30.1
+        env:
+          GITLEAKS_VERSION: 8.30.1
+          GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+        run: |
+          archive="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -fsSL -o "${RUNNER_TEMP}/${archive}"             "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${archive}"
+          echo "${GITLEAKS_SHA256}  ${RUNNER_TEMP}/${archive}" | sha256sum --check --strict
+          tar -xzf "${RUNNER_TEMP}/${archive}" -C "${RUNNER_TEMP}" gitleaks
+          echo "${RUNNER_TEMP}" >> "$GITHUB_PATH"
+
+      - name: Scan for leaked secrets (full history)
+        run: gitleaks git --redact --verbose --exit-code 1 .

@@ -1,0 +1,35 @@
+{
+  "$schema": "https://turborepo.dev/schema.json",
+  "agentGuidance": false,
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": [".next/**", "!.next/cache/**", "dist/**"],
+      "env": [
+        "SUPABASE_SECRET_KEY",
+        "CLOXA_SITE_URL",
+        "AUTH_HASH_PEPPER",
+        "FLOW_COOKIE_SECRET",
+        "CLOXA_PROXY_MODE",
+        "CLOXA_STANDALONE",
+        "TURNSTILE_SITE_KEY",
+        "TURNSTILE_SECRET_KEY",
+        "EXPORT_SIGNING_KEY",
+        "EXPORT_SIGNING_KEY_ID",
+        "EXPORT_VERIFY_KEYS"
+      ]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "typecheck": {
+      "dependsOn": ["^build"],
+      "outputs": []
+    },
+    "lint": {
+      "dependsOn": ["^build"],
+      "outputs": []
+    }
+  }
+}

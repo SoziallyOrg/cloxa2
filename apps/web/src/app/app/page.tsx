@@ -1,0 +1,272 @@
+import {
+  brusselsDayKey,
+  deriveShifts,
+  effectiveEvents,
+  type ClockEvent,
+  type ClockEventSource,
+  type ClockEventType,
+  type ShiftState,
+} from "@cloxa/domain";
+import { myStatus, scheduleFor } from "@cloxa/db";
+import {
+  formatBrusselsShortDate,
+  formatBrusselsTime,
+  t,
+  type CatalogKey,
+} from "@cloxa/i18n";
+
+import { MapPin } from "lucide-react";
+
+import type { PlannedDay } from "@/components/clock/clock-face";
+import { brusselsWeekRange } from "@/components/clock/week-total";
+import { EmployeeHomeContainer } from "@/components/employee/EmployeeHomeContainer";
+import type { LatestEvent } from "@/components/employee/EmployeeHome";
+import { KlokTopBar } from "@/components/employee/roles";
+import { SitePicker } from "@/components/clock/SitePicker";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { PageTransition } from "@/components/ui/PageTransition";
+import { PullToRefresh } from "@/components/ui/PullToRefresh";
+import { previewHold } from "@/lib/preview";
+import { requireEmployeeArea } from "@/lib/auth/context";
+import { nowMs } from "@/lib/clock/now";
+import { readChosenSiteId } from "@/lib/clock/site-cookie";
+import { loadEnabledModules } from "@/lib/modules/load";
+import { nightLookbackStart } from "@/lib/manage/timeline";
+import { thisWeekRange } from "@/lib/schedule/week-range";
+import { blocksForOpenShift } from "@/lib/schedule/open-shift";
+import { createClient } from "@/lib/supabase/server";
+
+import { chooseSiteAction } from "./actions";
+
+const RECENT_EVENTS_WINDOW_MS = 3 * 24 * 3600 * 1000;
+const DAY_MS = 24 * 3600 * 1000;
+const LATEST_EVENTS = 5;
+
+const EVENT_LABEL: Partial<Record<ClockEventType, CatalogKey>> = {
+  clock_in: "correctionForm.eventTypeClockIn",
+  clock_out: "correctionForm.eventTypeClockOut",
+  break_start: "correctionForm.eventTypeBreakStart",
+  break_end: "correctionForm.eventTypeBreakEnd",
+};
+
+/**
+ * Klok is the hero page, so no large title. The status block draws the logo
+ * and the role switch itself (see `KlokTopBar`); the account is the Ik tab.
+ */
+function KlokFrame({ children }: { children: React.ReactNode }) {
+  return (
+    <PageTransition className="flex flex-1 flex-col">
+      <PullToRefresh className="flex flex-1 flex-col">{children}</PullToRefresh>
+    </PageTransition>
+  );
+}
+
+export default async function EmployeeAppPage() {
+  // Layouts don't re-run on client navigation, so every page checks too.
+  const context = await requireEmployeeArea();
+  await previewHold();
+  const supabase = await createClient();
+  const now = nowMs();
+
+  const { data: assignments, error: assignmentsError } = await supabase
+    .from("site_assignments")
+    .select("site_id")
+    .eq("employee_id", context.employeeId);
+  if (assignmentsError) {
+    throw new Error(`site_assignments_unavailable:${assignmentsError.code}`);
+  }
+  const siteIds = assignments.map((row) => row.site_id);
+
+  const { data: sites, error: sitesError } =
+    siteIds.length === 0
+      ? { data: [], error: null }
+      : await supabase
+          .from("sites")
+          .select("id, name")
+          .in("id", siteIds)
+          .eq("active", true)
+          .order("name");
+  if (sitesError) throw new Error(`sites_unavailable:${sitesError.code}`);
+
+  if (sites.length === 0) {
+    return (
+      <KlokFrame>
+        <KlokTopBar onForest={false} />
+        <h1 className="sr-only">{t("app.heading")}</h1>
+        <div className="flex flex-1 flex-col justify-center">
+          <EmptyState
+            icon={MapPin}
+            title={t("sitePicker.noneTitle")}
+            body={t("sitePicker.none")}
+          />
+        </div>
+      </KlokFrame>
+    );
+  }
+
+  let siteId = sites.length === 1 ? sites[0]!.id : null;
+  if (siteId === null) {
+    const chosen = await readChosenSiteId();
+    if (chosen !== null && sites.some((site) => site.id === chosen)) {
+      siteId = chosen;
+    }
+  }
+
+  if (siteId === null) {
+    return (
+      <PageTransition>
+        <KlokTopBar onForest={false} />
+        <SitePicker sites={sites} action={chooseSiteAction} />
+      </PageTransition>
+    );
+  }
+
+  const [statusRows, eventsResult, askWorkLocation] = await Promise.all([
+    myStatus(supabase),
+    supabase
+      .from("clock_events")
+      .select(
+        "id, type, occurred_at, employee_id, site_id, source, supersedes_event_id, correction_id, offline",
+      )
+      .eq("employee_id", context.employeeId)
+      // Three days back, or the start of this week (a day earlier for a night
+      // shift) when that is further: the week totals need the whole week.
+      .gte(
+        "occurred_at",
+        new Date(
+          Math.min(
+            now - RECENT_EVENTS_WINDOW_MS,
+            brusselsWeekRange(now).start - DAY_MS,
+          ),
+        ).toISOString(),
+      )
+      .order("occurred_at"),
+    // Telework asks where at "Start werk". A module never blocks clocking:
+    // when this read fails, the question is simply left out.
+    loadEnabledModules(supabase, context.membership.organizationId).then(
+      (enabled) => enabled.some(({ module }) => module.id === "telework"),
+      () => false,
+    ),
+  ]);
+  const { data: eventRows, error: eventsError } = eventsResult;
+  if (eventsError) throw new Error(`clock_events_unavailable:${eventsError.code}`);
+
+  const status = statusRows[0];
+  const initialShiftState: ShiftState =
+    (status?.state as ShiftState | undefined) ?? "off";
+  const initialSince =
+    status?.open_shift_started_at != null
+      ? Date.parse(status.open_shift_started_at)
+      : null;
+
+  const events: ClockEvent[] = eventRows.map((row) => ({
+    id: row.id,
+    type: row.type as ClockEventType,
+    occurredAt: Date.parse(row.occurred_at),
+    employeeId: row.employee_id,
+    siteId: row.site_id,
+    source: row.source as ClockEventSource,
+    ...(row.supersedes_event_id ? { supersedesEventId: row.supersedes_event_id } : {}),
+    ...(row.correction_id ? { correctionId: row.correction_id } : {}),
+    ...(row.offline ? { offline: true } : {}),
+  }));
+  const shifts = deriveShifts(effectiveEvents(events));
+  const todayKey = brusselsDayKey(now);
+  const effective = effectiveEvents(events);
+  const todayShifts = shifts.filter(
+    (shift) =>
+      shift.open ||
+      brusselsDayKey(shift.start) === todayKey ||
+      (shift.end !== null && brusselsDayKey(shift.end) === todayKey),
+  );
+
+  // From yesterday on: a night shift started 21:30 belongs to yesterday's
+  // block (21:30–06:00), and that is the plan its progress track measures.
+  const lookbackKey = brusselsDayKey(nightLookbackStart(todayKey));
+  const weekRange = thisWeekRange(todayKey);
+  const allScheduleRows = await scheduleFor(supabase, {
+    employeeId: context.employeeId,
+    from: weekRange.from < lookbackKey ? weekRange.from : lookbackKey,
+    to: weekRange.to > todayKey ? weekRange.to : todayKey,
+  });
+  const scheduleRows = allScheduleRows.filter(
+    (row) => row.day >= lookbackKey && row.day <= todayKey,
+  );
+  const weekRows = allScheduleRows.filter(
+    (row) => row.day >= weekRange.from && row.day <= weekRange.to,
+  );
+  const scheduleToday =
+    initialSince === null
+      ? scheduleRows.filter(
+          (row) => brusselsDayKey(Date.parse(row.start_at)) === todayKey,
+        )
+      : blocksForOpenShift(
+          initialSince,
+          scheduleRows.map((row) => ({
+            ...row,
+            start: Date.parse(row.start_at),
+            end: Date.parse(row.end_at),
+          })),
+        );
+  const planned: PlannedDay | null =
+    scheduleToday.length === 0
+      ? null
+      : {
+          start: Math.min(...scheduleToday.map((row) => Date.parse(row.start_at))),
+          end: Math.max(...scheduleToday.map((row) => Date.parse(row.end_at))),
+          netMs: scheduleToday.reduce(
+            (sum, row) => sum + Date.parse(row.end_at) - Date.parse(row.start_at),
+            0,
+          ),
+          range: scheduleToday
+            .map(
+              (row) =>
+                `${formatBrusselsTime(new Date(row.start_at))}–${formatBrusselsTime(new Date(row.end_at))}`,
+            )
+            .join(", "),
+        };
+
+  // Indicative week figures and the latest registrations (desktop column).
+  const { start: weekStart, end: weekEnd } = brusselsWeekRange(now);
+  const closedWorkedMs = shifts
+    .filter((shift) => !shift.open && shift.start >= weekStart && shift.start < weekEnd)
+    .reduce((sum, shift) => sum + shift.netMs, 0);
+  const plannedWeekMs = weekRows.reduce(
+    (sum, row) => sum + Date.parse(row.end_at) - Date.parse(row.start_at),
+    0,
+  );
+  const latest: LatestEvent[] = effective
+    .filter((event) => EVENT_LABEL[event.type] !== undefined)
+    .slice(-LATEST_EVENTS)
+    .reverse()
+    .map((event) => ({
+      key: event.id,
+      label: t(EVENT_LABEL[event.type]!),
+      when:
+        brusselsDayKey(event.occurredAt) === todayKey
+          ? formatBrusselsTime(new Date(event.occurredAt))
+          : `${formatBrusselsShortDate(new Date(event.occurredAt))} ${formatBrusselsTime(new Date(event.occurredAt))}`,
+    }));
+
+  return (
+    <KlokFrame>
+      <EmployeeHomeContainer
+        employeeId={context.employeeId}
+        initialShiftState={initialShiftState}
+        initialSince={initialSince}
+        initialNow={now}
+        todayShifts={todayShifts}
+        planned={planned}
+        siteName={
+          sites.length > 1
+            ? (sites.find((site) => site.id === siteId)?.name ?? null)
+            : null
+        }
+        week={{ closedWorkedMs, plannedMs: weekRows.length > 0 ? plannedWeekMs : null }}
+        latest={latest}
+        siteId={siteId}
+        askWorkLocation={askWorkLocation}
+      />
+    </KlokFrame>
+  );
+}

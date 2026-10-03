@@ -1,0 +1,253 @@
+/*
+ * Tailwind 4 theme tokens: identity D, "Signaal + ring" (docs/design.md).
+ * Keep in sync with `tokens.ts`. Light only: the forest surfaces are the
+ * "dark" of the brand. Colour means status, and every status carries a word.
+ * Where an older token name is still meaningful it stays and is remapped
+ * (`surface` = a white card, `grouped` = the paper page, ...).
+ */
+@theme {
+  --font-sans: "Bricolage Grotesque Variable", system-ui, sans-serif;
+
+  --color-ink: #10231b;
+  /* Secondary text: >= 4.5:1 on paper and on card. */
+  --color-ink-2: #5f6b64;
+  /* Tertiary: only for 18px+ or non-essential text, icons (>= 3:1). */
+  --color-ink-3: #78837c;
+  --color-paper: #f5f6f1;
+  --color-card: #ffffff;
+  --color-line: #e2e5dc;
+  /* Soft fill on paper or card: quiet notices, avatars. */
+  --color-fill: #edefe7;
+
+  /* Legacy names, remapped: row groups are white cards on the paper page. */
+  --color-grouped: #f5f6f1;
+  --color-surface: #ffffff;
+  --color-separator: #e2e5dc;
+  --color-pressed: #edefe7;
+  /* Timeline track and progress track; the toggle container is `toggle`. */
+  --color-track: #edefe7;
+  --color-toggle: #e6e9df;
+  --color-thumb: #ffffff;
+  /* Input borders: >= 3:1 on white and paper. */
+  --color-field: #7f8a83;
+
+  --color-forest: #0e4a33;
+  --color-forest-deep: #0a3626;
+  /* Lime is only ever a background (with forest-deep text) or a dot. */
+  --color-lime: #b5f04e;
+  --color-leaf: #1fa855;
+  --color-on-forest-2: #b7d2c4;
+  --color-idle: #dde1d6;
+  --color-idle-bar: #aeb6ad;
+
+  /* Status: always paired with a word, never colour alone. */
+  --color-working: #0e4a33;
+  --color-break: #f6c453;
+  --color-break-ink: #6b4a00;
+  /* Text and buttons (white on it >= 4.5:1). The brighter bar red is below. */
+  --color-attention: #bf3623;
+  --color-danger: #bf3623;
+  --color-danger-bar: #d8432e;
+  --color-working-tint: rgb(14 74 51 / 0.1);
+  --color-break-tint: rgb(246 196 83 / 0.3);
+  --color-attention-tint: #fce4de;
+  --color-danger-tint: #fce4de;
+  --color-danger-tint-ink: #6f1e12;
+
+  /* Type: bold, tight numbers and titles; calm 18px body. */
+  --text-large-title: 36px;
+  --text-large-title--line-height: 40px;
+  --text-large-title--font-weight: 800;
+  --text-large-title--letter-spacing: -0.03em;
+  --text-title-1: 30px;
+  --text-title-1--line-height: 34px;
+  --text-title-1--font-weight: 700;
+  --text-title-1--letter-spacing: -0.025em;
+  --text-title-2: 24px;
+  --text-title-2--line-height: 28px;
+  --text-title-2--font-weight: 700;
+  --text-title-2--letter-spacing: -0.02em;
+  --text-title-3: 20px;
+  --text-title-3--line-height: 25px;
+  --text-title-3--font-weight: 700;
+  --text-title-3--letter-spacing: -0.01em;
+  --text-section: 18px;
+  --text-section--line-height: 24px;
+  --text-section--font-weight: 700;
+  --text-headline: 18px;
+  --text-headline--line-height: 23px;
+  --text-headline--font-weight: 700;
+  --text-body: 18px;
+  --text-body--line-height: 1.4;
+  --text-callout: 17px;
+  --text-callout--line-height: 22px;
+  --text-subhead: 16px;
+  --text-subhead--line-height: 21px;
+  --text-footnote: 14.5px;
+  --text-footnote--line-height: 19px;
+  --text-caption: 13.5px;
+  --text-caption--line-height: 18px;
+  --text-caption--font-weight: 700;
+  --text-caption-2: 12.5px;
+  --text-caption-2--line-height: 16px;
+  --text-caption-2--font-weight: 600;
+
+  --text-display: 88px;
+  --text-display--line-height: 1;
+  --text-display--font-weight: 800;
+  --text-display--letter-spacing: -0.04em;
+  --text-title: 34px;
+  --text-title--line-height: 1.1;
+  --text-title--font-weight: 800;
+  --text-title--letter-spacing: -0.03em;
+  --text-number: 36px;
+  --text-number--line-height: 1.1;
+  --text-number--font-weight: 700;
+  --text-number--letter-spacing: -0.03em;
+  --text-base: 18px;
+  --text-base--line-height: 1.4;
+  --text-sm: 16px;
+  --text-sm--line-height: 1.4;
+
+  /* Buttons and nav items 12; rows and cards 14-20; clock block 20; hero 32. */
+  --radius-control: 12px;
+  --radius-group: 16px;
+  --radius-list: 16px;
+  --radius-card: 18px;
+  --radius-sheet: 20px;
+  --radius-alert: 20px;
+  --radius-clock: 20px;
+  --radius-hero: 32px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+
+  --shadow-card: 0 1px 2px rgb(16 35 27 / 0.06);
+
+  /* Sizes on the 4px grid. */
+  --spacing-touch-target: 48px;
+  --spacing-bar-button: 48px;
+  --spacing-control: 56px;
+  --spacing-row: 56px;
+  --spacing-row-two-line: 64px;
+  --spacing-primary-action: 72px;
+  --spacing-nav-bar: 48px;
+  --spacing-tab-bar: 68px;
+  --spacing-sidebar: 244px;
+  --spacing-sidebar-icons: 76px;
+  --spacing-side-panel: 330px;
+  --spacing-readable: 720px;
+  --spacing-main: 1200px;
+  --spacing-inset: 16px;
+  --spacing-gutter: 20px;
+  --spacing-gutter-desktop: 32px;
+  --spacing-section: 28px;
+  --spacing-kiosk-tile: 120px;
+  --spacing-pin-key: 88px;
+
+  /* A fast start that settles softly, no bounce. */
+  --ease-spring: cubic-bezier(0.32, 0.72, 0, 1);
+
+  --animate-sheet-in: sheet-in 360ms var(--ease-spring);
+  --animate-sheet-out: sheet-out 240ms cubic-bezier(0.4, 0, 1, 1) forwards;
+  --animate-alert-in: alert-in 240ms var(--ease-spring);
+  --animate-fade-in: fade-in 180ms ease-out;
+  --animate-fade-out: fade-out 180ms ease-in forwards;
+  --animate-pop-in: pop-in 320ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  --animate-shimmer: shimmer 1.4s ease-in-out infinite;
+  --animate-activity: activity 1s steps(8) infinite;
+  --animate-now-pulse: now-pulse 2s ease-in-out infinite;
+
+  @keyframes sheet-in {
+    from {
+      transform: translateY(100%);
+    }
+    to {
+      transform: none;
+    }
+  }
+  @keyframes sheet-out {
+    from {
+      transform: var(--sheet-drag, none);
+    }
+    to {
+      transform: translateY(100%);
+    }
+  }
+  @keyframes alert-in {
+    from {
+      transform: scale(0.96);
+      opacity: 0;
+    }
+    to {
+      transform: none;
+      opacity: 1;
+    }
+  }
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes fade-out {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+  }
+  @keyframes pop-in {
+    from {
+      transform: scale(0.85);
+      opacity: 0;
+    }
+    to {
+      transform: none;
+      opacity: 1;
+    }
+  }
+  @keyframes activity {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  @keyframes shimmer {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.55;
+    }
+  }
+  /* The "now" dot in the logo ring: a gentle glow, never a blink. */
+  @keyframes now-pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.45;
+    }
+  }
+}
+
+/* A shared, always-visible focus style applied via a class, never inline
+   styles (the CSP forbids those): 2px forest outline, 2px offset; on forest
+   surfaces (`.on-forest`) it is lime. */
+.focus-ring {
+  outline: none;
+}
+
+.focus-ring:focus-visible {
+  outline: 2px solid var(--color-forest);
+  outline-offset: 2px;
+}
+
+.on-forest .focus-ring:focus-visible,
+.focus-ring.on-forest:focus-visible {
+  outline-color: var(--color-lime);
+}

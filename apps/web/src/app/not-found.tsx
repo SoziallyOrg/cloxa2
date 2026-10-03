@@ -1,21 +1,16 @@
-import { FileQuestion } from "lucide-react";
-import Link from "next/link";
+import { t } from "@cloxa/i18n";
 
-import { StatusState } from "@/components/status-state";
-import { Button } from "@/components/ui/button";
-import { nlBE } from "@/i18n/nl-BE";
+import { Logo } from "@/components/brand/Logo";
+import { NotFoundView } from "@/components/ui/NotFoundView";
 
+/** Any unknown address: on paper, with the logo and a way back to the start. */
 export default function NotFound() {
   return (
-    <StatusState
-      action={
-        <Button asChild>
-          <Link href="/">{nlBE.common.backHome}</Link>
-        </Button>
-      }
-      description={nlBE.states.notFound.description}
-      icon={FileQuestion}
-      title={nlBE.states.notFound.title}
-    />
+    <main className="flex min-h-dvh flex-col bg-paper">
+      <div className="px-gutter pt-6 md:px-gutter-desktop">
+        <Logo size="lg" />
+      </div>
+      <NotFoundView href="/" label={t("errors.notFoundHome")} />
+    </main>
   );
 }

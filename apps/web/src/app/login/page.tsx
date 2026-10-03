@@ -1,42 +1,39 @@
-import { LockKeyhole } from "lucide-react";
-import type { Metadata } from "next";
-import Link from "next/link";
+import { redirect } from "next/navigation";
 
-import { AuthShell } from "@/components/auth-shell";
-import { LoginForm } from "@/components/auth-forms";
-import { Button } from "@/components/ui/button";
-import { nlBE } from "@/i18n/nl-BE";
-import { getSafePostAuthPath } from "@/lib/auth/routes";
+import { t } from "@cloxa/i18n";
 
-export const metadata: Metadata = {
-  title: nlBE.metadata.loginTitle,
-};
+import { AuthShell } from "@/components/auth/AuthShell";
+import { LoginForm } from "@/components/auth/LoginForm";
+import { ClearShellCache } from "@/components/offline/ShellWorker";
+import { getAuthContext } from "@/lib/auth/context";
+import { safeNextPath } from "@/lib/auth/redirects";
+import { turnstileSiteKey } from "@/lib/auth/turnstile";
 
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ volgende?: string; melding?: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const context = await getAuthContext();
+  if (context.kind !== "anonymous") redirect("/start");
+
   const params = await searchParams;
+  const next = safeNextPath(params["next"]);
+  const linkFailed = params["fout"] === "link";
+
   return (
     <AuthShell
-      description={nlBE.login.description}
-      icon={LockKeyhole}
-      title={nlBE.login.title}
+      title={t("login.title")}
+      intro={
+        linkFailed ? (
+          <p role="alert" className="text-body font-medium text-danger">
+            {t("login.linkInvalid")}
+          </p>
+        ) : null
+      }
     >
-      <LoginForm
-        callbackFailed={params.melding === nlBE.authCallback.failureCode}
-        next={getSafePostAuthPath(params.volgende)}
-      />
-      <div className="mt-6 flex flex-col items-start gap-3 text-sm">
-        <Link className="font-semibold text-primary underline" href="/forgot-password">
-          {nlBE.login.forgotPassword}
-        </Link>
-        <p className="text-muted">{nlBE.login.invitationHelp}</p>
-        <Button asChild variant="secondary">
-          <Link href="/signup">{nlBE.login.invitationLink}</Link>
-        </Button>
-      </div>
+      <ClearShellCache />
+      <LoginForm next={next} turnstileSiteKey={turnstileSiteKey()} />
     </AuthShell>
   );
 }

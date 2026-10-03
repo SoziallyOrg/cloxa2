@@ -1,23 +1,18 @@
 import type { MetadataRoute } from "next";
 
-import { nlBE } from "@/i18n/nl-BE";
+import { colors } from "@cloxa/ui-tokens";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    background_color: "#e7e3d8",
-    description: nlBE.manifest.description,
+    name: "Cloxa",
+    short_name: "Cloxa",
     display: "standalone",
-    icons: [
-      {
-        sizes: "128x128",
-        src: "/icon.svg",
-        type: "image/svg+xml",
-      },
-    ],
-    lang: "nl-BE",
-    name: nlBE.manifest.name,
-    short_name: nlBE.manifest.shortName,
     start_url: "/",
-    theme_color: "#0e4a67",
+    theme_color: colors.light.forest,
+    background_color: colors.light.paper,
+    icons: [
+      { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { src: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
   };
 }

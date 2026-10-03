@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="nl-BE">
+  <body style="font-family: Arial, sans-serif; font-size: 18px; color: #15212a">
+    <h1 style="font-size: 24px">Je inlogcode voor Cloxa</h1>
+    <p>Typ deze code in Cloxa:</p>
+    <p
+      style="
+        font-size: 40px;
+        font-weight: bold;
+        letter-spacing: 8px;
+        font-family: monospace;
+      "
+    >
+      {{ .Token }}
+    </p>
+    <p>Of klik op deze knop op het toestel waar je Cloxa gebruikt:</p>
+    <p>
+      <a
+        href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&amp;type=email"
+        style="
+          display: inline-block;
+          background: #0e4a67;
+          color: #ffffff;
+          padding: 16px 28px;
+          border-radius: 10px;
+          text-decoration: none;
+          font-size: 20px;
+        "
+        >Inloggen</a
+      >
+    </p>
+    <p style="font-weight: bold">
+      Deel deze code met niemand. Cloxa zal je er nooit om vragen, ook niet telefonisch.
+    </p>
+    <p>
+      De code is 10 minuten geldig. Heb je niets aangevraagd? Dan mag je deze e-mail
+      negeren.
+    </p>
+  </body>
+</html>
