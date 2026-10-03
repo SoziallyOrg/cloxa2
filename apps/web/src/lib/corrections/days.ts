@@ -3,7 +3,7 @@
  * newest first, each with a short worked summary and its events. Pure, so
  * it's testable without a DOM or a database.
  */
-import { brusselsDayKey, deriveShifts, type ClockEvent } from "@cloxa/domain";
+import { brusselsDayKey, deriveShifts, type ClockEvent, type Shift } from "@cloxa/domain";
 import { brusselsLocalToInstant, formatBrusselsTime, t } from "@cloxa/i18n";
 
 import { formatDurationMs } from "@/components/clock/format";
@@ -94,13 +94,29 @@ export function correctionDays({
       key === preselected && shiftStart !== null
         ? shifts.find((shift) => shift.start === shiftStart)
         : undefined;
-    const targets = asked
-      ? events.filter(
-          (event) =>
-            event.occurredAt >= asked.start &&
-            (asked.end === null || event.occurredAt <= asked.end),
-        )
-      : events.filter((event) => brusselsDayKey(event.occurredAt) === key);
+    // A day lists its shifts' events, also those after midnight (a night
+    // shift's clock-out is on the next calendar day), not the calendar day's.
+    const inShift = (event: ClockEvent, shift: Shift) =>
+      event.occurredAt >= shift.start &&
+      (shift.end === null || event.occurredAt <= shift.end);
+    const targets = (
+      asked
+        ? events.filter((event) => inShift(event, asked))
+        : events.filter(
+            (event) =>
+              dayShifts.some((shift) => inShift(event, shift)) ||
+              // Strays outside any shift (a lone clock-out) stay on their own day,
+              // but the tail of a night shift belongs to the day it started on.
+              (brusselsDayKey(event.occurredAt) === key &&
+                !shifts.some((shift) => inShift(event, shift))),
+          )
+    ).map((event) => {
+      const option = toTarget(event);
+      const eventDay = brusselsDayKey(event.occurredAt);
+      return eventDay === key
+        ? option
+        : { ...option, dayLabel: SHORT.format(new Date(event.occurredAt)).replace(/\./g, "") };
+    });
 
     return {
       key,
@@ -115,7 +131,7 @@ export function correctionDays({
         dayShifts.length === 0
           ? t("correctionForm.dayNoHours")
           : `${ranges.join(", ")} · ${formatDurationMs(worked)}`,
-      targets: targets.map(toTarget),
+      targets,
     };
   });
 }

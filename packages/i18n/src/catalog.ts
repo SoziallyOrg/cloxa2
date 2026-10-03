@@ -284,6 +284,8 @@ export const catalog = {
     timeLabel: "Tijdstip",
     targetLabel: "Kies de registratie",
     targetOption: "{type} om {time}",
+    // A moment of a night shift that falls on the next day.
+    targetOptionOtherDay: "{type} om {time} ({day})",
     noTargets: "Er zijn geen registraties op deze dag om te kiezen.",
     step3Title: "Waarom?",
     reasonLabel: "Reden",

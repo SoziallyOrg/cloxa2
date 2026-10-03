@@ -78,6 +78,55 @@ describe("correctionDays", () => {
     ]);
   });
 
+  it("lists a night shift's events after midnight, labelled with their day", () => {
+    const night = [
+      event("clock_in", at(25, 21, 36)),
+      event("break_start", at(26, 0, 30)),
+      event("break_end", at(26, 0, 50)),
+      event("clock_out", at(26, 5, 12)),
+    ];
+    const days = correctionDays({ events: night, now: at(28, 11, 0) });
+    const friday = days.find((day) => day.key === "2026-09-25")!;
+    expect(friday.targets.map((target) => target.type)).toEqual([
+      "clock_in",
+      "break_start",
+      "break_end",
+      "clock_out",
+    ]);
+    expect(friday.targets.map((target) => target.dayLabel)).toEqual([
+      undefined,
+      "za 26 sep",
+      "za 26 sep",
+      "za 26 sep",
+    ]);
+    // The tail is not offered again on the day it ended.
+    expect(days.find((day) => day.key === "2026-09-26")!.targets).toEqual([]);
+
+    const asked = correctionDays({
+      events: night,
+      now: at(28, 11, 0),
+      preselected: "2026-09-25",
+      shiftStart: at(25, 21, 36),
+    });
+    expect(asked.find((day) => day.key === "2026-09-25")!.targets).toHaveLength(4);
+  });
+
+  it("keeps a night shift together over the October DST change", () => {
+    // Sat 24 Oct 22:00 CEST (20:00Z) to Sun 25 Oct 06:00 CET (05:00Z): nine hours.
+    const night = [
+      event("clock_in", Date.UTC(2026, 9, 24, 20, 0)),
+      event("clock_out", Date.UTC(2026, 9, 25, 5, 0)),
+    ];
+    const days = correctionDays({ events: night, now: Date.UTC(2026, 9, 26, 10, 0) });
+    const saturday = days.find((day) => day.key === "2026-10-24")!;
+    expect(saturday.targets.map((target) => target.occurredAtIso)).toEqual([
+      "2026-10-24T20:00:00.000Z",
+      "2026-10-25T05:00:00.000Z",
+    ]);
+    expect(saturday.targets[1]!.dayLabel).toBe("zo 25 okt");
+    expect(days.find((day) => day.key === "2026-10-25")!.targets).toEqual([]);
+  });
+
   it("adds a preselected day older than 14 days", () => {
     const days = correctionDays({ events: [], now: NOW, preselected: "2026-09-01" });
     expect(days).toHaveLength(15);

@@ -13,6 +13,7 @@ import type { CorrectionDay } from "@/lib/corrections/days";
 import {
   buildCorrectionPayload,
   canAdvance,
+  describeMoment,
   goBack,
   goNext,
   INITIAL_CORRECTION_FORM_STATE,
@@ -155,10 +156,10 @@ export function CorrectionForm({
   const [done, setDone] = useState(false);
 
   const day = days.find((candidate) => candidate.key === state.date);
-  const targets = day?.targets ?? [];
+  const targets = useMemo(() => day?.targets ?? [], [day]);
   const payload = useMemo(
-    () => buildCorrectionPayload(state, siteId, { reasonRequired }),
-    [state, siteId, reasonRequired],
+    () => buildCorrectionPayload(state, siteId, { reasonRequired }, targets),
+    [state, siteId, reasonRequired, targets],
   );
 
   const view: View = done
@@ -442,9 +443,9 @@ function MomentStep({
               <Row
                 key={target.id}
                 aria-pressed={state.targetEventId === target.id}
-                aria-label={t("correctionForm.targetOption", { type: label, time })}
+                aria-label={describeMoment(label, time, target.dayLabel)}
                 title={label}
-                value={time}
+                value={target.dayLabel ? `${time} (${target.dayLabel})` : time}
                 checked={state.targetEventId === target.id}
                 onClick={() =>
                   setState((current) => ({ ...current, targetEventId: target.id }))
@@ -509,15 +510,13 @@ function ReasonStep({
   const target = targets.find((candidate) => candidate.id === state.targetEventId);
   const moment =
     state.kind === "add" && state.eventType
-      ? t("correctionForm.targetOption", {
-          type: eventLabel(state.eventType),
-          time: state.time,
-        })
+      ? describeMoment(eventLabel(state.eventType), state.time)
       : target
-        ? t("correctionForm.targetOption", {
-            type: eventLabel(target.type),
-            time: formatBrusselsTime(new Date(target.occurredAtIso)),
-          })
+        ? describeMoment(
+            eventLabel(target.type),
+            formatBrusselsTime(new Date(target.occurredAtIso)),
+            target.dayLabel,
+          )
         : null;
 
   const targetTime = target ? formatBrusselsTime(new Date(target.occurredAtIso)) : null;

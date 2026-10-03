@@ -151,7 +151,8 @@ test("login, and the employee app while working", async ({ page, context }) => {
   await button(page, "Volgende").click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Welke dag?");
   await capture(page, "vraag-stap-2-dag");
-  // The most recent finished day.
+  // The most recent finished day. Around midnight that is a night shift whose
+  // clock-out is on the next calendar day: it must be listed all the same.
   await page
     .getByRole("button", { name: /, \d{2}:\d{2}–\d{2}:\d{2}/ })
     .first()

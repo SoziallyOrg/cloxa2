@@ -3,6 +3,7 @@
  * form. No I/O: `buildCorrectionPayload` returns the same shape
  * `requestCorrection` (`@cloxa/db`) expects, ready to `.parse()`.
  */
+import { brusselsDayKey } from "@cloxa/domain";
 import { brusselsLocalToInstant, t } from "@cloxa/i18n";
 import type { RequestCorrectionInput } from "@cloxa/db";
 
@@ -15,6 +16,8 @@ export interface CorrectionTargetOption {
   readonly type: CorrectionEventType;
   /** ISO instant, for display and as the base date/time when adjusting. */
   readonly occurredAtIso: string;
+  /** "za 3 okt": set when the moment falls on another day than the shift's day (night shift). */
+  readonly dayLabel?: string;
 }
 
 export interface CorrectionFormState {
@@ -82,6 +85,17 @@ export interface CorrectionFormOptions {
   readonly reasonRequired?: boolean;
 }
 
+/** "Gestopt met werken om 05:12 (za 3 okt)": the day only when it is another one. */
+export function describeMoment(
+  typeLabel: string,
+  time: string,
+  dayLabel?: string,
+): string {
+  return dayLabel
+    ? t("correctionForm.targetOptionOtherDay", { type: typeLabel, time, day: dayLabel })
+    : t("correctionForm.targetOption", { type: typeLabel, time });
+}
+
 export function goNext(
   state: CorrectionFormState,
   targets: readonly CorrectionTargetOption[],
@@ -105,6 +119,7 @@ export function buildCorrectionPayload(
   state: CorrectionFormState,
   siteId: string,
   options: CorrectionFormOptions = {},
+  targets: readonly CorrectionTargetOption[] = [],
 ): RequestCorrectionInput | null {
   // The RPC requires a non-empty reason; an employee may leave it empty (a
   // default is sent), a manager may not.
@@ -141,12 +156,18 @@ export function buildCorrectionPayload(
     ) {
       return null;
     }
+    // The new time stays on the moment's own day: the clock-out of a night
+    // shift sits on the day after `state.date` (the shift's day).
+    const target = targets.find((candidate) => candidate.id === state.targetEventId);
+    const date = target
+      ? brusselsDayKey(new Date(target.occurredAtIso).getTime())
+      : state.date;
     return {
       kind: "adjust",
       events: [
         {
           targetEventId: state.targetEventId,
-          occurredAt: brusselsLocalToInstant(state.date, state.time).toISOString(),
+          occurredAt: brusselsLocalToInstant(date, state.time).toISOString(),
         },
       ],
       reason,

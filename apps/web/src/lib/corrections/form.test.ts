@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildCorrectionPayload,
+  describeMoment,
   canAdvance,
   goBack,
   goNext,
@@ -140,6 +141,40 @@ describe("buildCorrectionPayload", () => {
       events: [{ targetEventId: EVENT_ID, occurredAt: "2026-09-27T06:05:00.000Z" }],
       reason: "Typfout",
     });
+  });
+
+  it("adjusts a night shift's clock-out on its own day, not the shift's day", () => {
+    const state: CorrectionFormState = {
+      ...INITIAL_CORRECTION_FORM_STATE,
+      kind: "adjust",
+      targetEventId: EVENT_ID,
+      date: "2026-09-25",
+      time: "05:30",
+      reason: "Typfout",
+    };
+    // 05:12 on Saturday 26 Sep (CEST) is 03:12Z.
+    const targets = [
+      {
+        id: EVENT_ID,
+        type: "clock_out" as const,
+        occurredAtIso: "2026-09-26T03:12:00.000Z",
+        dayLabel: "za 26 sep",
+      },
+    ];
+    expect(buildCorrectionPayload(state, SITE_ID, {}, targets)).toEqual({
+      kind: "adjust",
+      events: [{ targetEventId: EVENT_ID, occurredAt: "2026-09-26T03:30:00.000Z" }],
+      reason: "Typfout",
+    });
+  });
+
+  it("describes a moment with its day only when it is another day", () => {
+    expect(describeMoment("Gestopt met werken", "05:12", "za 3 okt")).toBe(
+      "Gestopt met werken om 05:12 (za 3 okt)",
+    );
+    expect(describeMoment("Gestopt met werken", "17:05")).toBe(
+      "Gestopt met werken om 17:05",
+    );
   });
 
   it("builds a 'remove' payload without a time", () => {
