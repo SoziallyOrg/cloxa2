@@ -1,0 +1,38 @@
+# Dependabot configuration (grouped, weekly). Routine: one grouped PR per ecosystem per week;
+# security updates stay separate. Major versions come as their own PRs so they can be decided one by one.
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps"
+    labels:
+      - "dependencies"
+    groups:
+      production:
+        dependency-type: "production"
+        update-types: ["minor", "patch"]
+        applies-to: version-updates
+      development:
+        dependency-type: "development"
+        update-types: ["minor", "patch"]
+        applies-to: version-updates
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "ci"
+    labels:
+      - "ci"
+    groups:
+      actions:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+        applies-to: version-updates
